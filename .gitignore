@@ -1,76 +1,38 @@
-# virtualenv 
-env/
-venv/
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
 
-# Compiled files
-*.py[cod]
+# Rust
+target/
+**/*.rs.bk
 
-# C extensions
-*.so
+# Tauri build outputs
+src-tauri/target/
+src-tauri/gen/schemas/
 
-# Packages
-*.egg
-*.egg-info
-.eggs
-.cache/
-dist
-build
-eggs
-parts
-bin
-var
-sdist
-develop-eggs
-.installed.cfg
-lib
-lib64
-__pycache__
-
-# Installer logs
-pip-log.txt
-
-# Unit test / coverage reports
-.coverage
-.tox
-nosetests.xml
-
-# Translations
-*.mo
-
-# Mr Developer
-.mr.developer.cfg
-.project
-.pydevproject
-
-# In case people do a `git add .` ...
-*.csv
-
-# Data folder and files
-scoutsuite-report*
-inc-scoutsuite-run*
-report-*
-*.db
-
-# IntelliJ files
-.idea/
-*.iml
-
-# Vs Code
-.vscode/
-
-# Mac cruft
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# Emacs backups
-*~
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
 
-# Private files
-*private.*
-# Private folders
-/private*/
-/**/private*/
+# Env (NEVER commit secrets)
+.env
+.env.*
+!.env.example
 
-#Profiling output
-*.prof
+# Local-only generated artifacts
+THIRD_PARTY_NOTICES.generated.md
 
-!docker/bin
+# Tauri icons generated from source.png (we keep source.png; generated
+# variants are committed once finalized — track them explicitly).
+# src-tauri/icons/   <- intentionally tracked

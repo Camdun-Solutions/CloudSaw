@@ -1,0 +1,11 @@
+{
+  "app.name": "CloudSaw",
+  "app.tagline": "Escáner de seguridad de AWS local",
+  "app.version_label": "Versión",
+  "common.cancel": "Cancelar",
+  "common.confirm": "Confirmar",
+  "common.close": "Cerrar",
+  "common.save": "Guardar",
+  "common.loading": "Cargando…",
+  "home.heading": "Bienvenido a CloudSaw"
+}

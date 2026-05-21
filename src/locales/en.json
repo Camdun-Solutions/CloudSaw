@@ -1,0 +1,20 @@
+{
+  "app.name": "CloudSaw",
+  "app.tagline": "Local-first AWS security scanner",
+  "app.version_label": "Version",
+  "nav.dashboard": "Dashboard",
+  "nav.scans": "Scans",
+  "nav.findings": "Findings",
+  "nav.accounts": "Accounts",
+  "nav.settings": "Settings",
+  "common.cancel": "Cancel",
+  "common.confirm": "Confirm",
+  "common.close": "Close",
+  "common.save": "Save",
+  "common.loading": "Loading…",
+  "common.error_generic": "Something went wrong.",
+  "empty.no_scans.title": "No scans yet",
+  "empty.no_scans.body": "Connect an AWS account from the Accounts tab to run your first scan.",
+  "home.heading": "Welcome to CloudSaw",
+  "home.body": "Scan AWS accounts for misconfigurations — fully local, no data leaves your machine."
+}

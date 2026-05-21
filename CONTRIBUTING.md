@@ -1,50 +1,76 @@
-# Contributing 
+# Contributing to CloudSaw
 
-## Table of Contents
- * [Introduction](#introduction)
- * [Getting started](#getting-started)
- * [How to report a bug](#How-to-report-a-bug)
- * [How to suggest a new feature](#How-to-suggest-a-new-feature)
- * [Code review process](#Code-review-process)
+CloudSaw is built one **contract** at a time. Each contract is a single
+self-contained unit of work — a feature, its tests, and its acceptance
+criteria — and lives on its own branch. Read `CLAUDE.md` before starting,
+then the contract you intend to implement.
 
-## Introduction
+## Branching
 
-First off, thank you for considering contributing to Scout Suite, you're awesome! 🎉
+  - `master` is protected. Direct pushes are rejected. (Renaming to `main`
+    is under consideration; see issue tracker.)
+  - Every contract lives on `feature/<contract-number>-<short-slug>`, branched
+    from `master` (e.g. `feature/01-foundation`, `feature/02-app-lock`).
+  - Commits must be **signed** (`git commit -S`). Unsigned commits will be
+    rejected by branch protection.
+  - `Cargo.lock` and `package-lock.json` are committed.
 
-Following these guidelines helps to communicate that you respect the time of the developers managing and developing this open source project. In return, they should reciprocate that respect in addressing your issue, assessing changes, and helping you finalize your pull requests.
+## Branch protection (configured in GitHub settings)
 
-## Getting started
+  - Require pull requests before merging to `master`.
+  - Require at least one approving review.
+  - Require status checks to pass: `ci / build`, `ci / lint`,
+    `ci / test`.
+  - Require signed commits.
+  - Require linear history (no merge commits on `master`).
+  - Restrict who can push directly to `master` (default: none).
+  - Restrict force-pushes and branch deletion.
 
-So you want to contribute some code, that's great! This project follows the [GitHub Workflow](https://guides.github.com/introduction/flow/). 
+## Pull requests
 
-1. If it's a complex issue, please describe how you plan on going about addressing it on the issue thread.
-2. Assign yourself to the issue
-3. Create a branch using the following naming convention:
-    * If it's a feature: `feature/issuenumber-descriptive-name` 
-    * If it's a bug fix: `bugfix/issuenumber-descriptive-name` 
-    * If it's a hot fix: `hotfix/issuenumber-descriptive-name` 
-4. Implement your solution and the associated tests
-5. Make sure your code follows the [PEP8 guidelines](https://www.python.org/dev/peps/pep-0008/)
-6. [Create a pull request](https://help.github.com/articles/creating-a-pull-request/) against `develop`
-7. Wait for people to review it
-8. Address the comments people left on your pull request
-9. Go back to 7. and repeat until your PR is 💯 
-10. Wait for someone from the team to merge your PR
+A PR is mergeable only when:
 
-## How to report a bug
+  1. Its paired QA & Security Verification contract has passed.
+  2. The verification summary is pasted into the PR description.
+  3. All CI checks are green.
+  4. A human has reviewed and approved.
 
-When filing an issue, make sure to answer these five questions:
+Auto-merge for dependency updates is **disabled** (see CLAUDE.md §5).
 
- 1. What version of Python are you using?
- 2. What operating system and processor architecture are you using?
- 3. What did you do?
- 4. What did you expect to see?
- 5. What did you see instead?
+## Architecture rules of thumb
 
-## How to suggest a new feature
+These are short reminders; the authoritative source is `CLAUDE.md`.
 
-If you find yourself wishing for a feature that doesn't exist in Scout Suite, you are probably not alone. There are bound to be others out there with similar needs. Many of the features that Scout Suite has today have been added because our users saw the need. Open an issue on our issues list on GitHub which describes the feature you would like to see, why you need it, and how it should work.
+  - The frontend is untrusted UI. Every privileged action goes through Rust.
+  - Every component talks to the backend through `src/lib/ipc.ts` —
+    no direct `invoke()` calls in components, hooks, or routes.
+  - Every Rust public function returns `Result<T, AppError>`.
+  - No hardcoded user-facing strings — all strings flow through the i18n hook.
+  - No `localStorage` / `sessionStorage` / browser storage anywhere.
+  - No credentials, tokens, or API keys in SQLite, config, logs, or URLs.
+  - External binaries are invoked by absolute path with argv arrays — never
+    through a shell, never with interpolated strings.
+  - GitHub Actions are pinned to full commit SHAs, never floating tags.
 
-## Code review process
+## Local dev setup
 
-Pull requests are regularly reviewed by the core team. We require a minimum of two reviewers before allowing to merge. 
+```bash
+rustup default stable
+# Install Node 20+ LTS
+npm install
+npm run tauri dev
+```
+
+Tests:
+
+```bash
+npm run lint           # TypeScript typecheck
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+## Reporting bugs
+
+  - **Security issues:** see [`SECURITY.md`](SECURITY.md) — do **not** open
+    public issues for vulnerabilities.
+  - **Everything else:** GitHub Issues, with reproduction steps and the
+    `Help → Report a problem` payload from inside the app where applicable.
