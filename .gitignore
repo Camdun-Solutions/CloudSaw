@@ -1,0 +1,38 @@
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+
+# Rust
+target/
+**/*.rs.bk
+
+# Tauri build outputs
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+
+# Env (NEVER commit secrets)
+.env
+.env.*
+!.env.example
+
+# Local-only generated artifacts
+THIRD_PARTY_NOTICES.generated.md
+
+# Tauri icons generated from source.png (we keep source.png; generated
+# variants are committed once finalized — track them explicitly).
+# src-tauri/icons/   <- intentionally tracked

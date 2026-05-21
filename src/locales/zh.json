@@ -1,0 +1,11 @@
+{
+  "app.name": "CloudSaw",
+  "app.tagline": "本地优先的 AWS 安全扫描器",
+  "app.version_label": "版本",
+  "common.cancel": "取消",
+  "common.confirm": "确认",
+  "common.close": "关闭",
+  "common.save": "保存",
+  "common.loading": "加载中…",
+  "home.heading": "欢迎使用 CloudSaw"
+}

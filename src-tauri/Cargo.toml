@@ -1,0 +1,35 @@
+[package]
+name = "cloudsaw"
+version = "2026.5.0"
+description = "CloudSaw — local-first AWS security scanner"
+authors = ["CloudSaw Contributors"]
+license = "Apache-2.0"
+repository = "https://github.com/Camdun-Solutions/CloudSaw"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "cloudsaw_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+dirs = "5"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
