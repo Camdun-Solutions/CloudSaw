@@ -17,6 +17,9 @@ use crate::accounts::{
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
 use crate::errors::AppError;
+use crate::scanner::{
+    self, ScanRecord, ScoutSuiteAvailability,
+};
 use crate::terraform::{
     self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
 };
@@ -240,4 +243,46 @@ pub fn terraform_provisioning_status(
     aws_account_id: String,
 ) -> Result<ProvisioningStatus, AppError> {
     terraform::provisioning_status(&aws_account_id).map_err(AppError::from)
+}
+
+// --- Scanner orchestrator (Contract 06) ----------------------------------
+//
+// `scanner_detect` is synchronous: it only inspects the bundled ScoutSuite
+// binary and runs the SHA-256 integrity check. `scanner_run_scan` is async
+// because it consults the accounts table (sync) and then dispatches a
+// background worker. Progress is exposed via polling (`scanner_scan_status`)
+// rather than a live IPC stream — Contract 06 §Constraints.
+//
+// Account IDs are validated inside the `scanner` module before they become
+// path segments or partition keys. The frontend never passes credential
+// material across this boundary.
+
+#[tauri::command]
+pub fn scanner_detect() -> Result<ScoutSuiteAvailability, AppError> {
+    Ok(scanner::detect_binary())
+}
+
+#[tauri::command]
+pub async fn scanner_run_scan(aws_account_id: String) -> Result<ScanRecord, AppError> {
+    scanner::run_scan(&aws_account_id)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scanner_scan_status(scan_id: String) -> Result<ScanRecord, AppError> {
+    scanner::scan_status(&scan_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scanner_cancel_scan(scan_id: String) -> Result<ScanRecord, AppError> {
+    scanner::cancel_scan(&scan_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scanner_list_recent(
+    aws_account_id: String,
+    limit: Option<usize>,
+) -> Result<Vec<ScanRecord>, AppError> {
+    scanner::list_recent_scans(&aws_account_id, limit.unwrap_or(20)).map_err(AppError::from)
 }

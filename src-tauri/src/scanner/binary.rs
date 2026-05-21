@@ -1,0 +1,229 @@
+// Bundled ScoutSuite binary discovery and SHA-256 integrity check.
+//
+// Mirrors `terraform::binary` exactly. Both contracts share the rule that the
+// bundled binary's SHA-256 MUST be verified against the build-pinned hash
+// before EVERY execution (CLAUDE.md §4.5, Contract 06 §Constraints).
+//
+// What lives here:
+//   * `locate()` — finds the binary by walking a deterministic search list.
+//   * `verify_sha256(path)` — reads the file once, hashes it, compares.
+//   * `availability()` — combines both into `ScoutSuiteAvailability` for
+//     `detect_binary`.
+//
+// Per-target pinning model:
+//   `PLATFORM_PINNED_SHA256` is the build-time pin. Production releases set
+//   it (Contract 16 / Next-Steps C3 wires this into the build); development
+//   builds without a vendored binary leave it `None` and `detect_binary`
+//   reports `Missing`. There is no codepath that runs ScoutSuite without a
+//   pinned hash.
+//
+// Test seams (matching the existing CLOUDSAW_DATA_DIR_OVERRIDE convention):
+//   * CLOUDSAW_SCOUTSUITE_BIN_OVERRIDE — absolute path to a fake binary.
+//   * CLOUDSAW_SCOUTSUITE_SHA256_OVERRIDE — hex SHA-256 to match against.
+//
+// Production builds do not read these env vars; an attacker who can set env
+// vars on the user's machine has already won the threat model.
+
+use std::path::{Path, PathBuf};
+
+use sha2::{Digest, Sha256};
+
+use super::error::ScannerError;
+use super::types::ScoutSuiteAvailability;
+
+/// Compile-time pinned SHA-256 of the bundled ScoutSuite binary for this
+/// target triple. Set by the release pipeline (Contract 16 / Next-Steps C3).
+/// `None` in development builds means "no binary bundled".
+pub const PLATFORM_PINNED_SHA256: Option<&str> = None;
+
+/// Returns the absolute path to the bundled ScoutSuite binary for the
+/// current target triple, or `None` if no binary is bundled.
+///
+/// Lookup order:
+///   1. `CLOUDSAW_SCOUTSUITE_BIN_OVERRIDE` (test seam).
+///   2. `<exe_dir>/vendor/scoutsuite/<triple>/scoutsuite[.exe]`.
+///   3. `<exe_dir>/../Resources/vendor/scoutsuite/<triple>/scoutsuite[.exe]`
+///      (macOS app bundle layout).
+///   4. `CARGO_MANIFEST_DIR/vendor/scoutsuite/<triple>/scoutsuite[.exe]`
+///      (dev from `cargo run`).
+///
+/// PATH is deliberately NOT consulted — CloudSaw uses ONLY the bundled
+/// binary so the SHA-256 pin is meaningful.
+pub fn locate() -> Option<PathBuf> {
+    if let Some(override_path) = std::env::var_os("CLOUDSAW_SCOUTSUITE_BIN_OVERRIDE") {
+        let p = PathBuf::from(override_path);
+        if p.is_file() {
+            return Some(p);
+        }
+        // Override set but file missing — treat as missing. Surfacing
+        // IntegrityFailed here would mask the obvious config error.
+        return None;
+    }
+
+    let exe_name = if cfg!(windows) {
+        "scoutsuite.exe"
+    } else {
+        "scoutsuite"
+    };
+
+    let triple_dir = target_triple_dir();
+    for root in exe_relative_search_roots() {
+        let candidate = root
+            .join("vendor")
+            .join("scoutsuite")
+            .join(triple_dir)
+            .join(exe_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    if let Some(dev) = dev_manifest_candidate(triple_dir, exe_name) {
+        if dev.is_file() {
+            return Some(dev);
+        }
+    }
+
+    None
+}
+
+fn target_triple_dir() -> &'static str {
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    return "x86_64-pc-windows-msvc";
+    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+    return "aarch64-pc-windows-msvc";
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    return "x86_64-apple-darwin";
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    return "aarch64-apple-darwin";
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    return "x86_64-unknown-linux-gnu";
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    return "aarch64-unknown-linux-gnu";
+    #[allow(unreachable_code)]
+    "unknown"
+}
+
+fn exe_relative_search_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            roots.push(dir.to_path_buf());
+            if let Some(parent) = dir.parent() {
+                roots.push(parent.join("Resources"));
+                roots.push(parent.to_path_buf());
+            }
+        }
+    }
+    roots
+}
+
+fn dev_manifest_candidate(triple_dir: &str, exe_name: &str) -> Option<PathBuf> {
+    let manifest = std::env::var_os("CARGO_MANIFEST_DIR")?;
+    Some(
+        PathBuf::from(manifest)
+            .join("vendor")
+            .join("scoutsuite")
+            .join(triple_dir)
+            .join(exe_name),
+    )
+}
+
+/// Read the binary and compute its hex-encoded SHA-256.
+pub fn compute_sha256(path: &Path) -> Result<String, ScannerError> {
+    let bytes = std::fs::read(path)?;
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    Ok(hex::encode(hasher.finalize()))
+}
+
+fn pinned_sha256() -> Option<String> {
+    if let Ok(over) = std::env::var("CLOUDSAW_SCOUTSUITE_SHA256_OVERRIDE") {
+        if !over.is_empty() {
+            return Some(over.to_ascii_lowercase());
+        }
+    }
+    PLATFORM_PINNED_SHA256.map(|s| s.to_ascii_lowercase())
+}
+
+/// Verify the binary at `path` against the build-pinned hash. Returns the
+/// computed digest on success. Missing pin returns `NotBundled`; mismatched
+/// hash returns `IntegrityFailed`.
+pub fn verify_sha256(path: &Path) -> Result<String, ScannerError> {
+    let expected = pinned_sha256().ok_or(ScannerError::NotBundled)?;
+    let actual = compute_sha256(path)?;
+    if constant_time_eq(expected.as_bytes(), actual.as_bytes()) {
+        Ok(actual)
+    } else {
+        Err(ScannerError::IntegrityFailed)
+    }
+}
+
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Combine `locate()` and `verify_sha256()` into the public availability
+/// shape returned by `detect_binary`.
+pub fn availability() -> ScoutSuiteAvailability {
+    let Some(path) = locate() else {
+        return ScoutSuiteAvailability::Missing;
+    };
+    match verify_sha256(&path) {
+        Ok(sha) => ScoutSuiteAvailability::Available { sha256: sha },
+        Err(ScannerError::NotBundled) => ScoutSuiteAvailability::Missing,
+        Err(_) => ScoutSuiteAvailability::IntegrityFailed,
+    }
+}
+
+/// Locate AND verify in one call. Used by the orchestrator immediately
+/// before every spawn.
+pub fn locate_and_verify() -> Result<(PathBuf, String), ScannerError> {
+    let path = locate().ok_or(ScannerError::NotBundled)?;
+    let sha = verify_sha256(&path)?;
+    Ok((path, sha))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn constant_time_eq_handles_equal_and_unequal() {
+        assert!(constant_time_eq(b"abcdef", b"abcdef"));
+        assert!(!constant_time_eq(b"abcdef", b"abcdeg"));
+        assert!(!constant_time_eq(b"abc", b"abcdef"));
+        assert!(constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn verify_sha256_rejects_mismatched_hash() {
+        let tmp = std::env::temp_dir().join("cloudsaw-scanner-sha256-mismatch.bin");
+        std::fs::write(&tmp, b"hello\n").unwrap();
+        std::env::set_var(
+            "CLOUDSAW_SCOUTSUITE_SHA256_OVERRIDE",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        let res = verify_sha256(&tmp);
+        std::env::remove_var("CLOUDSAW_SCOUTSUITE_SHA256_OVERRIDE");
+        let _ = std::fs::remove_file(&tmp);
+        assert!(matches!(res, Err(ScannerError::IntegrityFailed)));
+    }
+
+    #[test]
+    fn verify_sha256_without_pin_yields_not_bundled() {
+        let tmp = std::env::temp_dir().join("cloudsaw-scanner-no-pin.bin");
+        std::fs::write(&tmp, b"x").unwrap();
+        std::env::remove_var("CLOUDSAW_SCOUTSUITE_SHA256_OVERRIDE");
+        let res = verify_sha256(&tmp);
+        let _ = std::fs::remove_file(&tmp);
+        assert!(matches!(res, Err(ScannerError::NotBundled)));
+    }
+}

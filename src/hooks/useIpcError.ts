@@ -65,6 +65,19 @@ const KNOWN_CODES: Record<string, string> = {
   terraform_plan_token_expired: "terraform.error.plan_token_expired",
   terraform_identity_unresolvable: "terraform.error.identity_unresolvable",
   terraform_trust_verification_failed: "terraform.error.trust_verification_failed",
+  // Scanner orchestrator (Contract 06). Each scanner_* code maps to a
+  // dedicated `scanner.failure.*` key so the UI can guide remediation
+  // (reinstall vs. re-provision vs. re-run).
+  scanner_not_bundled: "scanner.failure.scanner_not_bundled",
+  scanner_integrity_failed: "scanner.failure.scanner_integrity_failed",
+  scanner_role_not_provisioned: "scanner.failure.scanner_role_not_provisioned",
+  scan_already_running: "scanner.failure.scan_already_running",
+  scan_not_found: "scanner.failure.scan_not_found",
+  scanner_assume_role_failed: "scanner.failure.scanner_assume_role_failed",
+  scanner_spawn_failed: "scanner.failure.scanner_spawn_failed",
+  scanner_process_lost: "scanner.failure.scanner_process_lost",
+  scanner_process_failed: "scanner.failure.scanner_process_failed",
+  scanner_output_missing: "scanner.failure.scanner_output_missing",
 };
 
 export function useIpcError() {

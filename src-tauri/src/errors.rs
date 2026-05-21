@@ -130,6 +130,39 @@ pub enum AppError {
     #[error("trust policy verification failed")]
     TerraformTrustVerificationFailed,
 
+    // Scanner orchestrator (Contract 06). Stable codes only; raw scanner
+    // stderr, ARNs, account IDs, or credential material never appear in any
+    // of these messages.
+    #[error("scanner not bundled")]
+    ScannerNotBundled,
+
+    #[error("scanner integrity failed")]
+    ScannerIntegrityFailed,
+
+    #[error("scanner role not provisioned")]
+    ScannerRoleNotProvisioned,
+
+    #[error("scan already running")]
+    ScanAlreadyRunning,
+
+    #[error("scan not found")]
+    ScanNotFound,
+
+    #[error("scanner assume role failed: {0}")]
+    ScannerAssumeRoleFailed(&'static str),
+
+    #[error("scanner spawn failed")]
+    ScannerSpawnFailed,
+
+    #[error("scanner process lost")]
+    ScannerProcessLost,
+
+    #[error("scanner process failed")]
+    ScannerProcessFailed,
+
+    #[error("scanner output missing")]
+    ScannerOutputMissing,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -172,6 +205,16 @@ impl AppError {
             AppError::TerraformPlanTokenInvalid => "terraform_plan_token_invalid",
             AppError::TerraformIdentityUnresolvable => "terraform_identity_unresolvable",
             AppError::TerraformTrustVerificationFailed => "terraform_trust_verification_failed",
+            AppError::ScannerNotBundled => "scanner_not_bundled",
+            AppError::ScannerIntegrityFailed => "scanner_integrity_failed",
+            AppError::ScannerRoleNotProvisioned => "scanner_role_not_provisioned",
+            AppError::ScanAlreadyRunning => "scan_already_running",
+            AppError::ScanNotFound => "scan_not_found",
+            AppError::ScannerAssumeRoleFailed(_) => "scanner_assume_role_failed",
+            AppError::ScannerSpawnFailed => "scanner_spawn_failed",
+            AppError::ScannerProcessLost => "scanner_process_lost",
+            AppError::ScannerProcessFailed => "scanner_process_failed",
+            AppError::ScannerOutputMissing => "scanner_output_missing",
             AppError::Internal(_) => "internal_error",
         }
     }
