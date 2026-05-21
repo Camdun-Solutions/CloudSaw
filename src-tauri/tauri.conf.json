@@ -39,6 +39,13 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "tf-modules/scanner-role/versions.tf": "tf-modules/scanner-role/versions.tf",
+      "tf-modules/scanner-role/variables.tf": "tf-modules/scanner-role/variables.tf",
+      "tf-modules/scanner-role/main.tf": "tf-modules/scanner-role/main.tf",
+      "tf-modules/scanner-role/outputs.tf": "tf-modules/scanner-role/outputs.tf",
+      "tf-modules/scanner-role/README.md": "tf-modules/scanner-role/README.md"
+    }
   }
 }

@@ -27,6 +27,7 @@ import {
   type RemovalImpact,
   type UpdateAccountInput,
 } from "@/lib/ipc";
+import ProvisionScannerRoleModal from "@/routes/ProvisionScannerRole";
 
 type Props = {
   onClose: () => void;
@@ -51,10 +52,12 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
   // Modal state. The "edit" modal accepts the row to edit; the "remove" modal
-  // accepts the row to remove. Add modal is the simpler boolean form.
+  // accepts the row to remove. Add modal is the simpler boolean form. The
+  // provisioning modal (Contract 05) is per-row, like edit/remove.
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Account | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Account | null>(null);
+  const [provisionTarget, setProvisionTarget] = useState<Account | null>(null);
 
   const reload = useCallback(async () => {
     setRefreshing(true);
@@ -220,6 +223,7 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
                   onSetActive={() => void onSetActive(a.aws_account_id)}
                   onEdit={() => setEditTarget(a)}
                   onRemove={() => setRemoveTarget(a)}
+                  onProvision={() => setProvisionTarget(a)}
                 />
               ))}
             </ul>
@@ -259,6 +263,15 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
           }
         }}
       />
+
+      <ProvisionScannerRoleModal
+        account={provisionTarget}
+        onClose={() => setProvisionTarget(null)}
+        onProvisioned={async () => {
+          // Refresh accounts so the `role_provisioned` badge updates.
+          await reload();
+        }}
+      />
     </main>
   );
 }
@@ -271,6 +284,7 @@ function AccountRow({
   onSetActive,
   onEdit,
   onRemove,
+  onProvision,
 }: {
   account: Account;
   active: boolean;
@@ -279,6 +293,7 @@ function AccountRow({
   onSetActive: () => void;
   onEdit: () => void;
   onRemove: () => void;
+  onProvision: () => void;
 }) {
   const t = useT();
   const displayedId = revealFullId
@@ -373,6 +388,16 @@ function AccountRow({
               {t("accounts.row.set_active")}
             </Button>
           )}
+          <Button
+            variant={account.role_provisioned ? "ghost" : "primary"}
+            size="sm"
+            onClick={onProvision}
+            data-testid={`account-provision-${account.aws_account_id}`}
+          >
+            {account.role_provisioned
+              ? t("terraform.provision.replan_cta")
+              : t("terraform.provision.cta")}
+          </Button>
           <div className="flex gap-2">
             <Button
               variant="ghost"

@@ -99,6 +99,37 @@ pub enum AppError {
     #[error("aws account id mismatch")]
     AccountIdMismatch,
 
+    // Terraform scanner-role provisioner (Contract 05). Like the AWS auth
+    // domain, messages are intentionally terse — the frontend maps the
+    // `code` to localized copy and these errors must never carry raw
+    // Terraform stderr, ARNs, account IDs, or credential material.
+    #[error("terraform not bundled")]
+    TerraformNotBundled,
+
+    #[error("terraform integrity failed")]
+    TerraformIntegrityFailed,
+
+    #[error("terraform init failed")]
+    TerraformInitFailed,
+
+    #[error("terraform plan failed")]
+    TerraformPlanFailed,
+
+    #[error("terraform apply failed")]
+    TerraformApplyFailed,
+
+    #[error("plan token expired")]
+    TerraformPlanTokenExpired,
+
+    #[error("plan token invalid")]
+    TerraformPlanTokenInvalid,
+
+    #[error("identity unresolvable")]
+    TerraformIdentityUnresolvable,
+
+    #[error("trust policy verification failed")]
+    TerraformTrustVerificationFailed,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -132,6 +163,15 @@ impl AppError {
             AppError::DuplicateAwsAccountId => "duplicate_aws_account_id",
             AppError::DuplicateLabel => "duplicate_label",
             AppError::AccountIdMismatch => "aws_account_id_mismatch",
+            AppError::TerraformNotBundled => "terraform_not_bundled",
+            AppError::TerraformIntegrityFailed => "terraform_integrity_failed",
+            AppError::TerraformInitFailed => "terraform_init_failed",
+            AppError::TerraformPlanFailed => "terraform_plan_failed",
+            AppError::TerraformApplyFailed => "terraform_apply_failed",
+            AppError::TerraformPlanTokenExpired => "terraform_plan_token_expired",
+            AppError::TerraformPlanTokenInvalid => "terraform_plan_token_invalid",
+            AppError::TerraformIdentityUnresolvable => "terraform_identity_unresolvable",
+            AppError::TerraformTrustVerificationFailed => "terraform_trust_verification_failed",
             AppError::Internal(_) => "internal_error",
         }
     }
