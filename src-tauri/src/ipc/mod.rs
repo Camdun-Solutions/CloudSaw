@@ -17,6 +17,9 @@ use crate::accounts::{
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
 use crate::errors::AppError;
+use crate::findings::{
+    self, DeleteScanImpact, Finding, FindingDetail, FindingsFilter, ParseSummary,
+};
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
 };
@@ -285,4 +288,47 @@ pub fn scanner_list_recent(
     limit: Option<usize>,
 ) -> Result<Vec<ScanRecord>, AppError> {
     scanner::list_recent_scans(&aws_account_id, limit.unwrap_or(20)).map_err(AppError::from)
+}
+
+// --- Findings parser & store (Contract 07) --------------------------------
+//
+// Wrappers around the `findings` module. Like the scanner namespace these
+// are mostly synchronous SQLite calls; `findings_parse_and_store` is sync
+// too because the parse is local-only (no network, no STS) and ScoutSuite
+// outputs land in the low-MB range — well within a single IPC dispatch.
+//
+// Every command validates inputs inside the `findings` module before any
+// SQL runs. The frontend never crosses this boundary with credentials.
+
+#[tauri::command]
+pub fn findings_parse_and_store(scan_id: String) -> Result<ParseSummary, AppError> {
+    findings::parse_and_store(&scan_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn findings_list(
+    scan_id: String,
+    filter: Option<FindingsFilter>,
+) -> Result<Vec<Finding>, AppError> {
+    findings::list_findings(&scan_id, filter.unwrap_or_default()).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn findings_get(finding_id: String) -> Result<FindingDetail, AppError> {
+    findings::get_finding(&finding_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn findings_list_scans(aws_account_id: String) -> Result<Vec<ScanRecord>, AppError> {
+    findings::list_scans(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn findings_get_scan(scan_id: String) -> Result<ScanRecord, AppError> {
+    findings::get_scan(&scan_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn findings_delete_scan(scan_id: String) -> Result<DeleteScanImpact, AppError> {
+    findings::delete_scan(&scan_id).map_err(AppError::from)
 }
