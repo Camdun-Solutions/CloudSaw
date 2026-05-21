@@ -12,6 +12,7 @@ use tauri::State;
 use zeroize::Zeroizing;
 
 use crate::applock::{self, LockSettings, LockState, SessionState};
+use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
 use crate::errors::AppError;
 
 /// Returns the running CalVer build string (e.g. "2026.5.0").
@@ -106,4 +107,28 @@ pub fn applock_set_settings(settings: LockSettings) -> Result<(), AppError> {
 #[tauri::command]
 pub fn applock_verify_password(password: String) -> Result<bool, AppError> {
     applock::verify_password(Zeroizing::new(password))
+}
+
+// --- AWS auth (Contract 03) ---------------------------------------------
+//
+// These commands wrap the `auth` module. They accept and return plain
+// serializable structs; no AWS SDK type and no credential-bearing type
+// ever crosses the IPC boundary. The auth module's typed `AuthError` is
+// converted to `AppError` here so its stable code reaches the frontend.
+
+#[tauri::command]
+pub fn auth_list_profiles() -> Result<Vec<ProfileInfo>, AppError> {
+    auth::list_profiles().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn auth_get_caller_identity(profile: String) -> Result<CallerIdentity, AppError> {
+    auth::get_caller_identity(&profile)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn auth_test_profile(profile: String) -> Result<ProfileTestResult, AppError> {
+    auth::test_profile(&profile).await.map_err(AppError::from)
 }

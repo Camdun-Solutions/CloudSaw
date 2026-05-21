@@ -44,6 +44,9 @@ pub fn run() {
             ipc::applock_get_settings,
             ipc::applock_set_settings,
             ipc::applock_verify_password,
+            ipc::auth_list_profiles,
+            ipc::auth_get_caller_identity,
+            ipc::auth_test_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

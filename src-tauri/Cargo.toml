@@ -28,6 +28,24 @@ password-hash = { version = "0.5", default-features = false, features = ["alloc"
 rand_core = { version = "0.6", features = ["std"] }
 zeroize = { version = "1", features = ["zeroize_derive"] }
 
+# AWS authentication (Contract 03). The SDK provider chain is used unmodified;
+# CloudSaw never reads ~/.aws/credentials directly. Only STS is wired up here —
+# scanner-role assumption and other API surfaces are added by later contracts.
+aws-config = { version = "1", default-features = false, features = [
+    "behavior-version-latest",
+    "rustls",
+    "rt-tokio",
+    "sso",
+] }
+aws-sdk-sts = { version = "1", default-features = false, features = [
+    "behavior-version-latest",
+    "rustls",
+    "rt-tokio",
+] }
+aws-smithy-runtime-api = "1"
+aws-smithy-types = "1"
+tokio = { version = "1", features = ["time", "rt", "macros"] }
+
 [target."cfg(unix)".dependencies]
 libc = "0.2"
 

@@ -64,6 +64,27 @@ pub enum AppError {
     #[error("identity verification unavailable")]
     IdentityVerificationUnavailable,
 
+    // AWS auth domain (Contract 03). Messages are intentionally terse: the
+    // frontend maps the `code` to a localized string, and these errors must
+    // never carry credentials, full ARNs, or full account IDs (CLAUDE.md §4.2).
+    #[error("aws config unreadable")]
+    AwsConfigUnreadable,
+
+    #[error("aws profile not found")]
+    AwsProfileNotFound,
+
+    #[error("aws timeout")]
+    AwsTimeout,
+
+    #[error("aws connectivity")]
+    AwsConnectivity,
+
+    #[error("aws sso expired")]
+    AwsSsoExpired,
+
+    #[error("aws permission denied: {0}")]
+    AwsPermissionDenied(&'static str),
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -87,6 +108,12 @@ impl AppError {
             AppError::BiometricUnavailable => "biometric_unavailable",
             AppError::IdentityVerification(_) => "identity_verification_error",
             AppError::IdentityVerificationUnavailable => "identity_verification_unavailable",
+            AppError::AwsConfigUnreadable => "aws_config_unreadable",
+            AppError::AwsProfileNotFound => "profile_not_found",
+            AppError::AwsTimeout => "aws_timeout",
+            AppError::AwsConnectivity => "aws_connectivity",
+            AppError::AwsSsoExpired => "aws_sso_expired",
+            AppError::AwsPermissionDenied(_) => "aws_permission_denied",
             AppError::Internal(_) => "internal_error",
         }
     }
@@ -113,7 +140,14 @@ impl Serialize for AppError {
     where
         S: serde::Serializer,
     {
-        IpcError::from(AppError::Internal(self.to_string())).serialize(serializer)
+        // Cross-IPC shape: {code, message}. The code is the variant's stable
+        // discriminator (see `code()`); the message is the Display string,
+        // which thiserror already keeps redaction-friendly.
+        IpcError {
+            code: self.code(),
+            message: self.to_string(),
+        }
+        .serialize(serializer)
     }
 }
 

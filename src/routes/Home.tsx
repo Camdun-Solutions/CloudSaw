@@ -10,9 +10,10 @@ import { useLock } from "@/stores/lock";
 
 type Props = {
   onOpenSettings: () => void;
+  onOpenAccounts: () => void;
 };
 
-export default function Home({ onOpenSettings }: Props) {
+export default function Home({ onOpenSettings, onOpenAccounts }: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { refresh } = useLock();
@@ -68,6 +69,14 @@ export default function Home({ onOpenSettings }: Props) {
             <Button
               variant="ghost"
               size="sm"
+              onClick={onOpenAccounts}
+              data-testid="header-accounts"
+            >
+              {t("nav.accounts")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onLockNow}
               data-testid="header-lock-now"
             >
@@ -110,7 +119,12 @@ export default function Home({ onOpenSettings }: Props) {
             title={t("empty.no_scans.title")}
             body={t("empty.no_scans.body")}
             action={
-              <Button variant="primary" type="button">
+              <Button
+                variant="primary"
+                type="button"
+                onClick={onOpenAccounts}
+                data-testid="empty-open-accounts"
+              >
                 {t("nav.accounts")}
               </Button>
             }

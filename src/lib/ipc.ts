@@ -35,6 +35,40 @@ export type LockState = {
   recovery_available: boolean;
 };
 
+// --- AWS auth (Contract 03) ----------------------------------------------
+
+/** Whether a profile is a vanilla AWS CLI profile or one backed by IAM
+ * Identity Center (SSO). Drives a UI badge only — auth resolution uses
+ * the SDK provider chain either way. */
+export type ProfileSource = "cli" | "sso";
+
+export type ProfileInfo = {
+  name: string;
+  source: ProfileSource;
+};
+
+/** Result of `sts:GetCallerIdentity`. Account/user IDs and ARN are
+ * returned in full so the UI can confirm exactly which identity was
+ * resolved — backend logs and error surfaces redact these values. */
+export type CallerIdentity = {
+  account_id: string;
+  user_id: string;
+  arn: string;
+};
+
+export type TestFailureReason =
+  | "profile_not_configured"
+  | "sso_expired"
+  | "permission_denied"
+  | "connectivity"
+  | "timeout"
+  | "other";
+
+/** Discriminated union returned by `auth_test_profile`. Switch on `status`. */
+export type ProfileTestResult =
+  | { status: "success"; identity: CallerIdentity }
+  | { status: "failure"; reason: TestFailureReason; api: string | null };
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -84,6 +118,20 @@ export const ipc = {
 
   applockVerifyPassword(password: string): Promise<boolean> {
     return invoke<boolean>("applock_verify_password", { password });
+  },
+
+  // --- AWS auth --------------------------------------------------------
+
+  authListProfiles(): Promise<ProfileInfo[]> {
+    return invoke<ProfileInfo[]>("auth_list_profiles");
+  },
+
+  authGetCallerIdentity(profile: string): Promise<CallerIdentity> {
+    return invoke<CallerIdentity>("auth_get_caller_identity", { profile });
+  },
+
+  authTestProfile(profile: string): Promise<ProfileTestResult> {
+    return invoke<ProfileTestResult>("auth_test_profile", { profile });
   },
 };
 
