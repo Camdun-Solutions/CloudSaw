@@ -47,6 +47,12 @@ const KNOWN_CODES: Record<string, string> = {
   aws_connectivity: "aws.error.connectivity",
   aws_sso_expired: "aws.error.sso_expired",
   aws_permission_denied: "aws.error.permission_denied",
+  // Multi-account (Contract 04). Distinct keys so the Accounts page can
+  // localize each failure mode precisely.
+  account_not_found: "accounts.error.not_found",
+  duplicate_aws_account_id: "accounts.error.duplicate_aws_account_id",
+  duplicate_label: "accounts.error.duplicate_label",
+  aws_account_id_mismatch: "accounts.error.aws_account_id_mismatch",
 };
 
 export function useIpcError() {

@@ -21,7 +21,7 @@
 //     serializable data; SDK types stay inside `sts.rs`.
 
 pub mod error;
-mod profiles;
+pub mod profiles;
 mod sts;
 
 pub use error::AuthError;

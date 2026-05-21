@@ -2,6 +2,7 @@
 // setup. The `run()` function is the single entry point invoked from `main.rs`
 // (desktop) and from platform-specific entry points (mobile, future).
 
+pub mod accounts;
 pub mod applock;
 pub mod auth;
 pub mod db;
@@ -47,6 +48,15 @@ pub fn run() {
             ipc::auth_list_profiles,
             ipc::auth_get_caller_identity,
             ipc::auth_test_profile,
+            ipc::accounts_list,
+            ipc::accounts_get,
+            ipc::accounts_add,
+            ipc::accounts_update,
+            ipc::accounts_remove,
+            ipc::accounts_get_active,
+            ipc::accounts_set_active,
+            ipc::accounts_get_display_settings,
+            ipc::accounts_set_display_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

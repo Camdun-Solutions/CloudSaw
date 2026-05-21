@@ -11,6 +11,9 @@ use std::sync::Arc;
 use tauri::State;
 use zeroize::Zeroizing;
 
+use crate::accounts::{
+    self, Account, AccountsDisplaySettings, AddAccountInput, RemovalImpact, UpdateAccountInput,
+};
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
 use crate::errors::AppError;
@@ -131,4 +134,63 @@ pub async fn auth_get_caller_identity(profile: String) -> Result<CallerIdentity,
 #[tauri::command]
 pub async fn auth_test_profile(profile: String) -> Result<ProfileTestResult, AppError> {
     auth::test_profile(&profile).await.map_err(AppError::from)
+}
+
+// --- Multi-account (Contract 04) -----------------------------------------
+//
+// Every command validates inputs in the `accounts` module before touching
+// SQLite. Add/update are async because they verify the profile via STS
+// before writing; the rest are synchronous SQLite calls.
+//
+// Account IDs are returned in full (Contract 04 §Constraints: "masked by
+// default in the UI"). The frontend masks unless `reveal_full_ids` is on;
+// backend logs (added by later contracts) mask regardless.
+
+#[tauri::command]
+pub fn accounts_list() -> Result<Vec<Account>, AppError> {
+    accounts::list_accounts().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn accounts_get(aws_account_id: String) -> Result<Account, AppError> {
+    accounts::get_account(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn accounts_add(input: AddAccountInput) -> Result<Account, AppError> {
+    accounts::add_account(input).await.map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn accounts_update(input: UpdateAccountInput) -> Result<Account, AppError> {
+    accounts::update_account(input).await.map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn accounts_remove(aws_account_id: String) -> Result<RemovalImpact, AppError> {
+    accounts::remove_account(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn accounts_get_active() -> Result<Option<String>, AppError> {
+    accounts::get_active_account().map_err(AppError::from)
+}
+
+/// `aws_account_id = None` clears the active selection — the only way a
+/// caller can "deselect" without removing the row.
+#[tauri::command]
+pub fn accounts_set_active(aws_account_id: Option<String>) -> Result<(), AppError> {
+    accounts::set_active_account(aws_account_id.as_deref()).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn accounts_get_display_settings() -> Result<AccountsDisplaySettings, AppError> {
+    accounts::get_display_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn accounts_set_display_settings(
+    settings: AccountsDisplaySettings,
+) -> Result<(), AppError> {
+    accounts::set_display_settings(settings).map_err(AppError::from)
 }
