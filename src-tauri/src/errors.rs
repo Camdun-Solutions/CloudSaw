@@ -27,6 +27,43 @@ pub enum AppError {
     #[error("config: {0}")]
     Config(String),
 
+    // App-lock domain. Messages are intentionally generic for codes that
+    // surface to the UI as the *result* of a security decision — see CLAUDE.md
+    // §4.2 and Contract 02's "failed unlock must not leak whether a password
+    // was close" rule.
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("password rejected")]
+    PasswordRejected,
+
+    #[error("hash: {0}")]
+    Hash(String),
+
+    #[error("locked")]
+    Locked,
+
+    #[error("not configured")]
+    NotConfigured,
+
+    #[error("already configured")]
+    AlreadyConfigured,
+
+    #[error("rate limited: retry in {0}s")]
+    RateLimited(u64),
+
+    #[error("biometric: {0}")]
+    Biometric(String),
+
+    #[error("biometric unavailable")]
+    BiometricUnavailable,
+
+    #[error("identity verification: {0}")]
+    IdentityVerification(String),
+
+    #[error("identity verification unavailable")]
+    IdentityVerificationUnavailable,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -39,6 +76,17 @@ impl AppError {
             AppError::Db(_) => "db_error",
             AppError::Migration(_) => "migration_error",
             AppError::Config(_) => "config_error",
+            AppError::InvalidInput(_) => "invalid_input",
+            AppError::PasswordRejected => "password_rejected",
+            AppError::Hash(_) => "hash_error",
+            AppError::Locked => "locked",
+            AppError::NotConfigured => "not_configured",
+            AppError::AlreadyConfigured => "already_configured",
+            AppError::RateLimited(_) => "rate_limited",
+            AppError::Biometric(_) => "biometric_error",
+            AppError::BiometricUnavailable => "biometric_unavailable",
+            AppError::IdentityVerification(_) => "identity_verification_error",
+            AppError::IdentityVerificationUnavailable => "identity_verification_unavailable",
             AppError::Internal(_) => "internal_error",
         }
     }

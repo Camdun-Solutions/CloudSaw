@@ -9,7 +9,17 @@ use crate::errors::AppError;
 ///   Windows: %APPDATA%\CloudSaw\
 ///   macOS:   ~/Library/Application Support/CloudSaw/
 ///   Linux:   ~/.local/share/cloudsaw/
+///
+/// Test seam: setting `CLOUDSAW_DATA_DIR_OVERRIDE` to an absolute path makes
+/// every consumer (migrations, app-lock storage) use that path instead. The
+/// override is read on every call so integration tests can swap directories
+/// between tests. We don't gate on `#[cfg(test)]` because integration tests
+/// link against the release-shape library — the override is always honored
+/// but unset in production runs.
 pub fn app_data_dir() -> Result<PathBuf, AppError> {
+    if let Some(override_path) = std::env::var_os("CLOUDSAW_DATA_DIR_OVERRIDE") {
+        return Ok(PathBuf::from(override_path));
+    }
     let base =
         dirs::data_dir().ok_or_else(|| AppError::Path("could not resolve user data dir".into()))?;
     let name = if cfg!(target_os = "linux") {
