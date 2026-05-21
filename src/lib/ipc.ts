@@ -69,6 +69,61 @@ export type ProfileTestResult =
   | { status: "success"; identity: CallerIdentity }
   | { status: "failure"; reason: TestFailureReason; api: string | null };
 
+// --- Multi-account (Contract 04) -----------------------------------------
+
+export type Environment = "dev" | "staging" | "prod" | "other";
+export type ScanOutcome = "success" | "failure" | "partial_success" | "unknown";
+
+/** One row of the local `accounts` table. The `aws_account_id` is the
+ * verified 12-digit AWS account ID and serves as the partitioning key for
+ * every account-scoped table added by later contracts. */
+export type Account = {
+  aws_account_id: string;
+  label: string;
+  profile_name: string;
+  environment: Environment;
+  role_provisioned: boolean;
+  role_provisioned_at: string | null;
+  last_scan_at: string | null;
+  last_scan_status: ScanOutcome | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AddAccountInput = {
+  label: string;
+  profile_name: string;
+  environment: Environment;
+};
+
+export type UpdateAccountInput = {
+  aws_account_id: string;
+  label: string;
+  profile_name: string;
+  environment: Environment;
+};
+
+/** Data-impact preview returned from `accounts_remove`. `was_active` tells
+ * the UI whether to prompt for a new active selection. */
+export type RemovalImpact = {
+  scans: number;
+  findings: number;
+  tf_work: number;
+  was_active: boolean;
+};
+
+export type AccountsDisplaySettings = {
+  reveal_full_ids: boolean;
+};
+
+/** Mask a 12-digit AWS account ID to the last 4 digits. Mirrors the Rust
+ * `accounts::mask_for_logs` helper so the UI default and the log format
+ * stay aligned. */
+export function maskAccountId(id: string): string {
+  if (id.length < 4) return "****";
+  return `****${id.slice(-4)}`;
+}
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -132,6 +187,46 @@ export const ipc = {
 
   authTestProfile(profile: string): Promise<ProfileTestResult> {
     return invoke<ProfileTestResult>("auth_test_profile", { profile });
+  },
+
+  // --- Multi-account ----------------------------------------------------
+
+  accountsList(): Promise<Account[]> {
+    return invoke<Account[]>("accounts_list");
+  },
+
+  accountsGet(awsAccountId: string): Promise<Account> {
+    return invoke<Account>("accounts_get", { awsAccountId });
+  },
+
+  accountsAdd(input: AddAccountInput): Promise<Account> {
+    return invoke<Account>("accounts_add", { input });
+  },
+
+  accountsUpdate(input: UpdateAccountInput): Promise<Account> {
+    return invoke<Account>("accounts_update", { input });
+  },
+
+  accountsRemove(awsAccountId: string): Promise<RemovalImpact> {
+    return invoke<RemovalImpact>("accounts_remove", { awsAccountId });
+  },
+
+  accountsGetActive(): Promise<string | null> {
+    return invoke<string | null>("accounts_get_active");
+  },
+
+  accountsSetActive(awsAccountId: string | null): Promise<void> {
+    return invoke<void>("accounts_set_active", { awsAccountId });
+  },
+
+  accountsGetDisplaySettings(): Promise<AccountsDisplaySettings> {
+    return invoke<AccountsDisplaySettings>("accounts_get_display_settings");
+  },
+
+  accountsSetDisplaySettings(
+    settings: AccountsDisplaySettings,
+  ): Promise<void> {
+    return invoke<void>("accounts_set_display_settings", { settings });
   },
 };
 

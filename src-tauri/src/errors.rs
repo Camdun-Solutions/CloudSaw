@@ -85,6 +85,20 @@ pub enum AppError {
     #[error("aws permission denied: {0}")]
     AwsPermissionDenied(&'static str),
 
+    // Multi-account domain (Contract 04). Account IDs and labels never appear
+    // in these messages — the frontend maps the `code` to localized copy.
+    #[error("account not found")]
+    AccountNotFound,
+
+    #[error("duplicate aws account id")]
+    DuplicateAwsAccountId,
+
+    #[error("duplicate label")]
+    DuplicateLabel,
+
+    #[error("aws account id mismatch")]
+    AccountIdMismatch,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -114,6 +128,10 @@ impl AppError {
             AppError::AwsConnectivity => "aws_connectivity",
             AppError::AwsSsoExpired => "aws_sso_expired",
             AppError::AwsPermissionDenied(_) => "aws_permission_denied",
+            AppError::AccountNotFound => "account_not_found",
+            AppError::DuplicateAwsAccountId => "duplicate_aws_account_id",
+            AppError::DuplicateLabel => "duplicate_label",
+            AppError::AccountIdMismatch => "aws_account_id_mismatch",
             AppError::Internal(_) => "internal_error",
         }
     }

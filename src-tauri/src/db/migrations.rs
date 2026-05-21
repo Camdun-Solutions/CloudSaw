@@ -37,6 +37,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0002_app_lock",
         include_str!("../../migrations/0002_app_lock.sql"),
     ),
+    (
+        "0003_accounts",
+        include_str!("../../migrations/0003_accounts.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {
