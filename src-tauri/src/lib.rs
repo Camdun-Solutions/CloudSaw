@@ -61,6 +61,11 @@ pub fn run() {
             ipc::terraform_plan,
             ipc::terraform_apply,
             ipc::terraform_provisioning_status,
+            ipc::scanner_detect,
+            ipc::scanner_run_scan,
+            ipc::scanner_scan_status,
+            ipc::scanner_cancel_scan,
+            ipc::scanner_list_recent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -75,6 +80,14 @@ fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
 
     let db_path = db_dir.join("cloudsaw.db");
     db::migrations::run(&db_path)?;
+
+    // Reap any in-flight scans left over from a prior process that was
+    // killed mid-scan (machine sleep, force-quit, crash). Contract 06
+    // §Edge Cases: stale scans must be visible as `failed` rather than
+    // appearing to still be running. This runs after migrations so the
+    // `scans` table exists; failures here are non-fatal — the scans UI
+    // will eventually self-heal as new scans land.
+    let _ = scanner::reap_stale_on_boot();
 
     // Decide whether the app starts locked or unlocked based on the stored
     // lock period and last_unlocked_at. Must happen AFTER migrations run.

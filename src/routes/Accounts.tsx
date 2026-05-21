@@ -28,6 +28,7 @@ import {
   type UpdateAccountInput,
 } from "@/lib/ipc";
 import ProvisionScannerRoleModal from "@/routes/ProvisionScannerRole";
+import ScanProgressModal from "@/routes/ScanProgress";
 
 type Props = {
   onClose: () => void;
@@ -58,6 +59,7 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
   const [editTarget, setEditTarget] = useState<Account | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Account | null>(null);
   const [provisionTarget, setProvisionTarget] = useState<Account | null>(null);
+  const [scanTarget, setScanTarget] = useState<Account | null>(null);
 
   const reload = useCallback(async () => {
     setRefreshing(true);
@@ -224,6 +226,7 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
                   onEdit={() => setEditTarget(a)}
                   onRemove={() => setRemoveTarget(a)}
                   onProvision={() => setProvisionTarget(a)}
+                  onScan={() => setScanTarget(a)}
                 />
               ))}
             </ul>
@@ -272,6 +275,16 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
           await reload();
         }}
       />
+
+      <ScanProgressModal
+        account={scanTarget}
+        onClose={() => setScanTarget(null)}
+        onScanFinished={async () => {
+          // Refresh accounts so the last_scan_at / last_scan_status badges
+          // pick up the new terminal state.
+          await reload();
+        }}
+      />
     </main>
   );
 }
@@ -285,6 +298,7 @@ function AccountRow({
   onEdit,
   onRemove,
   onProvision,
+  onScan,
 }: {
   account: Account;
   active: boolean;
@@ -294,6 +308,7 @@ function AccountRow({
   onEdit: () => void;
   onRemove: () => void;
   onProvision: () => void;
+  onScan: () => void;
 }) {
   const t = useT();
   const displayedId = revealFullId
@@ -398,6 +413,16 @@ function AccountRow({
               ? t("terraform.provision.replan_cta")
               : t("terraform.provision.cta")}
           </Button>
+          {account.role_provisioned ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onScan}
+              data-testid={`account-scan-${account.aws_account_id}`}
+            >
+              {t("scanner.scan.cta")}
+            </Button>
+          ) : null}
           <div className="flex gap-2">
             <Button
               variant="ghost"

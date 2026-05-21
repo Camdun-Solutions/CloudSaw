@@ -192,6 +192,58 @@ export type PlanOptions = {
   policy_variant?: PolicyVariant;
 };
 
+// --- Scanner orchestrator (Contract 06) ----------------------------------
+
+/** Outcome of `scanner_detect`. The bundled ScoutSuite binary is gated behind
+ * a build-pinned SHA-256, so a tampered or missing binary blocks the scan UI
+ * before any AWS call happens. */
+export type ScoutSuiteAvailability =
+  | { status: "available"; sha256: string }
+  | { status: "missing" }
+  | { status: "integrity_failed" };
+
+/** Lifecycle state of a scan. See Contract 06 §Expected Output for the
+ * transition graph. Terminal states are `complete`, `complete_with_warnings`,
+ * `failed`, and `canceled`. */
+export type ScanStatus =
+  | "pending"
+  | "assuming_role"
+  | "scanning"
+  | "parsing"
+  | "complete"
+  | "complete_with_warnings"
+  | "failed"
+  | "canceled";
+
+/** One scan record. `raw_output_path` is set once the scan reaches `parsing`
+ * or any terminal state; until then it's null. The frontend never reads this
+ * file directly — Contract 07's parser owns it. */
+export type ScanRecord = {
+  scan_id: string;
+  aws_account_id: string;
+  status: ScanStatus;
+  started_at: string;
+  finished_at: string | null;
+  failure_code: string | null;
+  warning_code: string | null;
+  warning_detail: string | null;
+  raw_output_path: string | null;
+  role_session_name: string;
+  truncated: boolean;
+};
+
+/** Terminal states for which the UI no longer polls `scan_status`. */
+export const TERMINAL_SCAN_STATUSES: ReadonlySet<ScanStatus> = new Set([
+  "complete",
+  "complete_with_warnings",
+  "failed",
+  "canceled",
+]);
+
+export function isTerminalScanStatus(s: ScanStatus): boolean {
+  return TERMINAL_SCAN_STATUSES.has(s);
+}
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -329,6 +381,43 @@ export const ipc = {
   terraformProvisioningStatus(awsAccountId: string): Promise<ProvisioningStatus> {
     return invoke<ProvisioningStatus>("terraform_provisioning_status", {
       awsAccountId,
+    });
+  },
+
+  // --- Scanner orchestrator --------------------------------------------
+
+  /** Detect whether a bundled ScoutSuite binary is present AND passes its
+   * SHA-256 integrity check. Pure local-state — no AWS calls. */
+  scannerDetect(): Promise<ScoutSuiteAvailability> {
+    return invoke<ScoutSuiteAvailability>("scanner_detect");
+  },
+
+  /** Start a scan for the given account. Returns the initial scan record
+   * (already in `pending` or `assuming_role`); the frontend polls
+   * `scannerScanStatus` for progress. */
+  scannerRunScan(awsAccountId: string): Promise<ScanRecord> {
+    return invoke<ScanRecord>("scanner_run_scan", { awsAccountId });
+  },
+
+  /** Poll a running scan's current state. */
+  scannerScanStatus(scanId: string): Promise<ScanRecord> {
+    return invoke<ScanRecord>("scanner_scan_status", { scanId });
+  },
+
+  /** Cancel a running scan. Idempotent — returns the current (terminal)
+   * record if the scan is already finished. */
+  scannerCancelScan(scanId: string): Promise<ScanRecord> {
+    return invoke<ScanRecord>("scanner_cancel_scan", { scanId });
+  },
+
+  /** Most-recent scans for an account, newest first. */
+  scannerListRecent(
+    awsAccountId: string,
+    limit?: number,
+  ): Promise<ScanRecord[]> {
+    return invoke<ScanRecord[]>("scanner_list_recent", {
+      awsAccountId,
+      limit: limit ?? null,
     });
   },
 };
