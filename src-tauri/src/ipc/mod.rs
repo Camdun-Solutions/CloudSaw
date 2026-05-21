@@ -17,6 +17,9 @@ use crate::accounts::{
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
 use crate::errors::AppError;
+use crate::terraform::{
+    self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
+};
 
 /// Returns the running CalVer build string (e.g. "2026.5.0").
 ///
@@ -193,4 +196,48 @@ pub fn accounts_set_display_settings(
     settings: AccountsDisplaySettings,
 ) -> Result<(), AppError> {
     accounts::set_display_settings(settings).map_err(AppError::from)
+}
+
+// --- Terraform scanner-role provisioner (Contract 05) --------------------
+//
+// `terraform_detect` is synchronous and account-agnostic — it just locates
+// the bundled binary and runs the SHA-256 integrity check. `terraform_plan`
+// and `terraform_apply` are async because they shell out to the bundled
+// Terraform binary (long-running) and, for plan, hit `sts:GetCallerIdentity`
+// to resolve the trust-policy principal.
+//
+// Inputs are validated inside the `terraform` module: every account ID is
+// re-checked against the 12-digit grammar before it becomes a path segment,
+// and the trust-policy principal is derived from STS (never frontend-typed).
+
+#[tauri::command]
+pub fn terraform_detect() -> Result<TerraformAvailability, AppError> {
+    Ok(terraform::detect_terraform())
+}
+
+#[tauri::command]
+pub async fn terraform_plan(
+    aws_account_id: String,
+    options: Option<PlanOptions>,
+) -> Result<PlanResult, AppError> {
+    terraform::plan(&aws_account_id, options.unwrap_or_default())
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn terraform_apply(
+    aws_account_id: String,
+    plan_token: String,
+) -> Result<ApplyResult, AppError> {
+    terraform::apply(&aws_account_id, &plan_token)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn terraform_provisioning_status(
+    aws_account_id: String,
+) -> Result<ProvisioningStatus, AppError> {
+    terraform::provisioning_status(&aws_account_id).map_err(AppError::from)
 }

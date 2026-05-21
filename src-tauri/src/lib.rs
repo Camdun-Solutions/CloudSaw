@@ -57,6 +57,10 @@ pub fn run() {
             ipc::accounts_set_active,
             ipc::accounts_get_display_settings,
             ipc::accounts_set_display_settings,
+            ipc::terraform_detect,
+            ipc::terraform_plan,
+            ipc::terraform_apply,
+            ipc::terraform_provisioning_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

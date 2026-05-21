@@ -28,6 +28,14 @@ password-hash = { version = "0.5", default-features = false, features = ["alloc"
 rand_core = { version = "0.6", features = ["std"] }
 zeroize = { version = "1", features = ["zeroize_derive"] }
 
+# Terraform scanner-role provisioner (Contract 05). `sha2` verifies the
+# bundled Terraform binary against its build-pinned hash before every
+# execution; `hex` is used only for stable string representations of those
+# hashes. Both are pure-Rust, no_std-friendly crates that are already in our
+# transitive graph — pulling them in directly removes the version drift risk.
+sha2 = "0.10"
+hex = "0.4"
+
 # AWS authentication (Contract 03). The SDK provider chain is used unmodified;
 # CloudSaw never reads ~/.aws/credentials directly. Only STS is wired up here —
 # scanner-role assumption and other API surfaces are added by later contracts.

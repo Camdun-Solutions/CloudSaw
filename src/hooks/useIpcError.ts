@@ -53,6 +53,18 @@ const KNOWN_CODES: Record<string, string> = {
   duplicate_aws_account_id: "accounts.error.duplicate_aws_account_id",
   duplicate_label: "accounts.error.duplicate_label",
   aws_account_id_mismatch: "accounts.error.aws_account_id_mismatch",
+  // Terraform scanner-role provisioner (Contract 05). Each variant maps to a
+  // distinct localized message so the UI can guide the user to the right
+  // remediation (reinstall vs. fix permissions vs. re-plan).
+  terraform_not_bundled: "terraform.error.not_bundled",
+  terraform_integrity_failed: "terraform.error.integrity_failed",
+  terraform_init_failed: "terraform.error.init_failed",
+  terraform_plan_failed: "terraform.error.plan_failed",
+  terraform_apply_failed: "terraform.error.apply_failed",
+  terraform_plan_token_invalid: "terraform.error.plan_token_invalid",
+  terraform_plan_token_expired: "terraform.error.plan_token_expired",
+  terraform_identity_unresolvable: "terraform.error.identity_unresolvable",
+  terraform_trust_verification_failed: "terraform.error.trust_verification_failed",
 };
 
 export function useIpcError() {

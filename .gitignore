@@ -25,6 +25,9 @@ desktop.ini
 !.vscode/settings.json
 *.swp
 
+# Local Claude Code dev-server configuration (per-contributor)
+.claude/
+
 # Env (NEVER commit secrets)
 .env
 .env.*

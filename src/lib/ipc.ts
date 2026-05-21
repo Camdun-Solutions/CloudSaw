@@ -124,6 +124,74 @@ export function maskAccountId(id: string): string {
   return `****${id.slice(-4)}`;
 }
 
+// --- Terraform scanner-role provisioner (Contract 05) --------------------
+
+/** Outcome of `terraform_detect`. The bundled binary is gated behind a
+ * build-pinned SHA-256, so any tampered or missing binary blocks the
+ * provisioning UI before any AWS call happens. */
+export type TerraformAvailability =
+  | { status: "available"; sha256: string; version: string | null }
+  | { status: "missing" }
+  | { status: "integrity_failed" };
+
+/** Which AWS-managed scanner policy to attach. `security_audit` is the
+ * least-privilege default; `read_only_access` is an explicit opt-in surfaced
+ * with a warning per Contract 05 §Constraints. */
+export type PolicyVariant = "security_audit" | "read_only_access";
+
+export type PlanChangeKind =
+  | "create"
+  | "update"
+  | "delete"
+  | "replace"
+  | "no_op"
+  | "read";
+
+/** One line of the plan diff. `attributes` lists the *field names* that
+ * would change — values are never sent across IPC so a credential-bearing
+ * attribute can't leak through this surface. */
+export type PlanChange = {
+  kind: PlanChangeKind;
+  resource_address: string;
+  resource_type: string;
+  summary: string;
+  attributes: string[];
+};
+
+/** Returned by `terraform_plan`. The `plan_token` MUST be passed back to
+ * `terraform_apply` — a fresh plan supersedes any prior token for the same
+ * account. */
+export type PlanResult = {
+  plan_token: string;
+  no_changes: boolean;
+  changes: PlanChange[];
+  planned_principal_arn: string;
+  policy_variant: PolicyVariant;
+  created_at: string;
+};
+
+export type ApplyResult = {
+  role_arn: string;
+  role_name: string;
+  policy_variant: PolicyVariant;
+  trust_policy_sha256: string;
+};
+
+/** Discriminated union returned by `terraform_provisioning_status`. */
+export type ProvisioningStatus =
+  | { status: "not_provisioned" }
+  | {
+      status: "provisioned";
+      role_arn: string;
+      policy_variant: PolicyVariant;
+      provisioned_at: string;
+    }
+  | { status: "failed"; last_error_code: string; attempted_at: string };
+
+export type PlanOptions = {
+  policy_variant?: PolicyVariant;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -227,6 +295,41 @@ export const ipc = {
     settings: AccountsDisplaySettings,
   ): Promise<void> {
     return invoke<void>("accounts_set_display_settings", { settings });
+  },
+
+  // --- Terraform scanner-role provisioner ------------------------------
+
+  /** Detect whether a bundled Terraform binary is present AND passes its
+   * SHA-256 integrity check. Pure local-state — no AWS calls. */
+  terraformDetect(): Promise<TerraformAvailability> {
+    return invoke<TerraformAvailability>("terraform_detect");
+  },
+
+  /** Generate a plan for the given account. Each successful call mints a
+   * fresh `plan_token` and supersedes any prior plan for the same account. */
+  terraformPlan(
+    awsAccountId: string,
+    options?: PlanOptions,
+  ): Promise<PlanResult> {
+    return invoke<PlanResult>("terraform_plan", {
+      awsAccountId,
+      options: options ?? null,
+    });
+  },
+
+  /** Apply a previously confirmed plan, identified by `plan_token`. */
+  terraformApply(awsAccountId: string, planToken: string): Promise<ApplyResult> {
+    return invoke<ApplyResult>("terraform_apply", {
+      awsAccountId,
+      planToken,
+    });
+  },
+
+  /** Report the per-account provisioning state. */
+  terraformProvisioningStatus(awsAccountId: string): Promise<ProvisioningStatus> {
+    return invoke<ProvisioningStatus>("terraform_provisioning_status", {
+      awsAccountId,
+    });
   },
 };
 

@@ -41,6 +41,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0003_accounts",
         include_str!("../../migrations/0003_accounts.sql"),
     ),
+    (
+        "0004_terraform",
+        include_str!("../../migrations/0004_terraform.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {
