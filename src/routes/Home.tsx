@@ -4,10 +4,18 @@ import Badge from "@/components/Badge";
 import Button from "@/components/Button";
 import EmptyState from "@/components/EmptyState";
 import { useT } from "@/hooks/useT";
+import { useIpcError } from "@/hooks/useIpcError";
 import { ipc } from "@/lib/ipc";
+import { useLock } from "@/stores/lock";
 
-export default function Home() {
+type Props = {
+  onOpenSettings: () => void;
+};
+
+export default function Home({ onOpenSettings }: Props) {
   const t = useT();
+  const formatError = useIpcError();
+  const { refresh } = useLock();
   const [version, setVersion] = useState<string | null>(null);
   const [versionError, setVersionError] = useState<string | null>(null);
 
@@ -31,6 +39,17 @@ export default function Home() {
     };
   }, [t]);
 
+  async function onLockNow() {
+    try {
+      await ipc.applockLock();
+      await refresh();
+    } catch (err) {
+      // No dedicated error surface on Home; swallow to a console diagnostic
+      // string. The next state read by LockProvider will resync.
+      console.error(formatError(err));
+    }
+  }
+
   return (
     <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
       <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
@@ -46,6 +65,22 @@ export default function Home() {
             <p className="text-small text-saw-grey-500">{t("app.tagline")}</p>
           </div>
           <div className="ml-auto flex items-center gap-2 text-small text-saw-grey-500">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLockNow}
+              data-testid="header-lock-now"
+            >
+              {t("applock.settings.lock_now")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenSettings}
+              data-testid="header-settings"
+            >
+              {t("nav.settings")}
+            </Button>
             <span>{t("app.version_label")}</span>
             {version ? (
               <Badge tone="neutral" data-testid="app-version">

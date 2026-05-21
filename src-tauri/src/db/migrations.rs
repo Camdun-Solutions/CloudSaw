@@ -31,8 +31,13 @@ use crate::errors::AppError;
 ///
 /// To add a migration: drop a new file in src-tauri/migrations/, then add a
 /// new line here. The compile step pulls the file content into the binary.
-const MIGRATIONS: &[(&str, &str)] =
-    &[("0001_init", include_str!("../../migrations/0001_init.sql"))];
+const MIGRATIONS: &[(&str, &str)] = &[
+    ("0001_init", include_str!("../../migrations/0001_init.sql")),
+    (
+        "0002_app_lock",
+        include_str!("../../migrations/0002_app_lock.sql"),
+    ),
+];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {
     apply(db_path, MIGRATIONS)

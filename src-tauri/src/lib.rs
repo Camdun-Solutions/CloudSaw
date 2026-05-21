@@ -2,6 +2,7 @@
 // setup. The `run()` function is the single entry point invoked from `main.rs`
 // (desktop) and from platform-specific entry points (mobile, future).
 
+pub mod applock;
 pub mod auth;
 pub mod db;
 pub mod errors;
@@ -17,21 +18,38 @@ use crate::errors::AppError;
 /// Application entry point. Initializes app data dirs, runs SQLite migrations,
 /// registers IPC commands, and launches the Tauri runtime.
 pub fn run() {
-    if let Err(err) = bootstrap() {
-        // Bootstrap failures happen before the UI exists, so we can't surface a
-        // stable error code through IPC. Log to stderr and exit non-zero so the
-        // OS / CI / user sees the problem rather than a silent crash.
-        eprintln!("cloudsaw bootstrap failed: {err}");
-        std::process::exit(1);
-    }
+    let session = match bootstrap() {
+        Ok(s) => s,
+        Err(err) => {
+            // Bootstrap failures happen before the UI exists, so we can't
+            // surface a stable error code through IPC. Log to stderr and exit
+            // non-zero so the OS / CI / user sees the problem rather than a
+            // silent crash.
+            eprintln!("cloudsaw bootstrap failed: {err}");
+            std::process::exit(1);
+        }
+    };
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![ipc::app_version,])
+        .manage(session)
+        .invoke_handler(tauri::generate_handler![
+            ipc::app_version,
+            ipc::applock_get_state,
+            ipc::applock_set_master_password,
+            ipc::applock_unlock,
+            ipc::applock_unlock_with_biometric,
+            ipc::applock_lock,
+            ipc::applock_change_password,
+            ipc::applock_recovery_unlock,
+            ipc::applock_get_settings,
+            ipc::applock_set_settings,
+            ipc::applock_verify_password,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
-fn bootstrap() -> Result<(), AppError> {
+fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
     let data_root = db::paths::app_data_dir()?;
     db::paths::ensure_user_only_dir(&data_root)?;
 
@@ -41,5 +59,7 @@ fn bootstrap() -> Result<(), AppError> {
     let db_path = db_dir.join("cloudsaw.db");
     db::migrations::run(&db_path)?;
 
-    Ok(())
+    // Decide whether the app starts locked or unlocked based on the stored
+    // lock period and last_unlocked_at. Must happen AFTER migrations run.
+    applock::bootstrap_session()
 }
