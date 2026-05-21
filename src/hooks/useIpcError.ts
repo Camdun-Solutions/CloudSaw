@@ -39,6 +39,14 @@ const KNOWN_CODES: Record<string, string> = {
   config_error: "applock.error.generic",
   path_error: "applock.error.generic",
   internal_error: "applock.error.generic",
+  // AWS auth (Contract 03). Mapped to the dedicated `aws.error.*` keys so
+  // the messaging is distinct from the app-lock surface.
+  aws_config_unreadable: "aws.error.config_unreadable",
+  profile_not_found: "aws.error.profile_not_found",
+  aws_timeout: "aws.error.timeout",
+  aws_connectivity: "aws.error.connectivity",
+  aws_sso_expired: "aws.error.sso_expired",
+  aws_permission_denied: "aws.error.permission_denied",
 };
 
 export function useIpcError() {
