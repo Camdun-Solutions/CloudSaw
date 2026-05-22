@@ -115,7 +115,13 @@ pub fn cancel_scan(scan_id: &str) -> Result<ScanRecord, ScannerError> {
     // consistent.
     handles::signal_cancel(scan_id);
     storage::record_canceled(scan_id)?;
-    storage::get(scan_id)
+    let updated = storage::get(scan_id)?;
+    // Event-log: UI-triggered cancel. The orchestrator thread that holds
+    // the handle will also emit a canceled event when it wakes, so this
+    // is a defense-in-depth emit for the "scan already terminal on the
+    // next poll" race.
+    emit_terminal_event(scan_id, &updated.aws_account_id);
+    Ok(updated)
 }
 
 /// History query used by the UI. Returns the most recent `limit` scans for
@@ -188,6 +194,68 @@ fn execute_scan(
         // UI poll will eventually surface the row.
         let _ = storage::record_failed(&scan_id, e.code());
     }
+
+    // Emit the appropriate event-log row for whatever terminal state the
+    // scan landed in. Reads the row we just wrote rather than tracking
+    // state across the inner function — keeps the inner path side-effect-
+    // free against the event-log dependency.
+    emit_terminal_event(&scan_id, &aws_account_id);
+}
+
+/// Look up the scan's terminal row and emit the matching event-log entry.
+/// Best-effort: a missing row (e.g. concurrent panic wipe) is silently
+/// dropped — the scanner never blocks on the event log.
+fn emit_terminal_event(scan_id: &str, aws_account_id: &str) {
+    use crate::eventlog::{record_event, EventInput, EventKind};
+    use crate::scanner::types::ScanStatus;
+
+    let record = match storage::get(scan_id) {
+        Ok(r) => r,
+        Err(_) => return,
+    };
+    let (kind, summary) = match record.status {
+        ScanStatus::Complete => (
+            EventKind::ScanCompleted,
+            format!(
+                "Scan {scan} for {acct} completed.",
+                scan = scan_id,
+                acct = crate::accounts::mask_for_logs(aws_account_id),
+            ),
+        ),
+        ScanStatus::CompleteWithWarnings => (
+            EventKind::ScanCompleted,
+            format!(
+                "Scan {scan} for {acct} completed with warnings.",
+                scan = scan_id,
+                acct = crate::accounts::mask_for_logs(aws_account_id),
+            ),
+        ),
+        ScanStatus::Failed => (
+            EventKind::ScanFailed,
+            format!(
+                "Scan {scan} for {acct} failed ({code}).",
+                scan = scan_id,
+                acct = crate::accounts::mask_for_logs(aws_account_id),
+                code = record.failure_code.as_deref().unwrap_or("unknown"),
+            ),
+        ),
+        ScanStatus::Canceled => (
+            EventKind::ScanCanceled,
+            format!(
+                "Scan {scan} for {acct} canceled.",
+                scan = scan_id,
+                acct = crate::accounts::mask_for_logs(aws_account_id),
+            ),
+        ),
+        // Non-terminal — execute_scan_inner left it in flight (we never
+        // emit until a terminal row exists).
+        _ => return,
+    };
+    record_event(
+        EventInput::new(kind, summary)
+            .with_scan_id(scan_id)
+            .with_account(aws_account_id),
+    );
 }
 
 struct ScanCleanup {

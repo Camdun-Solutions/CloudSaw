@@ -78,6 +78,9 @@ const KNOWN_CODES: Record<string, string> = {
   scanner_process_lost: "scanner.failure.scanner_process_lost",
   scanner_process_failed: "scanner.failure.scanner_process_failed",
   scanner_output_missing: "scanner.failure.scanner_output_missing",
+  // Event log, retention, hard delete & panic (Contract 11).
+  confirmation_rejected: "eventlog.error.confirmation_rejected",
+  schedule_not_found: "eventlog.error.generic",
 };
 
 export function useIpcError() {
