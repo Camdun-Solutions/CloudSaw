@@ -162,6 +162,21 @@ pub fn run() {
 }
 
 fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
+    // Install the production OS-keychain-backed credential store
+    // (Contract 17). Feature code (`github::pat`, `ai::key`,
+    // `wipe::run_panic_wipe`) reads through the `keychain::store()`
+    // accessor, which delegates to whatever was installed here.
+    // Integration tests install an `InMemoryStore` instead — that's
+    // what lets the qa11/qa12/qa13 suites run in CI runners with no
+    // desktop session. CLAUDE.md §4.8.
+    //
+    // `install_store` returns Err iff a store is already installed.
+    // That only happens on re-entry within the same process (e.g.
+    // tests that import `lib::run`); the production runtime calls
+    // `bootstrap` exactly once, so the result is always Ok here.
+    // We swallow the error rather than panic.
+    let _ = keychain::install_store(std::sync::Arc::new(keychain::KeyringStore::new()));
+
     let data_root = db::paths::app_data_dir()?;
     db::paths::ensure_user_only_dir(&data_root)?;
 
