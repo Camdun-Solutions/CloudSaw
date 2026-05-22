@@ -31,6 +31,7 @@ use crate::knowledgebase::{
     self, ArticleSummary, ControlMapping, Framework, KnowledgeArticle, RefreshApplyResult,
     RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
 };
+use crate::onboarding::{self, OnboardingState, OnboardingStep};
 use crate::retention::{self, RetentionPeriod, RetentionRunSummary, RetentionSettings};
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
@@ -712,4 +713,46 @@ pub async fn ai_send_request(preview: AiRequestPreview) -> Result<AiSuggestion, 
         .await
         .map_err(|e| AppError::Internal(format!("ai_send spawn: {e}")))?
         .map_err(AppError::from)
+}
+
+// --- Onboarding wizard (Contract 14) ------------------------------------
+//
+// The wizard is the only entry point on first launch (App.tsx gates the
+// main app behind `onboarding_get_state().completed`). Every IPC here
+// just touches the singleton onboarding row — credentials, account
+// identifiers, and the master password ALL live in their owning
+// modules (applock / accounts / terraform / scanner / ai). The wizard
+// itself stores only step flags + language.
+
+#[tauri::command]
+pub fn onboarding_get_state() -> Result<OnboardingState, AppError> {
+    onboarding::get_state().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_set_language(language: String) -> Result<(), AppError> {
+    onboarding::set_language(&language).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_set_current_step(step: OnboardingStep) -> Result<(), AppError> {
+    onboarding::set_current_step(step).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_mark_step_completed(step: OnboardingStep) -> Result<(), AppError> {
+    onboarding::mark_step_completed(step).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_complete() -> Result<(), AppError> {
+    onboarding::complete().map_err(AppError::from)
+}
+
+/// Reset the wizard for a Settings-driven re-run. `start_at` lets the
+/// caller jump straight to a specific step (typically `aws_account` for
+/// "add another account").
+#[tauri::command]
+pub fn onboarding_reset_for_rerun(start_at: OnboardingStep) -> Result<(), AppError> {
+    onboarding::reset_for_rerun(start_at).map_err(AppError::from)
 }

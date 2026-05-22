@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ErrorBoundary, ErrorReportDialog } from "@/components";
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
 import Dashboard from "@/routes/Dashboard";
-import FirstRunSetup from "@/routes/FirstRunSetup";
 import Home from "@/routes/Home";
+import Onboarding from "@/routes/Onboarding";
 import Profiles from "@/routes/Profiles";
 import ScheduledScans from "@/routes/ScheduledScans";
 import Settings from "@/routes/Settings";
 import UnlockScreen from "@/routes/UnlockScreen";
+import { ipc, type OnboardingState } from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
 
 type Route =
@@ -34,12 +35,34 @@ export default function App() {
     undefined,
   );
 
+  // Onboarding state — Contract 14. The wizard is the only entry point
+  // until `completed = true`. We hydrate once at mount and refresh
+  // after the wizard finishes so the App re-renders into the main app.
+  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
+
+  const refreshOnboarding = useCallback(async () => {
+    try {
+      setOnboarding(await ipc.onboardingGetState());
+    } catch {
+      // Fail-open: a stalled IPC must not strand the user behind the
+      // wizard. The error path below renders the bug-report affordance.
+      setOnboarding(null);
+    } finally {
+      setOnboardingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshOnboarding();
+  }, [refreshOnboarding]);
+
   function openReport(notes?: string) {
     setErrorDialogNotes(notes);
     setErrorDialogOpen(true);
   }
 
-  if (status === "loading") {
+  if (status === "loading" || onboardingLoading) {
     return (
       <main className="min-h-full bg-saw-grey-50 flex items-center justify-center">
         <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
@@ -91,8 +114,24 @@ export default function App() {
     );
   }
 
-  if (state.first_run) return <FirstRunSetup />;
+  // The onboarding wizard subsumes the original first-run gate from
+  // Contract 02 — its password step is the same flow FirstRunSetup
+  // used to drive. With the wizard in place there is no longer a
+  // standalone first-run screen.
+  //
+  // Lock screen only when the password IS set AND the session is
+  // locked. With no password set, the wizard handles step 2.
   if (state.locked) return <UnlockScreen />;
+
+  if (!onboarding?.completed) {
+    return (
+      <Onboarding
+        onCompleted={() => {
+          void refreshOnboarding();
+        }}
+      />
+    );
+  }
 
   return (
     <ErrorBoundary
@@ -143,6 +182,16 @@ export default function App() {
         route={route}
         setRoute={setRoute}
         onOpenReport={openReport}
+        onRerunOnboarding={async (startAt) => {
+          try {
+            await ipc.onboardingResetForRerun(startAt);
+            await refreshOnboarding();
+          } catch {
+            // Surface via the bug-report path so the user sees an
+            // actionable affordance rather than a silent failure.
+            openReport("Failed to re-enter the onboarding wizard.");
+          }
+        }}
       />
       <ErrorReportDialog
         open={errorDialogOpen}
@@ -161,10 +210,12 @@ function AppShell({
   route,
   setRoute,
   onOpenReport,
+  onRerunOnboarding,
 }: {
   route: Route;
   setRoute: (r: Route) => void;
   onOpenReport: (notes?: string) => void;
+  onRerunOnboarding: (startAt: "aws_account" | "language") => void;
 }) {
   if (route === "settings") {
     return (
@@ -172,6 +223,7 @@ function AppShell({
         onClose={() => setRoute("home")}
         onOpenSchedules={() => setRoute("schedules")}
         onOpenActivityLog={() => setRoute("activitylog")}
+        onRerunOnboarding={onRerunOnboarding}
       />
     );
   }

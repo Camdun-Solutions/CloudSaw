@@ -69,6 +69,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0010_ai_context",
         include_str!("../../migrations/0010_ai_context.sql"),
     ),
+    (
+        "0011_onboarding",
+        include_str!("../../migrations/0011_onboarding.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {

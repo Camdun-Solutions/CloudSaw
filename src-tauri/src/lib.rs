@@ -15,6 +15,7 @@ pub mod github;
 pub mod ipc;
 pub mod keychain;
 pub mod knowledgebase;
+pub mod onboarding;
 pub mod reports;
 pub mod retention;
 pub mod scanner;
@@ -128,6 +129,12 @@ pub fn run() {
             ipc::ai_set_business_context,
             ipc::ai_prepare_request,
             ipc::ai_send_request,
+            ipc::onboarding_get_state,
+            ipc::onboarding_set_language,
+            ipc::onboarding_set_current_step,
+            ipc::onboarding_mark_step_completed,
+            ipc::onboarding_complete,
+            ipc::onboarding_reset_for_rerun,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

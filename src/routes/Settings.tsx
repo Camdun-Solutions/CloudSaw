@@ -62,9 +62,18 @@ type Props = {
   onClose: () => void;
   onOpenSchedules: () => void;
   onOpenActivityLog: () => void;
+  /** Re-enter the onboarding wizard at a specific step. Settings uses
+   * this to expose "Add another AWS account" and "Re-run the full
+   * wizard" actions (Contract 14 §Expected Output). */
+  onRerunOnboarding?: (startAt: "aws_account" | "language") => void;
 };
 
-export default function Settings({ onClose, onOpenSchedules, onOpenActivityLog }: Props) {
+export default function Settings({
+  onClose,
+  onOpenSchedules,
+  onOpenActivityLog,
+  onRerunOnboarding,
+}: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { state, refresh } = useLock();
@@ -244,6 +253,7 @@ export default function Settings({ onClose, onOpenSchedules, onOpenActivityLog }
       </section>
 
       <ActivityLogSection onOpen={onOpenActivityLog} />
+      <OnboardingSection onRerun={onRerunOnboarding} />
       <RetentionSection />
       <GithubSection />
       <AiSection />
@@ -262,6 +272,44 @@ export default function Settings({ onClose, onOpenSchedules, onOpenActivityLog }
 }
 
 // --- Contract 11 sections -----------------------------------------------
+
+function OnboardingSection({
+  onRerun,
+}: {
+  onRerun?: (startAt: "aws_account" | "language") => void;
+}) {
+  const t = useT();
+  if (!onRerun) return null;
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-onboarding"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("settings.section.onboarding_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("settings.section.onboarding_subtitle")}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => onRerun("aws_account")}
+          data-testid="settings-onboarding-add-account"
+        >
+          {t("settings.section.onboarding_add_account")}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => onRerun("language")}
+          data-testid="settings-onboarding-rerun-full"
+        >
+          {t("settings.section.onboarding_rerun_full")}
+        </Button>
+      </div>
+    </section>
+  );
+}
 
 function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
   const t = useT();

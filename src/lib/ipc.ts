@@ -640,6 +640,30 @@ export type AiSuggestion = {
   usage_output_tokens: number | null;
 };
 
+// --- Onboarding wizard (Contract 14) ----------------------------------
+
+export type OnboardingStep =
+  | "language"
+  | "master_password"
+  | "aws_account"
+  | "terraform"
+  | "business_context"
+  | "first_scan"
+  | "done";
+
+export type OnboardingState = {
+  completed: boolean;
+  current_step: OnboardingStep;
+  language: string;
+  step_language_completed: boolean;
+  step_password_completed: boolean;
+  step_account_completed: boolean;
+  step_terraform_completed: boolean;
+  step_context_completed: boolean;
+  step_first_scan_completed: boolean;
+  completed_at: string | null;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -1127,6 +1151,38 @@ export const ipc = {
    * Rejects with `ai_no_provider_key` if no key is connected. */
   aiSendRequest(preview: AiRequestPreview): Promise<AiSuggestion> {
     return invoke<AiSuggestion>("ai_send_request", { preview });
+  },
+
+  // --- Onboarding wizard (Contract 14) -------------------------------
+
+  /** Read the full wizard state. App.tsx calls this on mount; if
+   * `completed` is false, the only entry point is the wizard. */
+  onboardingGetState(): Promise<OnboardingState> {
+    return invoke<OnboardingState>("onboarding_get_state");
+  },
+
+  onboardingSetLanguage(language: string): Promise<void> {
+    return invoke<void>("onboarding_set_language", { language });
+  },
+
+  onboardingSetCurrentStep(step: OnboardingStep): Promise<void> {
+    return invoke<void>("onboarding_set_current_step", { step });
+  },
+
+  onboardingMarkStepCompleted(step: OnboardingStep): Promise<void> {
+    return invoke<void>("onboarding_mark_step_completed", { step });
+  },
+
+  /** Flip the global completed flag. Called after the FirstScan step
+   * finishes. Subsequent launches route straight to the main app. */
+  onboardingComplete(): Promise<void> {
+    return invoke<void>("onboarding_complete");
+  },
+
+  /** Re-enter the wizard from Settings, jumping straight to a
+   * specific step (typically `aws_account` to add another). */
+  onboardingResetForRerun(startAt: OnboardingStep): Promise<void> {
+    return invoke<void>("onboarding_reset_for_rerun", { startAt });
   },
 };
 
