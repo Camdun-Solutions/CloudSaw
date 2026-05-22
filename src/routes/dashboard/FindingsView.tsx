@@ -9,6 +9,7 @@ import {
   SafeMarkdown,
   Select,
   SeverityBadge,
+  SubmissionPreviewModal,
   VirtualList,
 } from "@/components";
 import { useT } from "@/hooks/useT";
@@ -21,6 +22,9 @@ import {
   type FindingDetail,
   type FindingStatus,
   type FindingsFilter,
+  type FindingTicket,
+  type GithubSettings,
+  type IssuePreview,
   type KnowledgeArticle,
   type Severity,
 } from "@/lib/ipc";
@@ -384,6 +388,9 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
   const [mapping, setMapping] = useState<ControlMapping | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<FindingTicket | null>(null);
+  const [github, setGithub] = useState<GithubSettings | null>(null);
+  const [preview, setPreview] = useState<IssuePreview | null>(null);
 
   const load = useCallback(async () => {
     if (!findingId) return;
@@ -392,6 +399,7 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
     setMapping(null);
     setError(null);
     setErrorCode(null);
+    setTicket(null);
     try {
       const d = await ipc.findingsGet(findingId);
       setDetail(d);
@@ -401,12 +409,16 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
       // those don't throw, so we surface them as their respective empty
       // states below.
       const ruleKey = d.finding.rule_key;
-      const [art, map] = await Promise.all([
+      const [art, map, t2, gh] = await Promise.all([
         ipc.kbGetArticle(ruleKey),
         ipc.kbGetControlMappings(ruleKey),
+        ipc.githubGetFindingTicket(findingId),
+        ipc.githubGetSettings(),
       ]);
       setArticle(art);
       setMapping(map);
+      setTicket(t2);
+      setGithub(gh);
     } catch (err) {
       setError(formatError(err));
       setErrorCode(
@@ -420,6 +432,25 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function startCreateTicket() {
+    if (!findingId || !github) return;
+    if (!github.findings_repo) {
+      setError(t("github.error.no_findings_repo"));
+      return;
+    }
+    if (ticket) {
+      // Already linked — the UI shows the link rather than filing a
+      // duplicate (Contract 12 §Edge Cases).
+      return;
+    }
+    try {
+      const p = await ipc.githubPrepareFindingTicket(findingId, github.findings_repo);
+      setPreview(p);
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
 
   if (!findingId) {
     return (
@@ -482,6 +513,13 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
           </div>
         </div>
 
+        <FindingTicketRow
+          ticket={ticket}
+          onCreate={() => void startCreateTicket()}
+          tokenConfigured={github?.token.configured ?? false}
+          findingsRepoConfigured={!!github?.findings_repo}
+        />
+
         {article.matched ? (
           <ArticleBody article={article} />
         ) : (
@@ -491,6 +529,79 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
 
       <ResourceList detail={detail} />
       <MappingList mapping={mapping} />
+
+      <SubmissionPreviewModal
+        preview={preview}
+        onClose={() => setPreview(null)}
+        onSubmitApi={async (p) => {
+          if (!findingId) throw new Error("no finding id");
+          const created = await ipc.githubSubmitFindingTicket(findingId, p);
+          // Reload so the linked-ticket row replaces the CTA.
+          await load();
+          return {
+            repo: created.repo,
+            issue_number: created.issue_number,
+            issue_url: created.issue_url,
+          };
+        }}
+        onBrowserFallback={(p) => ipc.githubBrowserFallbackForFinding(p)}
+        tokenConfigured={github?.token.configured ?? false}
+      />
+    </div>
+  );
+}
+
+function FindingTicketRow({
+  ticket,
+  onCreate,
+  tokenConfigured,
+  findingsRepoConfigured,
+}: {
+  ticket: FindingTicket | null;
+  onCreate: () => void;
+  tokenConfigured: boolean;
+  findingsRepoConfigured: boolean;
+}) {
+  const t = useT();
+  if (ticket) {
+    return (
+      <div
+        className="mt-3 rounded-card bg-saw-grey-50 border border-saw-grey-200 px-3 py-2 text-small flex items-center justify-between"
+        data-testid="finding-ticket-linked"
+      >
+        <span className="text-saw-grey-900 font-mono">
+          {t("findingticket.linked")
+            .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
+            .replace("{n}", String(ticket.issue_number))}
+        </span>
+        <a
+          href={ticket.issue_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-small text-saw-grey-700 underline underline-offset-2"
+          data-testid="finding-ticket-link"
+        >
+          {t("findingticket.linked_view")}
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onCreate}
+        disabled={!findingsRepoConfigured && !tokenConfigured}
+        data-testid="finding-create-ticket"
+      >
+        {t("findingticket.cta")}
+      </Button>
+      {!findingsRepoConfigured ? (
+        <p className="mt-1 text-xs text-saw-grey-500" data-testid="finding-create-ticket-hint">
+          {t("github.findings_repo.none")}
+        </p>
+      ) : null}
     </div>
   );
 }

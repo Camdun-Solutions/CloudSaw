@@ -63,6 +63,7 @@ reqwest = { version = "0.13", default-features = false, features = [
     "blocking",
     "rustls",
     "http2",
+    "json",
 ] }
 
 # OS-native secure storage used for the small number of long-lived secrets
@@ -78,6 +79,13 @@ keyring = { version = "3", default-features = false, features = [
     "sync-secret-service",
     "vendored",
 ] }
+
+# Redaction rules for the GitHub error-report bundle (Contract 12).
+# Used purely for token-level pattern matching against a known-static
+# set of patterns (AWS ARNs, account IDs, access keys, PAT formats). The
+# crate is already in our transitive graph via tauri/aws-sdk; pulling it
+# in directly removes the version-drift risk.
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"

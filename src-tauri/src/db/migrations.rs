@@ -61,6 +61,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0008_eventlog_retention",
         include_str!("../../migrations/0008_eventlog_retention.sql"),
     ),
+    (
+        "0009_github_integration",
+        include_str!("../../migrations/0009_github_integration.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {

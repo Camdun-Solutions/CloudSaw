@@ -1,11 +1,14 @@
 export { default as Badge } from "./Badge";
 export { default as Button } from "./Button";
 export { default as EmptyState } from "./EmptyState";
+export { default as ErrorBoundary } from "./ErrorBoundary";
+export { default as ErrorReportDialog } from "./ErrorReportDialog";
 export { default as LineChart } from "./LineChart";
 export { default as Modal } from "./Modal";
 export { default as PasswordField } from "./PasswordField";
 export { default as SafeMarkdown } from "./SafeMarkdown";
 export { default as Select } from "./Select";
 export { default as SeverityBadge } from "./SeverityBadge";
+export { default as SubmissionPreviewModal } from "./SubmissionPreviewModal";
 export { default as Switch } from "./Switch";
 export { default as VirtualList } from "./VirtualList";

@@ -10,6 +10,7 @@ pub mod deletion;
 pub mod errors;
 pub mod eventlog;
 pub mod findings;
+pub mod github;
 pub mod ipc;
 pub mod keychain;
 pub mod knowledgebase;
@@ -105,6 +106,19 @@ pub fn run() {
             ipc::deletion_vacuum_now,
             ipc::system_panic_wipe,
             ipc::system_request_reboot,
+            ipc::github_get_settings,
+            ipc::github_set_token,
+            ipc::github_clear_token,
+            ipc::github_set_findings_repo,
+            ipc::github_generate_token_url,
+            ipc::github_prepare_error_report,
+            ipc::github_submit_error_report,
+            ipc::github_browser_fallback_for_error,
+            ipc::github_prepare_finding_ticket,
+            ipc::github_submit_finding_ticket,
+            ipc::github_browser_fallback_for_finding,
+            ipc::github_get_finding_ticket,
+            ipc::github_list_finding_tickets,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

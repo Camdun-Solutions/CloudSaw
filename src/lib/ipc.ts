@@ -520,6 +520,60 @@ export type PanicWipeResult = {
   self_delete_staged: boolean;
 };
 
+// --- GitHub integration (Contract 12) ------------------------------------
+
+export type RepoSelection = { owner: string; name: string };
+
+export type TokenStatus = { configured: boolean };
+
+export type GithubSettings = {
+  token: TokenStatus;
+  findings_repo: RepoSelection | null;
+  /** Hard-coded by the backend — the CloudSaw repo error reports land on. */
+  error_report_repo: RepoSelection;
+  /** `security@cloud-saw.com`. Backend-supplied so the UI shows the canonical
+   * value rather than a hard-coded literal in the frontend. */
+  security_contact: string;
+};
+
+export type DiagnosticBundle = {
+  app_version: string;
+  os_family: string;
+  os_release: string;
+  locale: string;
+  generated_at: string;
+  redacted_log_lines: string[];
+  notes: string | null;
+};
+
+/** The exact content that would be submitted. Shown to the user BEFORE any
+ * direct API call (Contract 12 §Constraints). The UI passes the same value
+ * back to `githubSubmit*` so what the user reviewed is what gets sent. */
+export type IssuePreview = {
+  repo: RepoSelection;
+  title: string;
+  body: string;
+  labels: string[];
+  bundle: DiagnosticBundle;
+};
+
+export type IssueCreated = {
+  repo: RepoSelection;
+  issue_number: number;
+  issue_url: string;
+};
+
+export type BrowserSubmission = { url: string };
+
+export type FindingTicket = {
+  finding_id: string;
+  aws_account_id_masked: string;
+  repo: RepoSelection;
+  issue_number: number;
+  issue_url: string;
+  created_at: string;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -870,6 +924,101 @@ export const ipc = {
    * "Reboot now" in the post-panic dialog. */
   systemRequestReboot(): Promise<void> {
     return invoke<void>("system_request_reboot");
+  },
+
+  // --- GitHub integration (Contract 12) -------------------------------
+
+  /** Read current PAT status, findings-ticket repo, error-report repo,
+   * and security contact in one call. */
+  githubGetSettings(): Promise<GithubSettings> {
+    return invoke<GithubSettings>("github_get_settings");
+  },
+
+  /** Store the user-supplied PAT. The value goes ONLY to the OS keychain
+   * — never SQLite, never logs, never URLs. */
+  githubSetToken(token: string): Promise<void> {
+    return invoke<void>("github_set_token", { token });
+  },
+
+  githubClearToken(): Promise<void> {
+    return invoke<void>("github_clear_token");
+  },
+
+  githubSetFindingsRepo(repo: RepoSelection | null): Promise<void> {
+    return invoke<void>("github_set_findings_repo", { repo });
+  },
+
+  /** URL of the GitHub fine-grained-token settings page. Frontend opens
+   * this in the system browser when the user clicks "Generate token". */
+  githubGenerateTokenUrl(): Promise<string> {
+    return invoke<string>("github_generate_token_url");
+  },
+
+  /** Build the issue preview for an error report. The UI MUST show this
+   * to the user before invoking `githubSubmitErrorReport`. */
+  githubPrepareErrorReport(
+    notes: string | null,
+    locale: string,
+  ): Promise<IssuePreview> {
+    return invoke<IssuePreview>("github_prepare_error_report", { notes, locale });
+  },
+
+  /** Submit the error report via the GitHub API. Requires a configured
+   * PAT; rejects with `github_no_token` otherwise. */
+  githubSubmitErrorReport(preview: IssuePreview): Promise<IssueCreated> {
+    return invoke<IssueCreated>("github_submit_error_report", { preview });
+  },
+
+  /** Build the prefilled GitHub new-issue URL for the browser fallback.
+   * Always available — does NOT require a token. */
+  githubBrowserFallbackForError(preview: IssuePreview): Promise<BrowserSubmission> {
+    return invoke<BrowserSubmission>("github_browser_fallback_for_error", {
+      preview,
+    });
+  },
+
+  /** Build the issue preview for a finding ticket against a user-
+   * selected repo. */
+  githubPrepareFindingTicket(
+    findingId: string,
+    repo: RepoSelection,
+  ): Promise<IssuePreview> {
+    return invoke<IssuePreview>("github_prepare_finding_ticket", {
+      findingId,
+      repo,
+    });
+  },
+
+  /** Submit the finding ticket via the GitHub API. Persists the
+   * finding↔issue link on success. */
+  githubSubmitFindingTicket(
+    findingId: string,
+    preview: IssuePreview,
+  ): Promise<FindingTicket> {
+    return invoke<FindingTicket>("github_submit_finding_ticket", {
+      findingId,
+      preview,
+    });
+  },
+
+  githubBrowserFallbackForFinding(
+    preview: IssuePreview,
+  ): Promise<BrowserSubmission> {
+    return invoke<BrowserSubmission>("github_browser_fallback_for_finding", {
+      preview,
+    });
+  },
+
+  /** Read the linked ticket for a finding, if any. */
+  githubGetFindingTicket(findingId: string): Promise<FindingTicket | null> {
+    return invoke<FindingTicket | null>("github_get_finding_ticket", { findingId });
+  },
+
+  /** All linked tickets for an account, newest first. */
+  githubListFindingTickets(awsAccountId: string): Promise<FindingTicket[]> {
+    return invoke<FindingTicket[]>("github_list_finding_tickets", {
+      awsAccountId,
+    });
   },
 };
 

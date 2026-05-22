@@ -24,6 +24,12 @@ use thiserror::Error;
 
 use crate::errors::AppError;
 
+/// Canonical service name for the GitHub fine-grained PAT (Contract 12).
+/// Exposed so the `github` module reads/writes the same entry the panic
+/// wipe enumerates.
+pub const GITHUB_PAT_SERVICE: &str = "cloudsaw.github_pat";
+pub const GITHUB_PAT_ACCOUNT: &str = "default";
+
 /// All service/account pairs CloudSaw is permitted to write to the OS
 /// keychain. The panic wipe enumerates this list and removes every entry.
 ///
@@ -31,14 +37,11 @@ use crate::errors::AppError;
 /// here AND wiring the read/write through `get`/`set`/`delete` below.
 const REGISTRY: &[(&str, &str)] = &[
     // (service, account)
+    (GITHUB_PAT_SERVICE, GITHUB_PAT_ACCOUNT),
     //
-    // Examples (intentionally commented — these contracts have not landed
-    // yet, so writing them would create false expectations the panic test
-    // would fail on):
-    //
-    //   ("com.cloudsaw.github_pat", "default"),
-    //   ("com.cloudsaw.ai_api_key", "anthropic"),
-    //   ("com.cloudsaw.ai_api_key", "openai"),
+    // Future:
+    //   ("cloudsaw.ai_api_key", "anthropic"),
+    //   ("cloudsaw.ai_api_key", "openai"),
 ];
 
 #[derive(Debug, Error)]
@@ -134,20 +137,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn wipe_all_on_empty_registry_is_a_noop() {
-        // The registry is intentionally empty in this contract. When
-        // Contracts 12/13 add entries the assertion below will change to
-        // assert the sweep visits each one. For now, the result is the
-        // all-zero default.
-        let result = wipe_all();
-        assert_eq!(result.removed, 0);
-        assert_eq!(result.failed, 0);
-        // not_present counts ENTRIES we tried — also zero today.
-        assert_eq!(result.not_present, 0);
-    }
-
-    #[test]
-    fn snapshot_matches_registry_length() {
-        assert_eq!(registry_snapshot().len(), REGISTRY.len());
+    fn snapshot_includes_every_registered_pair() {
+        let snap = registry_snapshot();
+        assert_eq!(snap.len(), REGISTRY.len());
+        // Contract 12 registers the GitHub PAT — the registry must include it
+        // so the panic wipe sweeps it on the next call.
+        assert!(snap
+            .iter()
+            .any(|(s, a)| *s == GITHUB_PAT_SERVICE && *a == GITHUB_PAT_ACCOUNT));
     }
 }
