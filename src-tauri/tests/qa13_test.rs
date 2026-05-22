@@ -48,6 +48,8 @@ impl Sandbox {
         fs::create_dir_all(&dir).unwrap();
         fs::create_dir_all(dir.join("db")).unwrap();
         std::env::set_var("CLOUDSAW_DATA_DIR_OVERRIDE", &dir);
+        // Contract 17: in-memory credential store (no OS keychain).
+        let _ = cloudsaw_lib::keychain::install_in_memory_for_tests();
         migrations::run(&dir.join("db").join("cloudsaw.db")).unwrap();
         Self { _guard: guard, dir }
     }
