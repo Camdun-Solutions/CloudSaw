@@ -181,6 +181,21 @@ pub enum AppError {
     #[error("findings: account mismatch")]
     FindingsAccountMismatch,
 
+    // Knowledge base & compliance mapping (Contract 08). The KB module only
+    // reads bundled markdown and, when opted-in, public documentation —
+    // these errors carry no credential material, ARNs, or account IDs.
+    #[error("kb: remote refresh disabled")]
+    KbRefreshDisabled,
+
+    #[error("kb: remote refresh unreachable")]
+    KbRefreshUnreachable,
+
+    #[error("kb: remote refresh content invalid")]
+    KbRefreshInvalidContent,
+
+    #[error("kb: remote refresh already up to date")]
+    KbRefreshUpToDate,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -238,6 +253,10 @@ impl AppError {
             AppError::FindingsRawOutputMissing => "findings_raw_output_missing",
             AppError::FindingsParseMalformed(_) => "findings_parse_malformed",
             AppError::FindingsAccountMismatch => "findings_account_mismatch",
+            AppError::KbRefreshDisabled => "kb_refresh_disabled",
+            AppError::KbRefreshUnreachable => "kb_refresh_unreachable",
+            AppError::KbRefreshInvalidContent => "kb_refresh_invalid_content",
+            AppError::KbRefreshUpToDate => "kb_refresh_up_to_date",
             AppError::Internal(_) => "internal_error",
         }
     }
