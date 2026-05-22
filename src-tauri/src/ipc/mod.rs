@@ -22,6 +22,10 @@ use crate::eventlog::{self, EventLogEntry, EventLogFilter};
 use crate::findings::{
     self, DeleteScanImpact, Finding, FindingDetail, FindingsFilter, ParseSummary,
 };
+use crate::github::{
+    self, BrowserSubmission, FindingTicket, GithubSettings, IssueCreated, IssuePreview,
+    RepoSelection,
+};
 use crate::knowledgebase::{
     self, ArticleSummary, ControlMapping, Framework, KnowledgeArticle, RefreshApplyResult,
     RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
@@ -548,4 +552,107 @@ pub fn system_panic_wipe(confirmation: String) -> Result<PanicWipeResult, AppErr
 pub fn system_request_reboot() -> Result<(), AppError> {
     wipe::selfdelete::request_user_reboot()
         .map_err(|e| AppError::Io(format!("reboot: {e}")))
+}
+
+// --- GitHub integration (Contract 12) ------------------------------------
+//
+// Two surfaces share one PAT (stored only in the OS keychain at
+// `cloudsaw.github_pat`). The IPC bridge never accepts a token in plain
+// IPC payloads other than `github_set_token`; every other call reads
+// the PAT from the keychain inside the underlying module. Direct API
+// submission always goes through the `prepare → preview → submit`
+// dance — the UI shows the preview to the user before submission
+// (Contract 12 §Constraints).
+
+#[tauri::command]
+pub fn github_get_settings() -> Result<GithubSettings, AppError> {
+    github::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_set_token(token: String) -> Result<(), AppError> {
+    github::set_token(token).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_clear_token() -> Result<(), AppError> {
+    github::clear_token().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_set_findings_repo(repo: Option<RepoSelection>) -> Result<(), AppError> {
+    github::set_findings_repo(repo).map_err(AppError::from)
+}
+
+/// URL of the GitHub fine-grained-token settings page. Returned to the
+/// frontend so the "Generate token" button opens it via the OS browser.
+#[tauri::command]
+pub fn github_generate_token_url() -> String {
+    github::generate_token_url().to_string()
+}
+
+#[tauri::command]
+pub async fn github_prepare_error_report(
+    notes: Option<String>,
+    locale: String,
+) -> Result<IssuePreview, AppError> {
+    tokio::task::spawn_blocking(move || github::prepare_error_report(notes, &locale))
+        .await
+        .map_err(|e| AppError::Internal(format!("github_prepare_error spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn github_submit_error_report(
+    preview: IssuePreview,
+) -> Result<IssueCreated, AppError> {
+    tokio::task::spawn_blocking(move || github::submit_error_report(&preview))
+        .await
+        .map_err(|e| AppError::Internal(format!("github_submit_error spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_browser_fallback_for_error(
+    preview: IssuePreview,
+) -> Result<BrowserSubmission, AppError> {
+    Ok(github::browser_fallback_for_error_report(&preview))
+}
+
+#[tauri::command]
+pub fn github_prepare_finding_ticket(
+    finding_id: String,
+    repo: RepoSelection,
+) -> Result<IssuePreview, AppError> {
+    github::prepare_finding_ticket(&finding_id, &repo).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn github_submit_finding_ticket(
+    finding_id: String,
+    preview: IssuePreview,
+) -> Result<FindingTicket, AppError> {
+    tokio::task::spawn_blocking(move || github::submit_finding_ticket(&finding_id, &preview))
+        .await
+        .map_err(|e| AppError::Internal(format!("github_submit_finding spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_browser_fallback_for_finding(
+    preview: IssuePreview,
+) -> Result<BrowserSubmission, AppError> {
+    Ok(github::browser_fallback_for_finding_ticket(&preview))
+}
+
+#[tauri::command]
+pub fn github_get_finding_ticket(finding_id: String) -> Result<Option<FindingTicket>, AppError> {
+    github::get_finding_ticket(&finding_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_list_finding_tickets(
+    aws_account_id: String,
+) -> Result<Vec<FindingTicket>, AppError> {
+    github::list_finding_tickets(&aws_account_id).map_err(AppError::from)
 }

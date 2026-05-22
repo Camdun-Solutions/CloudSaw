@@ -44,11 +44,14 @@ import {
 type Props = {
   onClose: () => void;
   onOpenAccounts: () => void;
+  /** Open the global error-report dialog with the supplied notes
+   * pre-filled. Optional; the dashboard's load-error UI uses it. */
+  onOpenReport?: (notes?: string) => void;
 };
 
 type Tab = "scans" | "findings" | "drift" | "trends";
 
-export default function Dashboard({ onClose, onOpenAccounts }: Props) {
+export default function Dashboard({ onClose, onOpenAccounts, onOpenReport }: Props) {
   const t = useT();
   const formatError = useIpcError();
 
@@ -251,6 +254,16 @@ export default function Dashboard({ onClose, onOpenAccounts }: Props) {
           >
             {loadError}
             <CopyDiagnostic info={loadError} />
+            {onOpenReport ? (
+              <button
+                type="button"
+                onClick={() => onOpenReport(loadError)}
+                className="ml-3 text-small text-saw-grey-700 underline underline-offset-2"
+                data-testid="dashboard-report-error"
+              >
+                {t("errordialog.file_bug")}
+              </button>
+            ) : null}
           </div>
         ) : null}
 

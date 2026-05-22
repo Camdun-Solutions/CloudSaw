@@ -207,6 +207,30 @@ pub enum AppError {
     #[error("confirmation rejected")]
     ConfirmationRejected,
 
+    // GitHub integration (Contract 12). Stable codes only; no PAT
+    // material, no Authorization header, no raw API response body
+    // appears in any of these messages.
+    #[error("github: no token configured")]
+    GithubNoToken,
+
+    #[error("github: token invalid or expired")]
+    GithubTokenInvalid,
+
+    #[error("github: rate limited")]
+    GithubRateLimited,
+
+    #[error("github: network unreachable")]
+    GithubNetwork,
+
+    #[error("github: server error {0}")]
+    GithubServerError(u16),
+
+    #[error("github: no findings repo configured")]
+    GithubNoFindingsRepo,
+
+    #[error("github: ticket already exists")]
+    GithubDuplicateTicket,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -270,6 +294,13 @@ impl AppError {
             AppError::KbRefreshUpToDate => "kb_refresh_up_to_date",
             AppError::ScheduleNotFound => "schedule_not_found",
             AppError::ConfirmationRejected => "confirmation_rejected",
+            AppError::GithubNoToken => "github_no_token",
+            AppError::GithubTokenInvalid => "github_token_invalid",
+            AppError::GithubRateLimited => "github_rate_limited",
+            AppError::GithubNetwork => "github_network",
+            AppError::GithubServerError(_) => "github_server_error",
+            AppError::GithubNoFindingsRepo => "github_no_findings_repo",
+            AppError::GithubDuplicateTicket => "github_duplicate_ticket",
             AppError::Internal(_) => "internal_error",
         }
     }

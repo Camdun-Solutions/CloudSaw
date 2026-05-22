@@ -11,6 +11,7 @@ import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
   ipc,
+  type GithubSettings,
   type LockPeriod,
   type LockSettings,
   type PanicWipeResult,
@@ -238,6 +239,7 @@ export default function Settings({ onClose, onOpenSchedules, onOpenActivityLog }
 
       <ActivityLogSection onOpen={onOpenActivityLog} />
       <RetentionSection />
+      <GithubSection />
       <PanicSection />
 
       <ChangePasswordDialog
@@ -721,5 +723,238 @@ function ChangePasswordDialog({
         ) : null}
       </div>
     </Modal>
+  );
+}
+
+// --- GitHub integration (Contract 12) -----------------------------------
+
+function GithubSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<GithubSettings | null>(null);
+  const [tokenInput, setTokenInput] = useState("");
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
+  const [repoInput, setRepoInput] = useState("");
+  const [repoBusy, setRepoBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const s = await ipc.githubGetSettings();
+      setSettings(s);
+      setRepoInput(s.findings_repo ? `${s.findings_repo.owner}/${s.findings_repo.name}` : "");
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  async function saveToken() {
+    setErr(null);
+    setTokenBusy(true);
+    setTokenSaved(false);
+    try {
+      await ipc.githubSetToken(tokenInput);
+      setTokenInput("");
+      setTokenSaved(true);
+      window.setTimeout(() => setTokenSaved(false), 3000);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+  async function clearToken() {
+    setErr(null);
+    try {
+      await ipc.githubClearToken();
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function saveRepo() {
+    setErr(null);
+    setRepoBusy(true);
+    try {
+      const parts = repoInput.trim().split("/");
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        setErr(t("github.error.no_findings_repo"));
+        return;
+      }
+      await ipc.githubSetFindingsRepo({ owner: parts[0], name: parts[1] });
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setRepoBusy(false);
+    }
+  }
+  async function clearRepo() {
+    setErr(null);
+    try {
+      await ipc.githubSetFindingsRepo(null);
+      setRepoInput("");
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function openTokenPage() {
+    try {
+      const url = await ipc.githubGenerateTokenUrl();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+
+  if (!settings) return null;
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-github"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("github.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("github.section_subtitle")}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <p
+          className="text-small text-saw-grey-700"
+          data-testid="settings-github-token-status"
+        >
+          {settings.token.configured
+            ? t("github.token.configured")
+            : t("github.token.not_configured")}
+        </p>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("github.token.label")}</span>
+          <input
+            type="password"
+            value={tokenInput}
+            onChange={(e) => setTokenInput(e.target.value)}
+            placeholder={t("github.token.placeholder")}
+            autoComplete="off"
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="settings-github-token-input"
+          />
+          <span className="text-xs text-saw-grey-500">{t("github.token.hint")}</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            onClick={() => void saveToken()}
+            disabled={tokenBusy || tokenInput.trim().length === 0}
+            data-testid="settings-github-token-save"
+          >
+            {tokenBusy ? t("github.token.saving") : t("github.token.save")}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => void openTokenPage()}
+            data-testid="settings-github-generate"
+          >
+            {t("github.token.generate_cta")}
+          </Button>
+          {settings.token.configured ? (
+            <Button
+              variant="ghost"
+              onClick={() => void clearToken()}
+              data-testid="settings-github-token-clear"
+            >
+              {t("github.token.clear")}
+            </Button>
+          ) : null}
+        </div>
+        {tokenSaved ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="settings-github-token-saved"
+          >
+            {t("github.token.configured")}
+          </p>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("github.findings_repo.label")}</span>
+          <input
+            type="text"
+            value={repoInput}
+            onChange={(e) => setRepoInput(e.target.value)}
+            placeholder={t("github.findings_repo.placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="settings-github-repo-input"
+          />
+          <span className="text-xs text-saw-grey-500">{t("github.findings_repo.hint")}</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            onClick={() => void saveRepo()}
+            disabled={repoBusy || repoInput.trim().length === 0}
+            data-testid="settings-github-repo-save"
+          >
+            {t("github.findings_repo.save")}
+          </Button>
+          {settings.findings_repo ? (
+            <Button
+              variant="ghost"
+              onClick={() => void clearRepo()}
+              data-testid="settings-github-repo-clear"
+            >
+              {t("github.findings_repo.clear")}
+            </Button>
+          ) : null}
+        </div>
+        {!settings.findings_repo ? (
+          <p className="text-small text-saw-grey-500" data-testid="settings-github-repo-none">
+            {t("github.findings_repo.none")}
+          </p>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <div className="text-small text-saw-grey-700">
+          <div className="font-medium">{t("github.error_repo.label")}</div>
+          <div className="font-mono text-saw-grey-900">
+            {settings.error_report_repo.owner}/{settings.error_report_repo.name}
+          </div>
+          <div className="text-xs text-saw-grey-500 mt-1">
+            {t("github.error_repo.hint")}
+          </div>
+        </div>
+        <div className="text-small text-saw-grey-700">
+          <div className="font-medium">{t("github.security_contact.label")}</div>
+          <div
+            className="font-mono text-saw-grey-900"
+            data-testid="settings-github-security-contact"
+          >
+            {settings.security_contact}
+          </div>
+          <div className="text-xs text-saw-grey-500 mt-1">
+            {t("github.security_contact.hint")}
+          </div>
+        </div>
+
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
