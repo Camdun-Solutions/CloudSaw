@@ -61,6 +61,13 @@ pub async fn add_account(input: AddAccountInput) -> Result<Account, AccountsErro
     })?;
 
     promote_if_no_active(&inserted.aws_account_id)?;
+    crate::eventlog::record_event(
+        crate::eventlog::EventInput::new(
+            crate::eventlog::EventKind::AccountAdded,
+            format!("Account \"{}\" added.", inserted.label),
+        )
+        .with_account(inserted.aws_account_id.clone()),
+    );
     Ok(inserted)
 }
 
@@ -123,6 +130,13 @@ pub fn remove_account(aws_account_id: &str) -> Result<RemovalImpact, AccountsErr
     // removing it keeps the Settings UI list accurate and avoids
     // surprising the user with a stale row.
     let _ = crate::scheduler::clear_schedule_if_present(aws_account_id);
+    crate::eventlog::record_event(
+        crate::eventlog::EventInput::new(
+            crate::eventlog::EventKind::AccountRemoved,
+            "Account removed.",
+        )
+        .with_account(aws_account_id.to_string()),
+    );
     Ok(RemovalImpact {
         scans: 0,
         findings: 0,

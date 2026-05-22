@@ -18,7 +18,9 @@ import {
   Button,
   EmptyState,
   LineChart,
+  Modal,
   SeverityBadge,
+  Switch,
 } from "@/components";
 import FindingsView from "@/routes/dashboard/FindingsView";
 import DriftView from "@/routes/dashboard/DriftView";
@@ -33,6 +35,7 @@ import {
   type Account,
   type AccountsDisplaySettings,
   type Finding,
+  type HardDeleteSummary,
   type ScanRecord,
   type ScanStatus,
   type Severity,
@@ -63,6 +66,8 @@ export default function Dashboard({ onClose, onOpenAccounts }: Props) {
     Record<string, Record<Severity, number>>
   >({});
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ScanRecord | null>(null);
+  const [deleteToast, setDeleteToast] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     setLoadError(null);
@@ -143,8 +148,34 @@ export default function Dashboard({ onClose, onOpenAccounts }: Props) {
     );
   }
 
+  async function onConfirmDelete(
+    target: ScanRecord,
+    confirmation: string,
+    secureOverwrite: boolean,
+  ): Promise<HardDeleteSummary> {
+    const summary = await ipc.deletionHardDeleteScan(target.scan_id, confirmation, {
+      secure_overwrite: secureOverwrite,
+    });
+    setDeleteTarget(null);
+    setDeleteToast(
+      t("delete.scan.success").replace("{findings}", String(summary.findings_removed)),
+    );
+    if (activeId) {
+      ipc.findingsListScans(activeId).then(setScans).catch(() => undefined);
+    }
+    window.setTimeout(() => setDeleteToast(null), 4000);
+    return summary;
+  }
+
   return (
     <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
+      <HardDeleteDialog
+        target={deleteTarget}
+        account={account}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={onConfirmDelete}
+        showId={showId}
+      />
       <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
         <div className="flex items-center gap-3">
           <div
@@ -247,7 +278,10 @@ export default function Dashboard({ onClose, onOpenAccounts }: Props) {
               setTab("findings");
             }}
             onOpenAccounts={onOpenAccounts}
+            onDeleteScan={(s) => setDeleteTarget(s)}
             showId={showId}
+            deleteToast={deleteToast}
+            onDismissToast={() => setDeleteToast(null)}
           />
         ) : tab === "findings" ? (
           <FindingsView
@@ -272,7 +306,10 @@ type ScansViewProps = {
   scanCounts: Record<string, Record<Severity, number>>;
   onOpenScan: (scanId: string) => void;
   onOpenAccounts: () => void;
+  onDeleteScan: (scan: ScanRecord) => void;
   showId: (id: string) => string;
+  deleteToast: string | null;
+  onDismissToast: () => void;
 };
 
 function ScansView({
@@ -281,7 +318,10 @@ function ScansView({
   scanCounts,
   onOpenScan,
   onOpenAccounts,
+  onDeleteScan,
   showId,
+  deleteToast,
+  onDismissToast,
 }: ScansViewProps) {
   const t = useT();
   // Hook must run unconditionally — compute the chart series first, then
@@ -327,6 +367,17 @@ function ScansView({
       <p className="text-small text-saw-grey-600">
         {t("dashboard.scans.subtitle").replace("{account}", account.label)}
       </p>
+
+      {deleteToast ? (
+        <p
+          role="status"
+          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          data-testid="dashboard-delete-toast"
+          onClick={onDismissToast}
+        >
+          {deleteToast}
+        </p>
+      ) : null}
 
       <LineChart
         ariaTitle={t("dashboard.drift.chart.title")}
@@ -382,16 +433,26 @@ function ScansView({
               <span role="cell">
                 <SeverityCounts counts={counts} />
               </span>
-              <span role="cell">
+              <span role="cell" className="flex flex-wrap gap-2">
                 {isTerminalScanStatus(s.status) ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onOpenScan(s.scan_id)}
-                    data-testid={`scan-open-${s.scan_id}`}
-                  >
-                    {t("dashboard.scans.open_scan")}
-                  </Button>
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onOpenScan(s.scan_id)}
+                      data-testid={`scan-open-${s.scan_id}`}
+                    >
+                      {t("dashboard.scans.open_scan")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDeleteScan(s)}
+                      data-testid={`scan-delete-${s.scan_id}`}
+                    >
+                      {t("delete.scan.cta")}
+                    </Button>
+                  </>
                 ) : (
                   <span className="text-small text-saw-grey-500">
                     {t("dashboard.scans.severity.unavailable")}
@@ -549,5 +610,115 @@ function CopyDiagnostic({ info }: { info: string }) {
         ? t("dashboard.error.copy_diagnostic.copied")
         : t("dashboard.error.copy_diagnostic")}
     </button>
+  );
+}
+
+// ----- Hard delete dialog (Contract 11C) ---------------------------------
+
+function HardDeleteDialog({
+  target,
+  account,
+  onCancel,
+  onConfirm,
+  showId,
+}: {
+  target: ScanRecord | null;
+  account: Account | null;
+  onCancel: () => void;
+  onConfirm: (
+    target: ScanRecord,
+    confirmation: string,
+    secureOverwrite: boolean,
+  ) => Promise<HardDeleteSummary>;
+  showId: (id: string) => string;
+}) {
+  const t = useT();
+  const formatError = useIpcError();
+  const [confirmation, setConfirmation] = useState("");
+  const [secure, setSecure] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!target) {
+      setConfirmation("");
+      setSecure(false);
+      setErr(null);
+    }
+  }, [target]);
+
+  if (!target) return null;
+
+  const valid = confirmation === "DELETE" || confirmation === target.scan_id;
+
+  async function submit() {
+    if (!valid || !target) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await onConfirm(target, confirmation, secure);
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={!!target}
+      onClose={onCancel}
+      title={t("delete.scan.title")}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+            {t("delete.scan.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void submit()}
+            disabled={!valid || busy}
+            data-testid="hard-delete-confirm"
+          >
+            {busy ? t("delete.scan.busy") : t("delete.scan.confirm_cta")}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p>
+          {t("delete.scan.explainer")
+            .replace("{scan}", target.scan_id.slice(0, 12) + "…")
+            .replace("{account}", account ? `${account.label} · ${showId(target.aws_account_id)}` : showId(target.aws_account_id))}
+        </p>
+        <p className="text-small text-saw-red">{t("delete.scan.warning")}</p>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("delete.scan.confirm_label")}</span>
+          <input
+            type="text"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            placeholder={t("delete.scan.confirm_placeholder")}
+            autoFocus
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="hard-delete-input"
+          />
+        </label>
+        <Switch
+          label={t("delete.scan.secure_overwrite_label")}
+          description={t("delete.scan.secure_overwrite_hint")}
+          checked={secure}
+          onChange={setSecure}
+        />
+        {err ? (
+          <p
+            role="alert"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+          >
+            {err}
+          </p>
+        ) : null}
+      </div>
+    </Modal>
   );
 }

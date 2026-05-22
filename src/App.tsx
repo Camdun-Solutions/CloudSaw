@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
+import ActivityLog from "@/routes/ActivityLog";
 import Dashboard from "@/routes/Dashboard";
 import FirstRunSetup from "@/routes/FirstRunSetup";
 import Home from "@/routes/Home";
@@ -17,6 +18,7 @@ type Route =
   | "profiles"
   | "settings"
   | "schedules"
+  | "activitylog"
   | "dashboard";
 
 export default function App() {
@@ -62,11 +64,15 @@ export default function App() {
       <Settings
         onClose={() => setRoute("home")}
         onOpenSchedules={() => setRoute("schedules")}
+        onOpenActivityLog={() => setRoute("activitylog")}
       />
     );
   }
   if (route === "schedules") {
     return <ScheduledScans onBack={() => setRoute("settings")} />;
+  }
+  if (route === "activitylog") {
+    return <ActivityLog onBack={() => setRoute("settings")} />;
   }
   if (route === "accounts") {
     return (

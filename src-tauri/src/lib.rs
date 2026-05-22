@@ -6,14 +6,19 @@ pub mod accounts;
 pub mod applock;
 pub mod auth;
 pub mod db;
+pub mod deletion;
 pub mod errors;
+pub mod eventlog;
 pub mod findings;
 pub mod ipc;
+pub mod keychain;
 pub mod knowledgebase;
 pub mod reports;
+pub mod retention;
 pub mod scanner;
 pub mod scheduler;
 pub mod terraform;
+pub mod wipe;
 
 use crate::errors::AppError;
 
@@ -87,6 +92,19 @@ pub fn run() {
             ipc::scheduler_list_schedules,
             ipc::scheduler_next_run_times,
             ipc::scheduler_recent_events,
+            ipc::eventlog_list,
+            ipc::eventlog_search,
+            ipc::eventlog_export,
+            ipc::eventlog_clear_view,
+            ipc::eventlog_count,
+            ipc::retention_get_settings,
+            ipc::retention_set_scan,
+            ipc::retention_set_eventlog,
+            ipc::retention_run_now,
+            ipc::deletion_hard_delete_scan,
+            ipc::deletion_vacuum_now,
+            ipc::system_panic_wipe,
+            ipc::system_request_reboot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -123,6 +141,16 @@ fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
     let _ = scheduler::runner::bootstrap_runner();
     // Spawn the background poll thread. Idempotent across re-entry.
     scheduler::runner::start_runner();
+
+    // Retention sweep — Contract 11B. Best-effort; the engine purges raw
+    // scan output and event-log rows older than their configured
+    // retention windows. Findings metadata is intentionally never purged.
+    retention::bootstrap_sweep();
+
+    // App-started event. Records that the process came up so the
+    // Activity Log can show "app started at X" without depending on
+    // shell-level logging.
+    eventlog::record_simple(eventlog::EventKind::AppStarted, "CloudSaw started.");
 
     // Decide whether the app starts locked or unlocked based on the stored
     // lock period and last_unlocked_at. Must happen AFTER migrations run.

@@ -16,7 +16,9 @@ use crate::accounts::{
 };
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
+use crate::deletion::{self, HardDeleteOptions, HardDeleteSummary};
 use crate::errors::AppError;
+use crate::eventlog::{self, EventLogEntry, EventLogFilter};
 use crate::findings::{
     self, DeleteScanImpact, Finding, FindingDetail, FindingsFilter, ParseSummary,
 };
@@ -24,6 +26,7 @@ use crate::knowledgebase::{
     self, ArticleSummary, ControlMapping, Framework, KnowledgeArticle, RefreshApplyResult,
     RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
 };
+use crate::retention::{self, RetentionPeriod, RetentionRunSummary, RetentionSettings};
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
 };
@@ -33,6 +36,7 @@ use crate::scheduler::{
 use crate::terraform::{
     self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
 };
+use crate::wipe::{self, PanicWipeResult};
 
 /// Returns the running CalVer build string (e.g. "2026.5.0").
 ///
@@ -445,4 +449,103 @@ pub fn scheduler_recent_events(
     limit: Option<usize>,
 ) -> Result<Vec<ScheduleEvent>, AppError> {
     scheduler::recent_events(&aws_account_id, limit.unwrap_or(20)).map_err(AppError::from)
+}
+
+// --- Event log, retention, hard delete & panic (Contract 11) -------------
+//
+// The event log is append-only. Every command here validates its inputs
+// inside the underlying module before any write runs. Deletion / panic
+// gates use a typed-confirmation string the backend re-checks
+// (CLAUDE.md §4.1: every command validates its inputs; the frontend gate
+// is convenience, not security).
+
+#[tauri::command]
+pub fn eventlog_list(filter: Option<EventLogFilter>) -> Result<Vec<EventLogEntry>, AppError> {
+    eventlog::list_events(filter.unwrap_or_default()).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn eventlog_search(
+    query: String,
+    limit: Option<i64>,
+) -> Result<Vec<EventLogEntry>, AppError> {
+    eventlog::search_events(&query, limit).map_err(AppError::from)
+}
+
+/// Returns the full activity log as newline-delimited JSON. The caller
+/// (Settings → Activity Log) writes this to a user-chosen file.
+#[tauri::command]
+pub fn eventlog_export() -> Result<String, AppError> {
+    eventlog::export_events().map_err(AppError::from)
+}
+
+/// Clears only the activity-log VIEW. Underlying rows remain subject to
+/// the event-log retention policy and still appear in Export.
+#[tauri::command]
+pub fn eventlog_clear_view() -> Result<(), AppError> {
+    eventlog::clear_event_view().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn eventlog_count() -> Result<i64, AppError> {
+    eventlog::count_events().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_get_settings() -> Result<RetentionSettings, AppError> {
+    retention::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_set_scan(period: RetentionPeriod) -> Result<(), AppError> {
+    retention::set_scan_retention(period).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_set_eventlog(period: RetentionPeriod) -> Result<(), AppError> {
+    retention::set_eventlog_retention(period).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_run_now() -> Result<RetentionRunSummary, AppError> {
+    retention::run_now().map_err(AppError::from)
+}
+
+/// Hard-delete a scan. Requires the user to have typed either `DELETE`
+/// or the full scan ID. Runs the SQLite cascade, unlinks the raw file
+/// (and per-scan output directory), then executes `VACUUM` so removed
+/// rows are not trivially recoverable.
+#[tauri::command]
+pub fn deletion_hard_delete_scan(
+    scan_id: String,
+    confirmation: String,
+    options: Option<HardDeleteOptions>,
+) -> Result<HardDeleteSummary, AppError> {
+    deletion::hard_delete_scan(&scan_id, &confirmation, options.unwrap_or_default())
+        .map_err(AppError::from)
+}
+
+/// Run `VACUUM` against the SQLite file. Exposed so a tooling script
+/// (and the QA contract) can request it without forcing a delete.
+#[tauri::command]
+pub fn deletion_vacuum_now() -> Result<(), AppError> {
+    deletion::run_vacuum().map_err(AppError::from)
+}
+
+/// Panic — wipe every CloudSaw trace on this machine. The data wipe is
+/// IMMEDIATE and SYNCHRONOUS. Requires the literal confirmation string
+/// `"PANIC"`. The two-phase app/installer self-delete is staged via a
+/// platform-specific helper; the data wipe still succeeds if staging
+/// fails.
+#[tauri::command]
+pub fn system_panic_wipe(confirmation: String) -> Result<PanicWipeResult, AppError> {
+    wipe::run_panic_wipe(&confirmation)
+}
+
+/// Reboot the machine at user-level. Only called after the user picks
+/// "Reboot now" in the post-panic dialog — "Later" never calls this.
+#[tauri::command]
+pub fn system_request_reboot() -> Result<(), AppError> {
+    wipe::selfdelete::request_user_reboot()
+        .map_err(|e| AppError::Io(format!("reboot: {e}")))
 }

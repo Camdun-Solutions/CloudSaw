@@ -207,6 +207,12 @@ pub fn change_password(
     let now = Utc::now();
     storage::record_unlock(now)?;
     session.mark_unlocked();
+    // Event log: master-password change. NEVER includes the password
+    // itself or any portion of it (CLAUDE.md §4.4 redaction).
+    crate::eventlog::record_simple(
+        crate::eventlog::EventKind::MasterPasswordChanged,
+        "Master password changed.",
+    );
     Ok(())
 }
 
@@ -303,6 +309,10 @@ pub fn recovery_unlock(
             storage::set_password_hash(Some(&phc))?;
             storage::record_unlock(Utc::now())?;
             session.mark_unlocked();
+            crate::eventlog::record_simple(
+                crate::eventlog::EventKind::MasterPasswordReset,
+                "Master password reset via OS identity prompt.",
+            );
             Ok(())
         }
         identity::Verdict::Declined => {

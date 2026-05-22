@@ -4,12 +4,19 @@
 // build out the full settings surface; for now Settings is a single panel
 // dedicated to app-lock configuration, reachable from the main header.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button, Modal, PasswordField, Select, Switch } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
-import { ipc, type LockPeriod, type LockSettings } from "@/lib/ipc";
+import {
+  ipc,
+  type LockPeriod,
+  type LockSettings,
+  type PanicWipeResult,
+  type RetentionPeriod,
+  type RetentionSettings,
+} from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
 
 type PeriodChoice = "immediate" | "1d" | "7d" | "30d" | "never";
@@ -44,9 +51,13 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
   }
 };
 
-type Props = { onClose: () => void; onOpenSchedules: () => void };
+type Props = {
+  onClose: () => void;
+  onOpenSchedules: () => void;
+  onOpenActivityLog: () => void;
+};
 
-export default function Settings({ onClose, onOpenSchedules }: Props) {
+export default function Settings({ onClose, onOpenSchedules, onOpenActivityLog }: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { state, refresh } = useLock();
@@ -225,6 +236,10 @@ export default function Settings({ onClose, onOpenSchedules }: Props) {
         </div>
       </section>
 
+      <ActivityLogSection onOpen={onOpenActivityLog} />
+      <RetentionSection />
+      <PanicSection />
+
       <ChangePasswordDialog
         open={changeOpen}
         onClose={() => setChangeOpen(false)}
@@ -234,6 +249,359 @@ export default function Settings({ onClose, onOpenSchedules }: Props) {
         }}
       />
     </main>
+  );
+}
+
+// --- Contract 11 sections -----------------------------------------------
+
+function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
+  const t = useT();
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-activitylog"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("eventlog.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("eventlog.section_subtitle")}
+      </p>
+      <div className="mt-4">
+        <Button
+          variant="secondary"
+          onClick={onOpen}
+          data-testid="settings-open-activitylog"
+        >
+          {t("eventlog.section_cta")}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+type RetentionChoice = "30d" | "60d" | "90d" | "180d" | "365d" | "never";
+
+function periodToChoice(p: RetentionPeriod): RetentionChoice {
+  if (p.kind === "never") return "never";
+  switch (p.days) {
+    case 30: return "30d";
+    case 60: return "60d";
+    case 90: return "90d";
+    case 180: return "180d";
+    case 365: return "365d";
+    default: return "90d";
+  }
+}
+
+function choiceToPeriod(c: RetentionChoice): RetentionPeriod {
+  switch (c) {
+    case "never": return { kind: "never" };
+    case "30d": return { kind: "days", days: 30 };
+    case "60d": return { kind: "days", days: 60 };
+    case "90d": return { kind: "days", days: 90 };
+    case "180d": return { kind: "days", days: 180 };
+    case "365d": return { kind: "days", days: 365 };
+  }
+}
+
+function RetentionSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<RetentionSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setSettings(await ipc.retentionGetSettings());
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (!settings) {
+    return null;
+  }
+
+  const scanChoice = periodToChoice(settings.scan_retention);
+  const eventChoice = periodToChoice(settings.eventlog_retention);
+
+  const options: { value: RetentionChoice; label: string }[] = [
+    { value: "30d", label: t("retention.period.30d") },
+    { value: "60d", label: t("retention.period.60d") },
+    { value: "90d", label: t("retention.period.90d") },
+    { value: "180d", label: t("retention.period.180d") },
+    { value: "365d", label: t("retention.period.365d") },
+    { value: "never", label: t("retention.period.never") },
+  ];
+
+  async function updateScan(c: RetentionChoice) {
+    setErr(null);
+    try {
+      await ipc.retentionSetScan(choiceToPeriod(c));
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function updateEventlog(c: RetentionChoice) {
+    setErr(null);
+    try {
+      await ipc.retentionSetEventlog(choiceToPeriod(c));
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function runNow() {
+    setBusy(true);
+    setErr(null);
+    setToast(null);
+    try {
+      const summary = await ipc.retentionRunNow();
+      setToast(
+        t("retention.toast")
+          .replace("{scans}", String(summary.scan_dirs_removed))
+          .replace("{raw}", String(summary.raw_files_removed))
+          .replace("{events}", String(summary.eventlog_rows_removed)),
+      );
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+      window.setTimeout(() => setToast(null), 4000);
+    }
+  }
+
+  const lastRun = settings.last_run_at
+    ? t("retention.last_run").replace("{at}", new Date(settings.last_run_at).toLocaleString())
+    : t("retention.never_run");
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-retention"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("retention.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("retention.section_subtitle")}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <Select<RetentionChoice>
+          label={t("retention.scan.label")}
+          description={t("retention.scan.hint")}
+          value={scanChoice}
+          options={options}
+          onChange={(c) => void updateScan(c)}
+          data-testid="settings-retention-scan"
+        />
+        <Select<RetentionChoice>
+          label={t("retention.eventlog.label")}
+          description={t("retention.eventlog.hint")}
+          value={eventChoice}
+          options={options}
+          onChange={(c) => void updateEventlog(c)}
+          data-testid="settings-retention-eventlog"
+        />
+        {(scanChoice === "never" || eventChoice === "never") ? (
+          <p className="text-small text-saw-grey-600">
+            {t("retention.never_storage_hint")}
+          </p>
+        ) : null}
+        <p className="text-small text-saw-grey-500">{lastRun}</p>
+
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+        {toast ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="settings-retention-toast"
+          >
+            {toast}
+          </p>
+        ) : null}
+
+        <div>
+          <Button
+            variant="secondary"
+            onClick={() => void runNow()}
+            disabled={busy}
+            data-testid="settings-retention-run"
+          >
+            {busy ? t("retention.run_busy") : t("retention.run_now")}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PanicSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<PanicWipeResult | null>(null);
+
+  function close() {
+    setOpen(false);
+    setConfirm("");
+    setErr(null);
+  }
+
+  async function doPanic() {
+    if (confirm !== "PANIC") {
+      setErr(t("eventlog.error.confirmation_rejected"));
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const out = await ipc.systemPanicWipe(confirm);
+      setResult(out);
+      setOpen(false);
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+      setConfirm("");
+    }
+  }
+
+  async function doReboot() {
+    try {
+      await ipc.systemRequestReboot();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setResult(null);
+    }
+  }
+
+  return (
+    <>
+      <section
+        className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-red/40 p-6"
+        data-testid="settings-section-panic"
+      >
+        <h2 className="text-h3 font-semibold text-saw-red">{t("panic.section_title")}</h2>
+        <p className="mt-1 text-small text-saw-grey-700">{t("panic.section_subtitle")}</p>
+        <div className="mt-4">
+          <Button
+            variant="primary"
+            onClick={() => setOpen(true)}
+            data-testid="settings-panic-cta"
+          >
+            {t("panic.section_cta")}
+          </Button>
+        </div>
+      </section>
+
+      <Modal
+        open={open}
+        onClose={close}
+        title={t("panic.title")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={close} disabled={busy}>
+              {t("panic.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void doPanic()}
+              disabled={busy || confirm !== "PANIC"}
+              data-testid="panic-confirm"
+            >
+              {busy ? t("panic.busy") : t("panic.confirm_cta")}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p>{t("panic.explainer")}</p>
+          <p className="text-small text-saw-red">{t("panic.warning")}</p>
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+            <span>{t("panic.confirm_label")}</span>
+            <input
+              type="text"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder={t("panic.confirm_placeholder")}
+              autoFocus
+              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+              data-testid="panic-confirm-input"
+            />
+          </label>
+          {err ? (
+            <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+              {err}
+            </p>
+          ) : null}
+        </div>
+      </Modal>
+
+      {result ? (
+        <Modal
+          open={!!result}
+          onClose={() => setResult(null)}
+          title={t("panic.success.title")}
+          footer={
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setResult(null)}
+                data-testid="panic-later"
+              >
+                {t("panic.success.later")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void doReboot()}
+                data-testid="panic-reboot-now"
+              >
+                {t("panic.success.reboot_now")}
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <p>
+              {t("panic.success.body")
+                .replace("{scans}", String(result.scan_dirs_removed))
+                .replace("{tf}", String(result.tf_workdirs_removed))
+                .replace("{logs}", String(result.log_files_removed))
+                .replace("{dbs}", String(result.db_files_removed))
+                .replace("{keychain}", String(result.keychain.removed))
+                .replace(
+                  "{staged}",
+                  result.self_delete_staged
+                    ? t("panic.success.staged_yes")
+                    : t("panic.success.staged_no"),
+                )}
+            </p>
+            <p className="text-small text-saw-grey-700">
+              {t("panic.success.reboot_question")}
+            </p>
+          </div>
+        </Modal>
+      ) : null}
+    </>
   );
 }
 

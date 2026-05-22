@@ -201,6 +201,12 @@ pub enum AppError {
     #[error("schedule not found")]
     ScheduleNotFound,
 
+    // Event log, retention, hard delete & panic (Contract 11). Stable
+    // codes only; no scan output, no credential material, no path content
+    // ever appears in any of these messages.
+    #[error("confirmation rejected")]
+    ConfirmationRejected,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -263,6 +269,7 @@ impl AppError {
             AppError::KbRefreshInvalidContent => "kb_refresh_invalid_content",
             AppError::KbRefreshUpToDate => "kb_refresh_up_to_date",
             AppError::ScheduleNotFound => "schedule_not_found",
+            AppError::ConfirmationRejected => "confirmation_rejected",
             AppError::Internal(_) => "internal_error",
         }
     }

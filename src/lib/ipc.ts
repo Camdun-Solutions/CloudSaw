@@ -421,6 +421,105 @@ export type ScheduleEvent = {
   scan_id: string | null;
 };
 
+// --- Event log, retention, hard delete & panic (Contract 11) -------------
+
+/** Stable, enumerated event kinds. Mirrors the Rust `EventKind` enum. The
+ * frontend MUST treat any unknown string as a forward-compatible new kind
+ * (don't `as never`-cast). */
+export type EventKind =
+  | "app_started"
+  | "app_stopping"
+  | "scan_completed"
+  | "scan_failed"
+  | "scan_canceled"
+  | "scheduled_scan_fired"
+  | "scheduled_scan_skipped"
+  | "github_ticket_created"
+  | "master_password_changed"
+  | "master_password_reset"
+  | "account_added"
+  | "account_removed"
+  | "scan_deleted"
+  | "export"
+  | "panic_wipe"
+  | "settings_changed"
+  | "retention_purged";
+
+/** One row of the activity log. `aws_account_id_masked` is `****dddd` — the
+ * backend never returns the full account ID over IPC in event-log payloads. */
+export type EventLogEntry = {
+  event_id: string;
+  occurred_at: string;
+  kind: EventKind;
+  summary: string;
+  detail: string | null;
+  aws_account_id_masked: string | null;
+  scan_id: string | null;
+  path: string | null;
+  item_count: number | null;
+};
+
+export type EventLogFilter = {
+  kinds?: EventKind[];
+  since?: string | null;
+  until?: string | null;
+  limit?: number | null;
+  offset?: number | null;
+  /** When true, ignore the "view cleared at" marker. Used for Export. */
+  include_cleared?: boolean;
+};
+
+/** Retention period. `never` means "never auto-purge". */
+export type RetentionPeriod =
+  | { kind: "days"; days: number }
+  | { kind: "never" };
+
+export type RetentionSettings = {
+  scan_retention: RetentionPeriod;
+  eventlog_retention: RetentionPeriod;
+  last_run_at: string | null;
+};
+
+export type RetentionRunSummary = {
+  scan_dirs_removed: number;
+  raw_files_removed: number;
+  eventlog_rows_removed: number;
+  scan_cutoff: string | null;
+  eventlog_cutoff: string | null;
+};
+
+export type HardDeleteOptions = {
+  secure_overwrite?: boolean;
+};
+
+export type HardDeleteSummary = {
+  scan_id: string;
+  findings_removed: number;
+  findings_updated: number;
+  resources_removed: number;
+  raw_files_removed: number;
+  raw_dir_removed: boolean;
+  secure_overwrite_attempted: boolean;
+  vacuum_run: boolean;
+};
+
+export type KeychainWipeResult = {
+  removed: number;
+  not_present: number;
+  failed: number;
+};
+
+export type PanicWipeResult = {
+  data_root_removed: boolean;
+  db_files_removed: number;
+  scan_dirs_removed: number;
+  tf_workdirs_removed: number;
+  log_files_removed: number;
+  event_log_rows_wiped: number;
+  keychain: KeychainWipeResult;
+  self_delete_staged: boolean;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -687,6 +786,90 @@ export const ipc = {
       awsAccountId,
       limit: limit ?? null,
     });
+  },
+
+  // --- Event log, retention, hard delete & panic (Contract 11) -------
+
+  /** Paginated activity log. The default list hides entries from before
+   * the user's last "Clear all" call; pass `include_cleared: true` to
+   * see everything. */
+  eventlogList(filter?: EventLogFilter): Promise<EventLogEntry[]> {
+    return invoke<EventLogEntry[]>("eventlog_list", {
+      filter: filter ?? null,
+    });
+  },
+
+  /** Substring search over the event log (`summary` and `detail`). */
+  eventlogSearch(query: string, limit?: number): Promise<EventLogEntry[]> {
+    return invoke<EventLogEntry[]>("eventlog_search", {
+      query,
+      limit: limit ?? null,
+    });
+  },
+
+  /** Returns the full activity log as newline-delimited JSON. */
+  eventlogExport(): Promise<string> {
+    return invoke<string>("eventlog_export");
+  },
+
+  /** Clear the activity-log VIEW. Underlying rows persist subject to
+   * retention; Export still sees them. */
+  eventlogClearView(): Promise<void> {
+    return invoke<void>("eventlog_clear_view");
+  },
+
+  /** Total event-log row count. */
+  eventlogCount(): Promise<number> {
+    return invoke<number>("eventlog_count");
+  },
+
+  /** Read both retention periods + the last-run timestamp. */
+  retentionGetSettings(): Promise<RetentionSettings> {
+    return invoke<RetentionSettings>("retention_get_settings");
+  },
+
+  retentionSetScan(period: RetentionPeriod): Promise<void> {
+    return invoke<void>("retention_set_scan", { period });
+  },
+
+  retentionSetEventlog(period: RetentionPeriod): Promise<void> {
+    return invoke<void>("retention_set_eventlog", { period });
+  },
+
+  retentionRunNow(): Promise<RetentionRunSummary> {
+    return invoke<RetentionRunSummary>("retention_run_now");
+  },
+
+  /** Hard-delete a scan. `confirmation` must be either the literal
+   * `"DELETE"` or the full scan ID — the backend re-checks this. */
+  deletionHardDeleteScan(
+    scanId: string,
+    confirmation: string,
+    options?: HardDeleteOptions,
+  ): Promise<HardDeleteSummary> {
+    return invoke<HardDeleteSummary>("deletion_hard_delete_scan", {
+      scanId,
+      confirmation,
+      options: options ?? null,
+    });
+  },
+
+  /** Issue `VACUUM` against the SQLite file. */
+  deletionVacuumNow(): Promise<void> {
+    return invoke<void>("deletion_vacuum_now");
+  },
+
+  /** Wipe every CloudSaw trace on this machine. Requires the literal
+   * confirmation string `"PANIC"`. Synchronous; returns once the data
+   * wipe is done. */
+  systemPanicWipe(confirmation: string): Promise<PanicWipeResult> {
+    return invoke<PanicWipeResult>("system_panic_wipe", { confirmation });
+  },
+
+  /** User-level reboot. Called ONLY after the user explicitly picks
+   * "Reboot now" in the post-panic dialog. */
+  systemRequestReboot(): Promise<void> {
+    return invoke<void>("system_request_reboot");
   },
 };
 
