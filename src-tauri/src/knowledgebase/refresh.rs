@@ -86,8 +86,7 @@ impl Fetcher for FileFetcher {
         } else {
             path
         };
-        let bytes = std::fs::read(cleaned)
-            .map_err(|_| KnowledgebaseError::RefreshUnreachable)?;
+        let bytes = std::fs::read(cleaned).map_err(|_| KnowledgebaseError::RefreshUnreachable)?;
         if bytes.len() > MAX_BUNDLE_BYTES {
             return Err(KnowledgebaseError::RefreshInvalidContent);
         }
@@ -147,9 +146,7 @@ pub fn check_for_kb_update(
 /// Fetch + validate + install. The remote content is parsed and shaped
 /// into a `LoadedContent` BEFORE the on-disk cache is touched; if anything
 /// fails the cache and bundled baseline are left untouched.
-pub fn apply_kb_update(
-    fetcher: &dyn Fetcher,
-) -> Result<RefreshApplyResult, KnowledgebaseError> {
+pub fn apply_kb_update(fetcher: &dyn Fetcher) -> Result<RefreshApplyResult, KnowledgebaseError> {
     if !storage::is_refresh_enabled()? {
         return Err(KnowledgebaseError::RefreshDisabled);
     }
@@ -179,11 +176,8 @@ pub fn apply_kb_update(
     // Build the in-memory shape first so we fail BEFORE writing any cache
     // files. Contract 08 §Constraints: bundled baseline must remain on
     // failure.
-    let loaded: LoadedContent = registry::build_remote_content(
-        &bundle.version,
-        &bundle.articles,
-        &mappings_value,
-    )?;
+    let loaded: LoadedContent =
+        registry::build_remote_content(&bundle.version, &bundle.articles, &mappings_value)?;
 
     // Write disk cache. If this fails, the in-memory state is left as it
     // was — the caller sees a typed error and the next read still returns
@@ -282,8 +276,8 @@ struct WireBundle {
 }
 
 fn parse_bundle(bytes: &[u8]) -> Result<RemoteBundle, KnowledgebaseError> {
-    let wire: WireBundle = serde_json::from_slice(bytes)
-        .map_err(|_| KnowledgebaseError::RefreshInvalidContent)?;
+    let wire: WireBundle =
+        serde_json::from_slice(bytes).map_err(|_| KnowledgebaseError::RefreshInvalidContent)?;
 
     let mappings: crate::knowledgebase::types::MappingsDocument =
         serde_json::from_value(wire.mappings)

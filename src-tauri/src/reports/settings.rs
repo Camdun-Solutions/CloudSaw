@@ -86,10 +86,21 @@ pub fn write(settings: &ReportSettings) -> Result<(), ReportsError> {
         KEY_FOLDER,
         settings.auto_export_folder.as_deref().unwrap_or(""),
     )?;
-    write_value(KEY_ENABLED, if settings.auto_export_enabled { "1" } else { "0" })?;
+    write_value(
+        KEY_ENABLED,
+        if settings.auto_export_enabled {
+            "1"
+        } else {
+            "0"
+        },
+    )?;
     write_value(
         KEY_MASK_DEFAULT,
-        if settings.mask_account_ids_default { "1" } else { "0" },
+        if settings.mask_account_ids_default {
+            "1"
+        } else {
+            "0"
+        },
     )?;
     Ok(())
 }

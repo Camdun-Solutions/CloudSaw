@@ -54,11 +54,7 @@ pub fn bootstrap_runner() -> Result<usize, SchedulerError> {
             None => {
                 // No precomputed next run (just-enabled row or pre-bootstrap
                 // state). Compute the first one strictly after now.
-                let next = cadence::next_after(
-                    schedule.cadence,
-                    schedule.time_of_day_minutes,
-                    now,
-                );
+                let next = cadence::next_after(schedule.cadence, schedule.time_of_day_minutes, now);
                 if let Some(n) = next {
                     storage::set_next_run(&schedule.aws_account_id, Some(n))?;
                 }
@@ -193,12 +189,8 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
 
     // Compute the *next* anchor before any side effect so a transient
     // failure doesn't leave us stuck on the same past timestamp.
-    let next_anchor = cadence::round_forward(
-        schedule.cadence,
-        schedule.time_of_day_minutes,
-        now,
-        now,
-    );
+    let next_anchor =
+        cadence::round_forward(schedule.cadence, schedule.time_of_day_minutes, now, now);
 
     // Gate 1: bundled scanner must be available + integrity-valid.
     let scanner_ok = matches!(
@@ -327,8 +319,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
                 None,
             );
         }
-        Err(scanner::ScannerError::NotBundled)
-        | Err(scanner::ScannerError::IntegrityFailed) => {
+        Err(scanner::ScannerError::NotBundled) | Err(scanner::ScannerError::IntegrityFailed) => {
             let _ = storage::record_run(
                 account_id,
                 now,

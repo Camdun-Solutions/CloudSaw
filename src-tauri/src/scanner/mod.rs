@@ -86,12 +86,7 @@ pub async fn run_scan(aws_account_id: &str) -> Result<ScanRecord, ScannerError> 
     // work — wait()'ing on the child — is blocking and we want it off the
     // tokio runtime.
     std::thread::spawn(move || {
-        execute_scan(
-            handle,
-            scan_id_owned,
-            account_id_owned,
-            session_owned,
-        );
+        execute_scan(handle, scan_id_owned, account_id_owned, session_owned);
     });
 
     Ok(initial)
@@ -465,7 +460,9 @@ fn default_region() -> String {
 }
 
 fn file_is_empty(path: &std::path::Path) -> bool {
-    std::fs::metadata(path).map(|m| m.len() == 0).unwrap_or(true)
+    std::fs::metadata(path)
+        .map(|m| m.len() == 0)
+        .unwrap_or(true)
 }
 
 /// Reduce stderr to a stable warning-detail tag. We deliberately do NOT
@@ -513,8 +510,14 @@ mod tests {
 
     #[test]
     fn warning_detail_classifies_common_stderr_phrases() {
-        assert_eq!(warning_detail_from(b"AccessDenied: ..."), Some("access_denied"));
-        assert_eq!(warning_detail_from(b"Some throttling occurred"), Some("throttled"));
+        assert_eq!(
+            warning_detail_from(b"AccessDenied: ..."),
+            Some("access_denied")
+        );
+        assert_eq!(
+            warning_detail_from(b"Some throttling occurred"),
+            Some("throttled")
+        );
         assert_eq!(warning_detail_from(b"unauthorized!!"), Some("unauthorized"));
         assert!(warning_detail_from(b"all good").is_none());
     }

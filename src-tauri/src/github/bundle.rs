@@ -29,7 +29,10 @@ pub const MAX_BUNDLE_BYTES: usize = 64 * 1024;
 /// the preview modal — what the user sees in the preview IS what gets
 /// submitted.
 pub fn build(notes: Option<String>, locale: &str) -> Result<DiagnosticBundle, GithubError> {
-    let redacted_notes = notes.as_deref().map(redact::redact_block).map(|s| s.trim().to_string());
+    let redacted_notes = notes
+        .as_deref()
+        .map(redact::redact_block)
+        .map(|s| s.trim().to_string());
 
     let event_filter = EventLogFilter {
         limit: Some(MAX_LOG_LINES as i64),

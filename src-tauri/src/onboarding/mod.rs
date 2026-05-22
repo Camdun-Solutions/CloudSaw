@@ -195,9 +195,7 @@ pub fn mark_step_completed(step: OnboardingStep) -> Result<(), OnboardingError> 
     let now = Utc::now().to_rfc3339();
     // Column name is a fixed string from the match above — NEVER user-
     // controlled. The format!() is on a static set, not on a bound value.
-    let sql = format!(
-        "UPDATE onboarding_state SET {column} = 1, updated_at = ?1 WHERE id = 1"
-    );
+    let sql = format!("UPDATE onboarding_state SET {column} = 1, updated_at = ?1 WHERE id = 1");
     conn.execute(&sql, params![now])?;
     Ok(())
 }

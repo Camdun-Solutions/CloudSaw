@@ -119,7 +119,13 @@ pub fn update_fields(
         "UPDATE accounts
             SET label = ?1, profile_name = ?2, environment = ?3, updated_at = ?4
           WHERE aws_account_id = ?5",
-        params![label, profile_name, environment.as_str(), now, aws_account_id],
+        params![
+            label,
+            profile_name,
+            environment.as_str(),
+            now,
+            aws_account_id
+        ],
     )?;
     tx.commit()?;
 
@@ -310,10 +316,6 @@ fn parse_required_ts(raw: String) -> rusqlite::Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(&raw)
         .map(|dt| dt.with_timezone(&Utc))
         .map_err(|e| {
-            rusqlite::Error::FromSqlConversionFailure(
-                0,
-                rusqlite::types::Type::Text,
-                Box::new(e),
-            )
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
         })
 }

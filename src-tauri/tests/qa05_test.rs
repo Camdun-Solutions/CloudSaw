@@ -20,16 +20,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::terraform::{
-    self,
-    binary,
-    identity,
-    plans,
-    runner,
-    storage as tf_storage,
-    types::PolicyVariant,
-    workdir,
-    TerraformAvailability,
-    TerraformError,
+    self, binary, identity, plans, runner, storage as tf_storage, types::PolicyVariant, workdir,
+    TerraformAvailability, TerraformError,
 };
 
 fn env_lock() -> &'static Mutex<()> {
@@ -219,7 +211,10 @@ fn qa_error_workdir_sync_preserves_existing_state_files() {
     // user-visible behavior; this test guards against a regression that
     // wipes state on re-plan.
     assert!(state_path.exists(), "tfstate must survive a re-plan");
-    assert!(plan_path.exists(), "previous plan file must survive a re-plan");
+    assert!(
+        plan_path.exists(),
+        "previous plan file must survive a re-plan"
+    );
     assert!(
         dot_terraform.join("lock.hcl").exists(),
         ".terraform cache must survive a re-plan"
@@ -237,7 +232,10 @@ fn qa_error_workdir_sync_preserves_existing_state_files() {
 #[test]
 fn qa_security_runner_source_has_no_shell_invocation() {
     let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("terraform").join("runner.rs"),
+        manifest_dir()
+            .join("src")
+            .join("terraform")
+            .join("runner.rs"),
     )
     .unwrap();
     let code_only: String = runner_src
@@ -291,7 +289,10 @@ fn qa_security_runner_source_has_no_shell_invocation() {
 #[test]
 fn qa_security_run_path_invokes_locate_and_verify() {
     let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("terraform").join("runner.rs"),
+        manifest_dir()
+            .join("src")
+            .join("terraform")
+            .join("runner.rs"),
     )
     .unwrap();
     assert!(
@@ -463,10 +464,8 @@ fn qa_security_read_only_access_warning_present_in_en_locale() {
 #[test]
 fn qa_security_no_terraform_destroy_command_exposed() {
     // IPC surface — no command name may contain "destroy".
-    let ipc_src = fs::read_to_string(
-        manifest_dir().join("src").join("ipc").join("mod.rs"),
-    )
-    .unwrap();
+    let ipc_src =
+        fs::read_to_string(manifest_dir().join("src").join("ipc").join("mod.rs")).unwrap();
     assert!(
         !ipc_src.to_ascii_lowercase().contains("destroy"),
         "ipc/mod.rs must not expose any destroy command"
@@ -474,7 +473,10 @@ fn qa_security_no_terraform_destroy_command_exposed() {
 
     // Runner — must never argv "destroy".
     let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("terraform").join("runner.rs"),
+        manifest_dir()
+            .join("src")
+            .join("terraform")
+            .join("runner.rs"),
     )
     .unwrap();
     assert!(

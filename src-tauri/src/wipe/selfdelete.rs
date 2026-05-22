@@ -93,9 +93,7 @@ fn stage_macos_helper(exe: &std::path::Path, app_dir: &std::path::Path) -> io::R
     // that runs once at the next login.
     let home = std::env::var_os("HOME")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "HOME not set"))?;
-    let agents = PathBuf::from(home)
-        .join("Library")
-        .join("LaunchAgents");
+    let agents = PathBuf::from(home).join("Library").join("LaunchAgents");
     std::fs::create_dir_all(&agents)?;
     let plist_path = agents.join("com.cloudsaw.uninstall.plist");
     let script_path = agents.join("cloudsaw-uninstall.sh");

@@ -70,7 +70,10 @@ fn run(workdir: &Path, args: &[&str]) -> Result<Output, TerraformError> {
 
 /// `terraform init` — downloads providers, sets up the local backend. Idempotent.
 fn terraform_init(workdir: &Path) -> Result<(), TerraformError> {
-    let out = run(workdir, &["init", "-no-color", "-input=false", "-upgrade=false"])?;
+    let out = run(
+        workdir,
+        &["init", "-no-color", "-input=false", "-upgrade=false"],
+    )?;
     if !out.status.success() {
         return Err(TerraformError::InitFailed);
     }
@@ -103,7 +106,12 @@ fn terraform_plan(
 
     let show_output = run(
         workdir,
-        &["show", "-no-color", "-json", &plan_path.display().to_string()],
+        &[
+            "show",
+            "-no-color",
+            "-json",
+            &plan_path.display().to_string(),
+        ],
     )?;
     if !show_output.status.success() {
         return Err(TerraformError::PlanFailed);
@@ -344,10 +352,7 @@ pub async fn plan(
 
 /// Apply a previously confirmed plan. Validates the plan_token before doing
 /// anything else; on success, records the outputs and returns the role ARN.
-pub async fn apply(
-    aws_account_id: &str,
-    plan_token: &str,
-) -> Result<ApplyResult, TerraformError> {
+pub async fn apply(aws_account_id: &str, plan_token: &str) -> Result<ApplyResult, TerraformError> {
     let entry = plans::consume(aws_account_id, plan_token)?;
 
     let workdir_path = workdir::workdir(aws_account_id)?;
@@ -419,8 +424,8 @@ pub fn verify_trust_policy_principal(
     policy_json: &str,
     expected_principal_arn: &str,
 ) -> Result<(), TerraformError> {
-    let parsed: Value = serde_json::from_str(policy_json)
-        .map_err(|_| TerraformError::TrustVerificationFailed)?;
+    let parsed: Value =
+        serde_json::from_str(policy_json).map_err(|_| TerraformError::TrustVerificationFailed)?;
     let statements = parsed
         .get("Statement")
         .and_then(|v| v.as_array())
@@ -548,7 +553,11 @@ mod tests {
         );
         let parsed: Value = serde_json::from_str(&body).unwrap();
         assert_eq!(
-            parsed.get("trusted_principal_arn").unwrap().as_str().unwrap(),
+            parsed
+                .get("trusted_principal_arn")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "arn:aws:iam::111122223333:role/Deployer"
         );
         assert_eq!(
@@ -579,11 +588,7 @@ mod tests {
             ]
         })
         .to_string();
-        assert!(verify_trust_policy_principal(
-            &policy,
-            "arn:aws:iam::111122223333:role/X"
-        )
-        .is_ok());
+        assert!(verify_trust_policy_principal(&policy, "arn:aws:iam::111122223333:role/X").is_ok());
     }
 
     #[test]

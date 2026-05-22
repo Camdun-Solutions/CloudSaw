@@ -58,10 +58,7 @@ pub async fn plan(
 
 /// Apply a previously confirmed plan, identified by `plan_token`. On success
 /// records the role ARN and policy variant into the accounts table.
-pub async fn apply(
-    aws_account_id: &str,
-    plan_token: &str,
-) -> Result<ApplyResult, TerraformError> {
+pub async fn apply(aws_account_id: &str, plan_token: &str) -> Result<ApplyResult, TerraformError> {
     runner::apply(aws_account_id, plan_token).await
 }
 

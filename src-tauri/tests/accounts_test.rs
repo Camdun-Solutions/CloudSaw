@@ -18,12 +18,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
 
-use cloudsaw_lib::accounts::{
-    self, AccountsDisplaySettings, AddAccountInput, Environment, UpdateAccountInput,
-    types::AccountRecord,
-};
 use cloudsaw_lib::accounts::error::AccountsError;
 use cloudsaw_lib::accounts::storage;
+use cloudsaw_lib::accounts::{
+    self, types::AccountRecord, AccountsDisplaySettings, AddAccountInput, Environment,
+    UpdateAccountInput,
+};
 use cloudsaw_lib::auth::AuthError;
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::errors::AppError;
@@ -113,8 +113,20 @@ fn list_accounts_is_empty_on_a_fresh_install() {
 fn insert_and_list_round_trip() {
     let _sb = Sandbox::new("list");
 
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
-    storage::insert(&seed("prod", "prod-profile", Environment::Prod, "444455556666")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
+    storage::insert(&seed(
+        "prod",
+        "prod-profile",
+        Environment::Prod,
+        "444455556666",
+    ))
+    .unwrap();
 
     let list = accounts::list_accounts().unwrap();
     assert_eq!(list.len(), 2);
@@ -130,7 +142,13 @@ fn insert_and_list_round_trip() {
 #[test]
 fn get_returns_full_row() {
     let _sb = Sandbox::new("get");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
     let row = accounts::get_account("111122223333").unwrap();
     assert_eq!(row.label, "dev");
     assert_eq!(row.profile_name, "dev-profile");
@@ -142,7 +160,13 @@ fn get_returns_full_row() {
 #[test]
 fn active_account_set_and_get() {
     let _sb = Sandbox::new("active");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
 
     assert!(accounts::get_active_account().unwrap().is_none());
     accounts::set_active_account(Some("111122223333")).unwrap();
@@ -159,12 +183,27 @@ fn active_account_set_and_get() {
 #[test]
 fn removing_active_account_clears_selection() {
     let _sb = Sandbox::new("rm-active");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
-    storage::insert(&seed("prod", "prod-profile", Environment::Prod, "444455556666")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
+    storage::insert(&seed(
+        "prod",
+        "prod-profile",
+        Environment::Prod,
+        "444455556666",
+    ))
+    .unwrap();
     accounts::set_active_account(Some("111122223333")).unwrap();
 
     let impact = accounts::remove_account("111122223333").unwrap();
-    assert!(impact.was_active, "removal of active account must report was_active=true");
+    assert!(
+        impact.was_active,
+        "removal of active account must report was_active=true"
+    );
 
     // Active selection is cleared in the same transaction.
     assert!(accounts::get_active_account().unwrap().is_none());
@@ -180,8 +219,20 @@ fn removing_active_account_clears_selection() {
 #[test]
 fn removing_non_active_account_does_not_touch_active() {
     let _sb = Sandbox::new("rm-noop");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
-    storage::insert(&seed("prod", "prod-profile", Environment::Prod, "444455556666")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
+    storage::insert(&seed(
+        "prod",
+        "prod-profile",
+        Environment::Prod,
+        "444455556666",
+    ))
+    .unwrap();
     accounts::set_active_account(Some("111122223333")).unwrap();
 
     let impact = accounts::remove_account("444455556666").unwrap();
@@ -198,7 +249,13 @@ fn removing_non_active_account_does_not_touch_active() {
 #[test]
 fn duplicate_aws_account_id_is_rejected() {
     let _sb = Sandbox::new("dup-id");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
     let err = storage::insert(&seed(
         "dev-alt",
         "dev-profile-2",
@@ -212,7 +269,13 @@ fn duplicate_aws_account_id_is_rejected() {
 #[test]
 fn duplicate_label_is_rejected() {
     let _sb = Sandbox::new("dup-label");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
     let err = storage::insert(&seed(
         "dev",
         "other-profile",
@@ -286,7 +349,10 @@ fn add_account_with_unknown_profile_does_not_persist_row() {
 
     // No row was written for the attempt.
     let list = accounts::list_accounts().unwrap();
-    assert!(list.is_empty(), "no row should be written when verification fails");
+    assert!(
+        list.is_empty(),
+        "no row should be written when verification fails"
+    );
 }
 
 #[test]
@@ -323,30 +389,38 @@ fn add_account_rejects_invalid_inputs_without_calling_sts() {
 #[test]
 fn update_rejects_duplicate_label_against_another_row() {
     let _sb = Sandbox::new("update-dup-label");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
-    storage::insert(&seed("prod", "prod-profile", Environment::Prod, "444455556666")).unwrap();
-
-    let err = storage::update_fields(
-        "444455556666",
+    storage::insert(&seed(
         "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
+    storage::insert(&seed(
+        "prod",
         "prod-profile",
         Environment::Prod,
-    )
-    .unwrap_err();
+        "444455556666",
+    ))
+    .unwrap();
+
+    let err = storage::update_fields("444455556666", "dev", "prod-profile", Environment::Prod)
+        .unwrap_err();
     assert!(matches!(err, AccountsError::DuplicateLabel));
 }
 
 #[test]
 fn update_with_same_label_on_same_row_is_allowed() {
     let _sb = Sandbox::new("update-same-label");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
-    let updated = storage::update_fields(
-        "111122223333",
+    storage::insert(&seed(
         "dev",
         "dev-profile",
-        Environment::Staging,
-    )
+        Environment::Dev,
+        "111122223333",
+    ))
     .unwrap();
+    let updated =
+        storage::update_fields("111122223333", "dev", "dev-profile", Environment::Staging).unwrap();
     assert_eq!(updated.environment, Environment::Staging);
 }
 
@@ -396,7 +470,13 @@ fn first_insert_auto_promotes_to_active_via_helper() {
     let _sb = Sandbox::new("auto-promote-first");
     assert!(accounts::get_active_account().unwrap().is_none());
 
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
     accounts::promote_if_no_active("111122223333").unwrap();
     assert_eq!(
         accounts::get_active_account().unwrap().as_deref(),
@@ -409,10 +489,22 @@ fn first_insert_auto_promotes_to_active_via_helper() {
 fn auto_promote_does_not_disturb_existing_active() {
     // Second add — must NOT change the active selection.
     let _sb = Sandbox::new("auto-promote-noop");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
     accounts::set_active_account(Some("111122223333")).unwrap();
 
-    storage::insert(&seed("prod", "prod-profile", Environment::Prod, "444455556666")).unwrap();
+    storage::insert(&seed(
+        "prod",
+        "prod-profile",
+        Environment::Prod,
+        "444455556666",
+    ))
+    .unwrap();
     accounts::promote_if_no_active("444455556666").unwrap();
 
     assert_eq!(
@@ -429,8 +521,20 @@ fn switching_active_account_changes_get_active_immediately() {
     // operations through `get_active_account`, we verify the switch is
     // observable on the next read with no caching surprise.
     let _sb = Sandbox::new("switch");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
-    storage::insert(&seed("prod", "prod-profile", Environment::Prod, "444455556666")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
+    storage::insert(&seed(
+        "prod",
+        "prod-profile",
+        Environment::Prod,
+        "444455556666",
+    ))
+    .unwrap();
 
     accounts::set_active_account(Some("111122223333")).unwrap();
     assert_eq!(
@@ -501,7 +605,13 @@ fn account_id_mismatch_maps_to_stable_code() {
 #[test]
 fn update_account_no_profile_change_skips_sts() {
     let _sb = Sandbox::new("update-no-sts");
-    storage::insert(&seed("dev", "dev-profile", Environment::Dev, "111122223333")).unwrap();
+    storage::insert(&seed(
+        "dev",
+        "dev-profile",
+        Environment::Dev,
+        "111122223333",
+    ))
+    .unwrap();
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()

@@ -155,8 +155,7 @@ mod tests {
 
     #[test]
     fn govcloud_assumed_role_unwraps_correctly() {
-        let session =
-            "arn:aws-us-gov:sts::123456789012:assumed-role/Auditor/session";
+        let session = "arn:aws-us-gov:sts::123456789012:assumed-role/Auditor/session";
         assert_eq!(
             underlying_principal_arn(session).unwrap(),
             "arn:aws-us-gov:iam::123456789012:role/Auditor"

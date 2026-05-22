@@ -36,8 +36,8 @@ pub mod types;
 
 pub use error::GithubError;
 pub use types::{
-    BrowserSubmission, DiagnosticBundle, FindingTicket, GithubSettings, IssueCreated,
-    IssuePreview, RepoSelection, TokenStatus,
+    BrowserSubmission, DiagnosticBundle, FindingTicket, GithubSettings, IssueCreated, IssuePreview,
+    RepoSelection, TokenStatus,
 };
 
 use zeroize::Zeroizing;
@@ -208,8 +208,8 @@ pub fn prepare_finding_ticket(
     repo: &RepoSelection,
 ) -> Result<IssuePreview, GithubError> {
     storage::validate_repo(repo)?;
-    let detail = findings::get_finding(finding_id)
-        .map_err(|_| GithubError::InvalidInput("finding_id"))?;
+    let detail =
+        findings::get_finding(finding_id).map_err(|_| GithubError::InvalidInput("finding_id"))?;
     let kb = crate::knowledgebase::get_article(finding_id).ok();
 
     let title = format!(
@@ -321,8 +321,8 @@ pub fn submit_finding_ticket(
     if storage::get_finding_ticket(finding_id)?.is_some() {
         return Err(GithubError::DuplicateTicket);
     }
-    let detail = findings::get_finding(finding_id)
-        .map_err(|_| GithubError::InvalidInput("finding_id"))?;
+    let detail =
+        findings::get_finding(finding_id).map_err(|_| GithubError::InvalidInput("finding_id"))?;
     let created = client::create_issue(
         &preview.repo,
         &preview.title,

@@ -279,10 +279,7 @@ pub fn build_custom(
                 .to_string(),
         )
     } else if findings_out.is_empty() {
-        Some(
-            "The selected date range contains scans but no findings were observed."
-                .to_string(),
-        )
+        Some("The selected date range contains scans but no findings were observed.".to_string())
     } else {
         None
     };
@@ -332,9 +329,10 @@ fn build_finding_row(
     // the report should follow the disclosure rule end-to-end.
     let mask_text = |s: &str| match disclosure {
         AccountIdDisclosure::Full => s.to_string(),
-        AccountIdDisclosure::Masked => {
-            s.replace(&f.aws_account_id, &crate::accounts::mask_for_logs(&f.aws_account_id))
-        }
+        AccountIdDisclosure::Masked => s.replace(
+            &f.aws_account_id,
+            &crate::accounts::mask_for_logs(&f.aws_account_id),
+        ),
     };
 
     let remediation = article
@@ -348,8 +346,7 @@ fn build_finding_row(
             .frameworks
             .into_iter()
             .map(|(fid, controls)| {
-                let labels: Vec<String> =
-                    controls.into_iter().map(|c| c.control_id).collect();
+                let labels: Vec<String> = controls.into_iter().map(|c| c.control_id).collect();
                 format!("{fid}: {}", labels.join(", "))
             })
             .collect(),

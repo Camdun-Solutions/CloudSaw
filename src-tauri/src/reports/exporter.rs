@@ -36,10 +36,7 @@ pub fn write_export(
     content: &ReportContent,
     format_label: &str,
 ) -> Result<ExportOutcome, ReportsError> {
-    if output_path.is_empty()
-        || output_path.ends_with('/')
-        || output_path.ends_with('\\')
-    {
+    if output_path.is_empty() || output_path.ends_with('/') || output_path.ends_with('\\') {
         return Err(ReportsError::InvalidInput("output_path"));
     }
     let target = PathBuf::from(output_path);

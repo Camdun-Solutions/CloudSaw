@@ -46,9 +46,7 @@ fn access_key_re() -> &'static Regex {
 
 fn github_pat_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| {
-        Regex::new(r"\b(?:ghp|ghs|gho|ghu|ghr)_[A-Za-z0-9_]{20,}\b").unwrap()
-    })
+    R.get_or_init(|| Regex::new(r"\b(?:ghp|ghs|gho|ghu|ghr)_[A-Za-z0-9_]{20,}\b").unwrap())
 }
 
 fn github_pat_finegrained_re() -> &'static Regex {
@@ -101,15 +99,16 @@ pub fn redact_line(input: &str) -> String {
     s = access_key_re()
         .replace_all(&s, "[REDACTED-KEY]")
         .to_string();
-    s = bearer_re()
-        .replace_all(&s, "Bearer [REDACTED]")
-        .to_string();
+    s = bearer_re().replace_all(&s, "Bearer [REDACTED]").to_string();
     s = arn_re()
         .replace_all(&s, |c: &regex::Captures<'_>| {
             let partition = c.name("partition").map(|m| m.as_str()).unwrap_or("aws");
             let service = c.name("service").map(|m| m.as_str()).unwrap_or("?");
             let region = c.name("region").map(|m| m.as_str()).unwrap_or("");
-            let account = c.name("account").map(|m| m.as_str()).unwrap_or("000000000000");
+            let account = c
+                .name("account")
+                .map(|m| m.as_str())
+                .unwrap_or("000000000000");
             let masked = format!(
                 "arn:{partition}:{service}:{region}:****{tail}:[truncated]",
                 tail = &account[account.len().saturating_sub(4)..],
@@ -145,14 +144,15 @@ mod tests {
 
     #[test]
     fn masks_bare_aws_account_id() {
-        assert_eq!(redact_line("logged in as 111122223333"), "logged in as ****3333");
+        assert_eq!(
+            redact_line("logged in as 111122223333"),
+            "logged in as ****3333"
+        );
     }
 
     #[test]
     fn truncates_arn_keeping_partition_service_region_and_account_tail() {
-        let r = redact_line(
-            "role arn:aws:iam::111122223333:role/CloudSawScanner failed",
-        );
+        let r = redact_line("role arn:aws:iam::111122223333:role/CloudSawScanner failed");
         assert!(r.contains("arn:aws:iam::****3333:[truncated]"));
         assert!(!r.contains("CloudSawScanner"));
         assert!(!r.contains("111122223333"));

@@ -61,10 +61,7 @@ pub fn set_eventlog_retention(period: RetentionPeriod) -> Result<(), RetentionEr
     eventlog::record_event(
         EventInput::new(
             EventKind::SettingsChanged,
-            format!(
-                "Event-log retention set to {}.",
-                describe_period(period)
-            ),
+            format!("Event-log retention set to {}.", describe_period(period)),
         )
         .with_detail("retention_eventlog_days"),
     );
@@ -238,7 +235,10 @@ mod tests {
 
     #[test]
     fn period_falls_back_on_corrupt_input() {
-        assert_eq!(RetentionPeriod::from_storage("garbage"), RetentionPeriod::Days(90));
+        assert_eq!(
+            RetentionPeriod::from_storage("garbage"),
+            RetentionPeriod::Days(90)
+        );
     }
 
     #[test]

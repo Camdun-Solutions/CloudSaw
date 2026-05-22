@@ -18,13 +18,15 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::{Duration as ChronoDuration, Utc};
-use cloudsaw_lib::accounts::{self, storage as accounts_storage, types::AccountRecord, Environment};
+use cloudsaw_lib::accounts::{
+    self, storage as accounts_storage, types::AccountRecord, Environment,
+};
 use cloudsaw_lib::db::migrations;
+use cloudsaw_lib::scanner::storage as scan_storage;
 use cloudsaw_lib::scheduler::{
     self, runner, storage as sched_storage, LastRunOutcome, ScheduleCadence, ScheduleEventKind,
     SchedulerError, SetScheduleInput,
 };
-use cloudsaw_lib::scanner::storage as scan_storage;
 use cloudsaw_lib::terraform::{storage as tf_storage, types::PolicyVariant};
 
 fn env_lock() -> &'static Mutex<()> {
@@ -154,12 +156,8 @@ fn qa_error_inflight_scan_blocks_scheduled_run() {
     seed_provisioned_account("111122223333", "qa-dev");
 
     // Plant an in-flight scan so try_claim_account refuses the next one.
-    scan_storage::try_claim_account(
-        "manual-in-flight",
-        "111122223333",
-        "cloudsaw-scan-inflight",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("manual-in-flight", "111122223333", "cloudsaw-scan-inflight")
+        .unwrap();
 
     // Configure the schedule and back-date next_run_at so the runner sees
     // the slot as due.
@@ -181,8 +179,7 @@ fn qa_error_inflight_scan_blocks_scheduled_run() {
     assert!(
         matches!(
             outcome,
-            LastRunOutcome::SkippedAlreadyRunning
-                | LastRunOutcome::SkippedScannerUnavailable
+            LastRunOutcome::SkippedAlreadyRunning | LastRunOutcome::SkippedScannerUnavailable
         ),
         "expected skip, got {outcome:?}"
     );
@@ -240,8 +237,7 @@ fn qa_error_unprovisioned_account_skip_clear_reason() {
     assert!(
         matches!(
             outcome,
-            LastRunOutcome::SkippedRoleNotProvisioned
-                | LastRunOutcome::SkippedScannerUnavailable
+            LastRunOutcome::SkippedRoleNotProvisioned | LastRunOutcome::SkippedScannerUnavailable
         ),
         "expected role/scanner skip, got {outcome:?}"
     );
@@ -433,9 +429,13 @@ fn qa_state_transition_account_remove_removes_schedule() {
 /// path exists. We verify the structural property by reading the source.
 #[test]
 fn qa_security_runner_uses_only_scanner_run_scan() {
-    let runner_src =
-        fs::read_to_string(manifest_dir().join("src").join("scheduler").join("runner.rs"))
-            .unwrap();
+    let runner_src = fs::read_to_string(
+        manifest_dir()
+            .join("src")
+            .join("scheduler")
+            .join("runner.rs"),
+    )
+    .unwrap();
     // The single entry point into the scanner orchestrator must be
     // `scanner::run_scan`. No second scan path, no direct STS or binary
     // invocation — those all live in `scanner::*`.
@@ -473,21 +473,14 @@ fn qa_security_scheduled_scans_never_parallel_per_account() {
     seed_provisioned_account("111122223333", "qa-dev");
 
     // Plant an in-flight manual scan.
-    scan_storage::try_claim_account(
-        "manual-inflight",
-        "111122223333",
-        "cloudsaw-scan-manual",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("manual-inflight", "111122223333", "cloudsaw-scan-manual")
+        .unwrap();
 
     // Trying to claim a second scan must be rejected at the storage layer —
     // this is the same gate the runner relies on.
-    let err = scan_storage::try_claim_account(
-        "scheduled-attempt",
-        "111122223333",
-        "cloudsaw-scan-sched",
-    )
-    .unwrap_err();
+    let err =
+        scan_storage::try_claim_account("scheduled-attempt", "111122223333", "cloudsaw-scan-sched")
+            .unwrap_err();
     assert!(matches!(
         err,
         cloudsaw_lib::scanner::ScannerError::AlreadyRunning
@@ -530,10 +523,8 @@ fn qa_security_catch_up_does_not_stack() {
 /// explanatory text like "no credentials are stored").
 #[test]
 fn qa_security_schedules_table_has_no_credential_columns() {
-    let sql = fs::read_to_string(
-        manifest_dir().join("migrations").join("0007_scheduler.sql"),
-    )
-    .unwrap();
+    let sql =
+        fs::read_to_string(manifest_dir().join("migrations").join("0007_scheduler.sql")).unwrap();
     let code_only: String = sql
         .lines()
         .filter(|l| !l.trim_start().starts_with("--"))
@@ -583,12 +574,15 @@ fn qa_security_no_credential_returning_ipc_commands() {
 /// not reach into the applock module.
 #[test]
 fn qa_security_runner_does_not_consult_applock() {
-    let runner_src =
-        fs::read_to_string(manifest_dir().join("src").join("scheduler").join("runner.rs"))
-            .unwrap();
+    let runner_src = fs::read_to_string(
+        manifest_dir()
+            .join("src")
+            .join("scheduler")
+            .join("runner.rs"),
+    )
+    .unwrap();
     let mod_src =
-        fs::read_to_string(manifest_dir().join("src").join("scheduler").join("mod.rs"))
-            .unwrap();
+        fs::read_to_string(manifest_dir().join("src").join("scheduler").join("mod.rs")).unwrap();
     for src in [&runner_src, &mod_src] {
         let code_only: String = src
             .lines()

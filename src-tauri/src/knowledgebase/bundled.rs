@@ -167,8 +167,7 @@ pub const BUNDLED_ARTICLES: &[(&str, &str)] = &[
 
 /// Pinned compiled-in mappings document. The runtime mappings registry
 /// deserializes this lazily on first use and caches the result.
-pub const BUNDLED_MAPPINGS_JSON: &str =
-    include_str!("../../knowledgebase/mappings.json");
+pub const BUNDLED_MAPPINGS_JSON: &str = include_str!("../../knowledgebase/mappings.json");
 
 /// Build-time version stamp embedded into `RefreshSettings.last_applied_at`
 /// when the bundled content is the active set. Versioning the bundle by the

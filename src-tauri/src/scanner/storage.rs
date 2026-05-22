@@ -172,12 +172,7 @@ pub fn record_failed(scan_id: &str, failure_code: &str) -> Result<(), ScannerErr
                 failure_code = ?3,
                 pid = NULL
           WHERE scan_id = ?4",
-        params![
-            ScanStatus::Failed.as_str(),
-            now,
-            failure_code,
-            scan_id,
-        ],
+        params![ScanStatus::Failed.as_str(), now, failure_code, scan_id,],
     )?;
     if affected == 0 {
         return Err(ScannerError::ScanNotFound);
@@ -447,11 +442,7 @@ fn parse_required_ts(s: String) -> rusqlite::Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(&s)
         .map(|dt| dt.with_timezone(&Utc))
         .map_err(|e| {
-            rusqlite::Error::FromSqlConversionFailure(
-                0,
-                rusqlite::types::Type::Text,
-                Box::new(e),
-            )
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
         })
 }
 

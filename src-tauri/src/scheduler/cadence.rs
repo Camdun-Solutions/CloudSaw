@@ -16,8 +16,8 @@
 //   * The "next" run is strictly AFTER the reference instant — never equal.
 //     That way a recompute right after a fire doesn't immediately re-fire.
 
-use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
 use chrono::{DateTime, LocalResult};
+use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
 
 use super::types::ScheduleCadence;
 
@@ -212,7 +212,8 @@ mod tests {
     use chrono::TimeZone;
 
     fn t(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(year, month, day, hour, minute, 0).unwrap()
+        Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
+            .unwrap()
     }
 
     #[test]
@@ -225,75 +226,30 @@ mod tests {
 
     #[test]
     fn validate_rejects_bad_weekly_day() {
-        assert!(validate(
-            ScheduleCadence::Weekly { day_of_week: 7 },
-            Some(0)
-        )
-        .is_err());
-        assert!(validate(
-            ScheduleCadence::Weekly { day_of_week: 0 },
-            Some(0)
-        )
-        .is_ok());
-        assert!(validate(
-            ScheduleCadence::Weekly { day_of_week: 6 },
-            Some(0)
-        )
-        .is_ok());
+        assert!(validate(ScheduleCadence::Weekly { day_of_week: 7 }, Some(0)).is_err());
+        assert!(validate(ScheduleCadence::Weekly { day_of_week: 0 }, Some(0)).is_ok());
+        assert!(validate(ScheduleCadence::Weekly { day_of_week: 6 }, Some(0)).is_ok());
     }
 
     #[test]
     fn validate_rejects_bad_monthly_day() {
-        assert!(validate(
-            ScheduleCadence::Monthly { day_of_month: 0 },
-            Some(0)
-        )
-        .is_err());
-        assert!(validate(
-            ScheduleCadence::Monthly { day_of_month: 29 },
-            Some(0)
-        )
-        .is_err());
-        assert!(validate(
-            ScheduleCadence::Monthly { day_of_month: 1 },
-            Some(0)
-        )
-        .is_ok());
-        assert!(validate(
-            ScheduleCadence::Monthly { day_of_month: 28 },
-            Some(0)
-        )
-        .is_ok());
+        assert!(validate(ScheduleCadence::Monthly { day_of_month: 0 }, Some(0)).is_err());
+        assert!(validate(ScheduleCadence::Monthly { day_of_month: 29 }, Some(0)).is_err());
+        assert!(validate(ScheduleCadence::Monthly { day_of_month: 1 }, Some(0)).is_ok());
+        assert!(validate(ScheduleCadence::Monthly { day_of_month: 28 }, Some(0)).is_ok());
     }
 
     #[test]
     fn validate_rejects_bad_interval() {
-        assert!(validate(
-            ScheduleCadence::Interval { minutes: 0 },
-            None
-        )
-        .is_err());
-        assert!(validate(
-            ScheduleCadence::Interval { minutes: 43_201 },
-            None
-        )
-        .is_err());
-        assert!(validate(
-            ScheduleCadence::Interval { minutes: 1 },
-            None
-        )
-        .is_ok());
+        assert!(validate(ScheduleCadence::Interval { minutes: 0 }, None).is_err());
+        assert!(validate(ScheduleCadence::Interval { minutes: 43_201 }, None).is_err());
+        assert!(validate(ScheduleCadence::Interval { minutes: 1 }, None).is_ok());
     }
 
     #[test]
     fn interval_next_after_is_strictly_after() {
         let now = t(2026, 5, 21, 12, 0);
-        let next = next_after(
-            ScheduleCadence::Interval { minutes: 30 },
-            None,
-            now,
-        )
-        .unwrap();
+        let next = next_after(ScheduleCadence::Interval { minutes: 30 }, None, now).unwrap();
         assert_eq!(next, t(2026, 5, 21, 12, 30));
     }
 

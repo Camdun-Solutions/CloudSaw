@@ -32,16 +32,10 @@ use crate::knowledgebase::{
     RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
 };
 use crate::onboarding::{self, OnboardingState, OnboardingStep};
-use crate::reports::{
-    self, AccountIdDisclosure, ExportOutcome, ReportContent, ReportSettings,
-};
+use crate::reports::{self, AccountIdDisclosure, ExportOutcome, ReportContent, ReportSettings};
 use crate::retention::{self, RetentionPeriod, RetentionRunSummary, RetentionSettings};
-use crate::scanner::{
-    self, ScanRecord, ScoutSuiteAvailability,
-};
-use crate::scheduler::{
-    self, NextRunTime, Schedule, ScheduleEvent, SetScheduleInput,
-};
+use crate::scanner::{self, ScanRecord, ScoutSuiteAvailability};
+use crate::scheduler::{self, NextRunTime, Schedule, ScheduleEvent, SetScheduleInput};
 use crate::terraform::{
     self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
 };
@@ -192,7 +186,9 @@ pub async fn accounts_add(input: AddAccountInput) -> Result<Account, AppError> {
 
 #[tauri::command]
 pub async fn accounts_update(input: UpdateAccountInput) -> Result<Account, AppError> {
-    accounts::update_account(input).await.map_err(AppError::from)
+    accounts::update_account(input)
+        .await
+        .map_err(AppError::from)
 }
 
 #[tauri::command]
@@ -218,9 +214,7 @@ pub fn accounts_get_display_settings() -> Result<AccountsDisplaySettings, AppErr
 }
 
 #[tauri::command]
-pub fn accounts_set_display_settings(
-    settings: AccountsDisplaySettings,
-) -> Result<(), AppError> {
+pub fn accounts_set_display_settings(settings: AccountsDisplaySettings) -> Result<(), AppError> {
     accounts::set_display_settings(settings).map_err(AppError::from)
 }
 
@@ -391,9 +385,7 @@ pub fn kb_get_refresh_settings() -> Result<RefreshSettings, AppError> {
 }
 
 #[tauri::command]
-pub fn kb_set_refresh_settings(
-    update: RefreshSettingsUpdate,
-) -> Result<RefreshSettings, AppError> {
+pub fn kb_set_refresh_settings(update: RefreshSettingsUpdate) -> Result<RefreshSettings, AppError> {
     knowledgebase::set_refresh_settings(update).map_err(AppError::from)
 }
 
@@ -474,10 +466,7 @@ pub fn eventlog_list(filter: Option<EventLogFilter>) -> Result<Vec<EventLogEntry
 }
 
 #[tauri::command]
-pub fn eventlog_search(
-    query: String,
-    limit: Option<i64>,
-) -> Result<Vec<EventLogEntry>, AppError> {
+pub fn eventlog_search(query: String, limit: Option<i64>) -> Result<Vec<EventLogEntry>, AppError> {
     eventlog::search_events(&query, limit).map_err(AppError::from)
 }
 
@@ -555,8 +544,7 @@ pub fn system_panic_wipe(confirmation: String) -> Result<PanicWipeResult, AppErr
 /// "Reboot now" in the post-panic dialog — "Later" never calls this.
 #[tauri::command]
 pub fn system_request_reboot() -> Result<(), AppError> {
-    wipe::selfdelete::request_user_reboot()
-        .map_err(|e| AppError::Io(format!("reboot: {e}")))
+    wipe::selfdelete::request_user_reboot().map_err(|e| AppError::Io(format!("reboot: {e}")))
 }
 
 // --- GitHub integration (Contract 12) ------------------------------------
@@ -608,9 +596,7 @@ pub async fn github_prepare_error_report(
 }
 
 #[tauri::command]
-pub async fn github_submit_error_report(
-    preview: IssuePreview,
-) -> Result<IssueCreated, AppError> {
+pub async fn github_submit_error_report(preview: IssuePreview) -> Result<IssueCreated, AppError> {
     tokio::task::spawn_blocking(move || github::submit_error_report(&preview))
         .await
         .map_err(|e| AppError::Internal(format!("github_submit_error spawn: {e}")))?
@@ -656,9 +642,7 @@ pub fn github_get_finding_ticket(finding_id: String) -> Result<Option<FindingTic
 }
 
 #[tauri::command]
-pub fn github_list_finding_tickets(
-    aws_account_id: String,
-) -> Result<Vec<FindingTicket>, AppError> {
+pub fn github_list_finding_tickets(aws_account_id: String) -> Result<Vec<FindingTicket>, AppError> {
     github::list_finding_tickets(&aws_account_id).map_err(AppError::from)
 }
 
@@ -860,7 +844,10 @@ pub fn report_set_settings(settings: ReportSettings) -> Result<(), AppError> {
     reports::set_settings(settings).map_err(AppError::from)
 }
 
-fn parse_range(start: &str, end: &str) -> Result<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>), AppError> {
+fn parse_range(
+    start: &str,
+    end: &str,
+) -> Result<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>), AppError> {
     let start_dt = chrono::DateTime::parse_from_rfc3339(start)
         .map_err(|_| AppError::InvalidInput("start".into()))?
         .with_timezone(&chrono::Utc);

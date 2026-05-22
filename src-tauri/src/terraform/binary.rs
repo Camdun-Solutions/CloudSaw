@@ -87,7 +87,12 @@ pub fn locate() -> Option<PathBuf> {
     let triple_dir = target_triple_dir();
     let candidates: Vec<PathBuf> = exe_relative_search_roots()
         .into_iter()
-        .map(|root| root.join("vendor").join("terraform").join(triple_dir).join(exe_name))
+        .map(|root| {
+            root.join("vendor")
+                .join("terraform")
+                .join(triple_dir)
+                .join(exe_name)
+        })
         .collect();
 
     for c in candidates {

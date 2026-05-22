@@ -90,7 +90,10 @@ impl DiagnosticBundle {
             self.os_family, self.os_release
         ));
         s.push_str(&format!("- **Locale:** {}\n", self.locale));
-        s.push_str(&format!("- **Generated at:** {}\n", self.generated_at.to_rfc3339()));
+        s.push_str(&format!(
+            "- **Generated at:** {}\n",
+            self.generated_at.to_rfc3339()
+        ));
         s.push_str("\n");
         if let Some(notes) = &self.notes {
             if !notes.trim().is_empty() {

@@ -25,8 +25,8 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cloudsaw_lib::accounts::{self, types::AccountRecord, Environment};
 use cloudsaw_lib::accounts::storage as accounts_storage;
+use cloudsaw_lib::accounts::{self, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::errors::AppError;
 use cloudsaw_lib::terraform::{
@@ -227,7 +227,10 @@ fn provisioning_status_reports_provisioned_after_record_provisioned() {
             policy_variant,
             ..
         } => {
-            assert_eq!(role_arn, "arn:aws:iam::111122223333:role/CloudSawScannerRole");
+            assert_eq!(
+                role_arn,
+                "arn:aws:iam::111122223333:role/CloudSawScannerRole"
+            );
             assert_eq!(policy_variant, PolicyVariant::SecurityAudit);
         }
         other => panic!("expected Provisioned, got {other:?}"),
@@ -241,7 +244,9 @@ fn provisioning_status_reports_failed_after_record_failure() {
     tf_storage::record_failure("111122223333", "terraform_apply_failed").unwrap();
     let status = terraform::provisioning_status("111122223333").unwrap();
     match status {
-        ProvisioningStatus::Failed { last_error_code, .. } => {
+        ProvisioningStatus::Failed {
+            last_error_code, ..
+        } => {
             assert_eq!(last_error_code, "terraform_apply_failed");
         }
         other => panic!("expected Failed, got {other:?}"),
@@ -257,10 +262,7 @@ fn external_id_is_generated_once_and_stable() {
 
     let id1 = tf_storage::ensure_external_id("111122223333").unwrap();
     let id2 = tf_storage::ensure_external_id("111122223333").unwrap();
-    assert_eq!(
-        id1, id2,
-        "external_id must be stable across repeated calls"
-    );
+    assert_eq!(id1, id2, "external_id must be stable across repeated calls");
     assert_eq!(id1.len(), 32);
     assert!(id1.chars().all(|c| c.is_ascii_hexdigit()));
 }
@@ -308,7 +310,13 @@ fn workdir_prepare_copies_module_files_and_stays_under_data_dir() {
 #[test]
 fn workdir_prepare_rejects_malformed_account_id() {
     let _sb = Sandbox::new("workdir-bad-id");
-    for bad in ["", "12345", "abcdefghijkl", "../../etc/passwd", "12345678901a"] {
+    for bad in [
+        "",
+        "12345",
+        "abcdefghijkl",
+        "../../etc/passwd",
+        "12345678901a",
+    ] {
         let err = terraform::workdir::prepare(bad).unwrap_err();
         assert!(
             matches!(err, TerraformError::InvalidInput("aws_account_id")),
@@ -365,7 +373,10 @@ fn plan_token_supersession_rejects_stale_applies() {
 fn terraform_errors_map_to_stable_app_error_codes() {
     let cases = [
         (TerraformError::NotBundled, "terraform_not_bundled"),
-        (TerraformError::IntegrityFailed, "terraform_integrity_failed"),
+        (
+            TerraformError::IntegrityFailed,
+            "terraform_integrity_failed",
+        ),
         (TerraformError::InitFailed, "terraform_init_failed"),
         (TerraformError::PlanFailed, "terraform_plan_failed"),
         (TerraformError::ApplyFailed, "terraform_apply_failed"),
@@ -415,11 +426,8 @@ fn verify_trust_policy_round_trip_against_module_output_shape() {
         ]
     })
     .to_string();
-    runner::verify_trust_policy_principal(
-        &policy,
-        "arn:aws:iam::111122223333:role/CICDDeployer",
-    )
-    .expect("the actual Terraform output shape must round-trip");
+    runner::verify_trust_policy_principal(&policy, "arn:aws:iam::111122223333:role/CICDDeployer")
+        .expect("the actual Terraform output shape must round-trip");
 }
 
 #[test]
@@ -443,11 +451,8 @@ fn verify_trust_policy_rejects_added_statement() {
         ]
     })
     .to_string();
-    let err = runner::verify_trust_policy_principal(
-        &policy,
-        "arn:aws:iam::111122223333:role/X",
-    )
-    .unwrap_err();
+    let err = runner::verify_trust_policy_principal(&policy, "arn:aws:iam::111122223333:role/X")
+        .unwrap_err();
     assert!(matches!(err, TerraformError::TrustVerificationFailed));
 }
 
