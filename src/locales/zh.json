@@ -160,5 +160,20 @@
   "aws.failure.permission_denied": "此 API 权限被拒绝。",
   "aws.failure.connectivity": "网络或 AWS 端点不可达。",
   "aws.failure.timeout": "AWS 在 10 秒内未响应。",
-  "aws.failure.other": "无法使用该配置文件进行认证。"
+  "aws.failure.other": "无法使用该配置文件进行认证。",
+
+  "dashboard.title": "发现",
+  "dashboard.subtitle": "活动 AWS 账户的扫描、发现、漂移和趋势。",
+  "dashboard.tab.scans": "扫描历史",
+  "dashboard.tab.findings": "发现",
+  "dashboard.tab.drift": "漂移",
+  "dashboard.tab.trends": "趋势",
+  "dashboard.severity.label": "严重性",
+  "dashboard.severity.critical": "严重",
+  "dashboard.severity.high": "高",
+  "dashboard.severity.medium": "中",
+  "dashboard.severity.low": "低",
+  "dashboard.severity.informational": "信息",
+  "dashboard.status.open": "未解决",
+  "dashboard.status.resolved": "已解决"
 }
