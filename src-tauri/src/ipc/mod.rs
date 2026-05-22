@@ -32,6 +32,9 @@ use crate::knowledgebase::{
     RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
 };
 use crate::onboarding::{self, OnboardingState, OnboardingStep};
+use crate::reports::{
+    self, AccountIdDisclosure, ExportOutcome, ReportContent, ReportSettings,
+};
 use crate::retention::{self, RetentionPeriod, RetentionRunSummary, RetentionSettings};
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
@@ -755,4 +758,114 @@ pub fn onboarding_complete() -> Result<(), AppError> {
 #[tauri::command]
 pub fn onboarding_reset_for_rerun(start_at: OnboardingStep) -> Result<(), AppError> {
     onboarding::reset_for_rerun(start_at).map_err(AppError::from)
+}
+
+// --- Report exporter (Contract 15) ---------------------------------------
+//
+// The frontend MUST source `output_path` from `dialog.save()` — the
+// Rust side validates the shape (non-empty, has a parent that exists,
+// not directory-ended). PDF + HTML are split into separate IPCs so
+// the UI can offer the user the chosen format directly. Async because
+// PDF generation is CPU-bound and we don't want to block the tokio
+// runtime that hosts other IPCs.
+
+#[tauri::command]
+pub async fn report_export_scan_html(
+    scan_id: String,
+    output_path: String,
+    disclosure: AccountIdDisclosure,
+) -> Result<ExportOutcome, AppError> {
+    tokio::task::spawn_blocking(move || {
+        reports::export_scan_html(&scan_id, &output_path, disclosure)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("report_export_scan_html spawn: {e}")))?
+    .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn report_export_scan_pdf(
+    scan_id: String,
+    output_path: String,
+    disclosure: AccountIdDisclosure,
+) -> Result<ExportOutcome, AppError> {
+    tokio::task::spawn_blocking(move || {
+        reports::export_scan_pdf(&scan_id, &output_path, disclosure)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("report_export_scan_pdf spawn: {e}")))?
+    .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn report_export_custom_html(
+    start: String,
+    end: String,
+    account_scope: Vec<String>,
+    output_path: String,
+    disclosure: AccountIdDisclosure,
+) -> Result<ExportOutcome, AppError> {
+    let (start_dt, end_dt) = parse_range(&start, &end)?;
+    tokio::task::spawn_blocking(move || {
+        reports::export_custom_html(start_dt, end_dt, &account_scope, &output_path, disclosure)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("report_export_custom_html spawn: {e}")))?
+    .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn report_export_custom_pdf(
+    start: String,
+    end: String,
+    account_scope: Vec<String>,
+    output_path: String,
+    disclosure: AccountIdDisclosure,
+) -> Result<ExportOutcome, AppError> {
+    let (start_dt, end_dt) = parse_range(&start, &end)?;
+    tokio::task::spawn_blocking(move || {
+        reports::export_custom_pdf(start_dt, end_dt, &account_scope, &output_path, disclosure)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("report_export_custom_pdf spawn: {e}")))?
+    .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn report_preview_scan(
+    scan_id: String,
+    disclosure: AccountIdDisclosure,
+) -> Result<ReportContent, AppError> {
+    reports::preview_scan(&scan_id, disclosure).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn report_preview_custom(
+    start: String,
+    end: String,
+    account_scope: Vec<String>,
+    disclosure: AccountIdDisclosure,
+) -> Result<ReportContent, AppError> {
+    let (start_dt, end_dt) = parse_range(&start, &end)?;
+    reports::preview_custom(start_dt, end_dt, &account_scope, disclosure).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn report_get_settings() -> Result<ReportSettings, AppError> {
+    reports::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn report_set_settings(settings: ReportSettings) -> Result<(), AppError> {
+    reports::set_settings(settings).map_err(AppError::from)
+}
+
+fn parse_range(start: &str, end: &str) -> Result<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>), AppError> {
+    let start_dt = chrono::DateTime::parse_from_rfc3339(start)
+        .map_err(|_| AppError::InvalidInput("start".into()))?
+        .with_timezone(&chrono::Utc);
+    let end_dt = chrono::DateTime::parse_from_rfc3339(end)
+        .map_err(|_| AppError::InvalidInput("end".into()))?
+        .with_timezone(&chrono::Utc);
+    Ok((start_dt, end_dt))
 }

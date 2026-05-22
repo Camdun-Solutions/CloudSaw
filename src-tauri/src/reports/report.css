@@ -1,0 +1,56 @@
+/* Inlined CSS for the CloudSaw report exporter (Contract 15).
+   All styling lives in this file; the renderer embeds it verbatim
+   inside a <style> block so the report stays self-contained — no
+   external stylesheet links, no font URLs, no remote resources. */
+
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+       "Helvetica Neue", Arial, "Noto Sans", sans-serif; color: #1F1F1F;
+       margin: 24px; line-height: 1.45; }
+h1 { font-size: 26px; margin: 0 0 8px; }
+h2 { font-size: 20px; margin: 24px 0 8px; border-bottom: 1px solid #E5E7EB;
+     padding-bottom: 4px; }
+h4 { font-size: 14px; margin: 12px 0 6px; }
+p { margin: 6px 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #E5E7EB;
+         font-size: 14px; }
+th { background: #F3F4F6; font-weight: 600; }
+.banner { background: #FFF7E6; border: 1px solid #F2C46B; color: #8A5400;
+          padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;
+          font-weight: 500; }
+.subtitle { color: #4B5563; font-size: 15px; margin: 0 0 12px; }
+.meta { display: grid; grid-template-columns: max-content auto;
+        column-gap: 16px; row-gap: 4px; margin: 8px 0 16px; }
+.meta dt { font-weight: 600; color: #374151; }
+.meta dd { margin: 0; color: #1F1F1F; }
+.account-id { color: #6B7280; font-family: ui-monospace, monospace; }
+.empty { background: #F3F4F6; padding: 12px 14px; border-radius: 6px;
+         margin: 12px 0; }
+.finding { border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px 14px;
+           margin: 10px 0; }
+.finding header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+                  margin-bottom: 6px; }
+.sev { font-weight: 700; font-size: 11px; letter-spacing: 0.04em;
+       padding: 2px 6px; border-radius: 3px; color: #FFFFFF; }
+.sev-critical { background: #1F1F1F; }
+.sev-high { background: #D7263D; }
+.sev-medium { background: #F58A1F; color: #1F1F1F; }
+.sev-low { background: #E5B43A; color: #1F1F1F; }
+.sev-informational { background: #9CA3AF; color: #1F1F1F; }
+.status { font-size: 11px; letter-spacing: 0.04em; padding: 2px 6px;
+          border-radius: 3px; background: #E5E7EB; color: #1F1F1F; }
+.rule-key { font-family: ui-monospace, monospace; background: #F3F4F6;
+            padding: 1px 4px; border-radius: 3px; }
+.service { color: #6B7280; font-family: ui-monospace, monospace; }
+.description { font-size: 15px; }
+.rationale { color: #4B5563; font-size: 14px; }
+.meta { color: #6B7280; font-size: 12px; }
+.remediation { background: #F9FAFB; border: 1px solid #E5E7EB;
+               padding: 8px 10px; border-radius: 4px; font-family:
+               ui-monospace, monospace; white-space: pre-wrap; font-size: 12px; }
+.compliance, .resources { margin: 4px 0; padding-left: 24px; font-size: 13px; }
+.truncated { color: #6B7280; font-size: 12px; }
+footer { color: #6B7280; font-size: 12px; margin-top: 32px;
+         border-top: 1px solid #E5E7EB; padding-top: 8px; }
+@media print { body { margin: 12mm; } }

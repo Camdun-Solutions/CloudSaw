@@ -664,6 +664,23 @@ export type OnboardingState = {
   completed_at: string | null;
 };
 
+// --- Report exporter (Contract 15) ------------------------------------
+
+export type AccountIdDisclosure = "masked" | "full";
+
+export type ExportOutcome = {
+  primary_path: string;
+  bytes_written: number;
+  auto_export_path: string | null;
+  auto_export_failed: boolean;
+};
+
+export type ReportSettings = {
+  auto_export_enabled: boolean;
+  auto_export_folder: string | null;
+  mask_account_ids_default: boolean;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -1183,6 +1200,74 @@ export const ipc = {
    * specific step (typically `aws_account` to add another). */
   onboardingResetForRerun(startAt: OnboardingStep): Promise<void> {
     return invoke<void>("onboarding_reset_for_rerun", { startAt });
+  },
+
+  // --- Report exporter (Contract 15) ---------------------------------
+
+  /** Per-scan HTML export. The `outputPath` MUST come from the native
+   * save dialog. */
+  reportExportScanHtml(
+    scanId: string,
+    outputPath: string,
+    disclosure: AccountIdDisclosure,
+  ): Promise<ExportOutcome> {
+    return invoke<ExportOutcome>("report_export_scan_html", {
+      scanId,
+      outputPath,
+      disclosure,
+    });
+  },
+
+  reportExportScanPdf(
+    scanId: string,
+    outputPath: string,
+    disclosure: AccountIdDisclosure,
+  ): Promise<ExportOutcome> {
+    return invoke<ExportOutcome>("report_export_scan_pdf", {
+      scanId,
+      outputPath,
+      disclosure,
+    });
+  },
+
+  reportExportCustomHtml(
+    start: string,
+    end: string,
+    accountScope: string[],
+    outputPath: string,
+    disclosure: AccountIdDisclosure,
+  ): Promise<ExportOutcome> {
+    return invoke<ExportOutcome>("report_export_custom_html", {
+      start,
+      end,
+      accountScope,
+      outputPath,
+      disclosure,
+    });
+  },
+
+  reportExportCustomPdf(
+    start: string,
+    end: string,
+    accountScope: string[],
+    outputPath: string,
+    disclosure: AccountIdDisclosure,
+  ): Promise<ExportOutcome> {
+    return invoke<ExportOutcome>("report_export_custom_pdf", {
+      start,
+      end,
+      accountScope,
+      outputPath,
+      disclosure,
+    });
+  },
+
+  reportGetSettings(): Promise<ReportSettings> {
+    return invoke<ReportSettings>("report_get_settings");
+  },
+
+  reportSetSettings(settings: ReportSettings): Promise<void> {
+    return invoke<void>("report_set_settings", { settings });
   },
 };
 

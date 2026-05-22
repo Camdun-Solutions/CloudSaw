@@ -17,6 +17,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# Tauri 2 native save / open dialog plugin. The report exporter
+# (Contract 15) uses this on the frontend to source the output path;
+# the Rust side never trusts a frontend-supplied arbitrary string
+# (CLAUDE.md §4.1 + Contract 15 §Constraints).
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -86,6 +91,14 @@ keyring = { version = "3", default-features = false, features = [
 # crate is already in our transitive graph via tauri/aws-sdk; pulling it
 # in directly removes the version-drift risk.
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+
+# Pure-Rust PDF generator used by the report exporter (Contract 15).
+# Pinned to a known-good minor; `printpdf` ships a built-in Helvetica
+# font usable for ASCII + Latin-1 output. Full Unicode (CJK, etc.)
+# in the PDF surface is handled by the HTML report which renders
+# through the OS browser stack — the contract documents this split
+# in CONTRACT_15_VERIFICATION.md.
+printpdf = { version = "0.7", default-features = false }
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"

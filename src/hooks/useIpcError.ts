@@ -96,6 +96,10 @@ const KNOWN_CODES: Record<string, string> = {
   ai_rate_limited: "ai.error.rate_limited",
   ai_network: "ai.error.network",
   ai_server_error: "ai.error.server",
+  // Report exporter (Contract 15).
+  report_output_write: "report.error.output_write",
+  report_pdf_render: "report.error.pdf_render",
+  report_auto_export_copy: "report.error.auto_export_copy",
 };
 
 export function useIpcError() {
