@@ -150,8 +150,8 @@ jobs:
           npx @cyclonedx/cyclonedx-npm --output-file out/cloudsaw-npm-sbom.cdx.json
         continue-on-error: false
 
-      - name: attest build provenance
-        uses: actions/attest-build-provenance@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+      - name: attest build provenance # using actions/attest per v4 release notes deprecating attest-build-provenance
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: |
             out/*
