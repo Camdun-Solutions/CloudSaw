@@ -17,6 +17,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  ExportReportDialog,
   LineChart,
   Modal,
   SeverityBadge,
@@ -71,6 +72,7 @@ export default function Dashboard({ onClose, onOpenAccounts, onOpenReport }: Pro
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ScanRecord | null>(null);
   const [deleteToast, setDeleteToast] = useState<string | null>(null);
+  const [exportTargetScanId, setExportTargetScanId] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
     setLoadError(null);
@@ -178,6 +180,10 @@ export default function Dashboard({ onClose, onOpenAccounts, onOpenReport }: Pro
         onCancel={() => setDeleteTarget(null)}
         onConfirm={onConfirmDelete}
         showId={showId}
+      />
+      <ExportReportDialog
+        scanId={exportTargetScanId}
+        onClose={() => setExportTargetScanId(null)}
       />
       <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
         <div className="flex items-center gap-3">
@@ -292,6 +298,7 @@ export default function Dashboard({ onClose, onOpenAccounts, onOpenReport }: Pro
             }}
             onOpenAccounts={onOpenAccounts}
             onDeleteScan={(s) => setDeleteTarget(s)}
+            onExportScan={(id) => setExportTargetScanId(id)}
             showId={showId}
             deleteToast={deleteToast}
             onDismissToast={() => setDeleteToast(null)}
@@ -320,6 +327,7 @@ type ScansViewProps = {
   onOpenScan: (scanId: string) => void;
   onOpenAccounts: () => void;
   onDeleteScan: (scan: ScanRecord) => void;
+  onExportScan: (scanId: string) => void;
   showId: (id: string) => string;
   deleteToast: string | null;
   onDismissToast: () => void;
@@ -332,6 +340,7 @@ function ScansView({
   onOpenScan,
   onOpenAccounts,
   onDeleteScan,
+  onExportScan,
   showId,
   deleteToast,
   onDismissToast,
@@ -456,6 +465,14 @@ function ScansView({
                       data-testid={`scan-open-${s.scan_id}`}
                     >
                       {t("dashboard.scans.open_scan")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onExportScan(s.scan_id)}
+                      data-testid={`scan-export-${s.scan_id}`}
+                    >
+                      {t("report.export.cta")}
                     </Button>
                     <Button
                       variant="ghost"

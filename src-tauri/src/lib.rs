@@ -41,6 +41,9 @@ pub fn run() {
     };
 
     tauri::Builder::default()
+        // Native save / open file dialog plugin used by the Contract 15
+        // report exporter to source output paths.
+        .plugin(tauri_plugin_dialog::init())
         .manage(session)
         .invoke_handler(tauri::generate_handler![
             ipc::app_version,
@@ -135,6 +138,14 @@ pub fn run() {
             ipc::onboarding_mark_step_completed,
             ipc::onboarding_complete,
             ipc::onboarding_reset_for_rerun,
+            ipc::report_export_scan_html,
+            ipc::report_export_scan_pdf,
+            ipc::report_export_custom_html,
+            ipc::report_export_custom_pdf,
+            ipc::report_preview_scan,
+            ipc::report_preview_custom,
+            ipc::report_get_settings,
+            ipc::report_set_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,6 +4,7 @@ export { default as Button } from "./Button";
 export { default as EmptyState } from "./EmptyState";
 export { default as ErrorBoundary } from "./ErrorBoundary";
 export { default as ErrorReportDialog } from "./ErrorReportDialog";
+export { default as ExportReportDialog } from "./ExportReportDialog";
 export { default as LineChart } from "./LineChart";
 export { default as Modal } from "./Modal";
 export { default as PasswordField } from "./PasswordField";

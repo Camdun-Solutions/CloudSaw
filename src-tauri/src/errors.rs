@@ -252,6 +252,18 @@ pub enum AppError {
     #[error("ai: provider error {0}")]
     AiServerError(u16),
 
+    // Report exporter (Contract 15). Stable codes only; no scan
+    // content, no resource paths, and no filesystem path content
+    // appears in any of these messages.
+    #[error("report: output write failed")]
+    ReportOutputWrite,
+
+    #[error("report: pdf render failed: {0}")]
+    ReportPdfRender(String),
+
+    #[error("report: auto-export copy failed")]
+    ReportAutoExportCopy,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -328,6 +340,9 @@ impl AppError {
             AppError::AiRateLimited => "ai_rate_limited",
             AppError::AiNetwork => "ai_network",
             AppError::AiServerError(_) => "ai_server_error",
+            AppError::ReportOutputWrite => "report_output_write",
+            AppError::ReportPdfRender(_) => "report_pdf_render",
+            AppError::ReportAutoExportCopy => "report_auto_export_copy",
             AppError::Internal(_) => "internal_error",
         }
     }

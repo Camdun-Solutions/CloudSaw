@@ -4,6 +4,7 @@ import { ErrorBoundary, ErrorReportDialog } from "@/components";
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
+import CustomReport from "@/routes/CustomReport";
 import Dashboard from "@/routes/Dashboard";
 import Home from "@/routes/Home";
 import Onboarding from "@/routes/Onboarding";
@@ -21,6 +22,7 @@ type Route =
   | "settings"
   | "schedules"
   | "activitylog"
+  | "custom_report"
   | "dashboard";
 
 export default function App() {
@@ -223,6 +225,7 @@ function AppShell({
         onClose={() => setRoute("home")}
         onOpenSchedules={() => setRoute("schedules")}
         onOpenActivityLog={() => setRoute("activitylog")}
+        onOpenCustomReport={() => setRoute("custom_report")}
         onRerunOnboarding={onRerunOnboarding}
       />
     );
@@ -232,6 +235,9 @@ function AppShell({
   }
   if (route === "activitylog") {
     return <ActivityLog onBack={() => setRoute("settings")} />;
+  }
+  if (route === "custom_report") {
+    return <CustomReport onBack={() => setRoute("settings")} />;
   }
   if (route === "accounts") {
     return (

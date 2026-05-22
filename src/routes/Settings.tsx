@@ -9,6 +9,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Modal, PasswordField, Select, Switch } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+
 import {
   ipc,
   type AiProvider,
@@ -19,6 +21,7 @@ import {
   type LockPeriod,
   type LockSettings,
   type PanicWipeResult,
+  type ReportSettings as ReportSettingsT,
   type RetentionPeriod,
   type RetentionSettings,
   type RiskTolerance,
@@ -62,6 +65,8 @@ type Props = {
   onClose: () => void;
   onOpenSchedules: () => void;
   onOpenActivityLog: () => void;
+  /** Open the custom-report builder (Contract 15B). */
+  onOpenCustomReport?: () => void;
   /** Re-enter the onboarding wizard at a specific step. Settings uses
    * this to expose "Add another AWS account" and "Re-run the full
    * wizard" actions (Contract 14 §Expected Output). */
@@ -72,6 +77,7 @@ export default function Settings({
   onClose,
   onOpenSchedules,
   onOpenActivityLog,
+  onOpenCustomReport,
   onRerunOnboarding,
 }: Props) {
   const t = useT();
@@ -254,6 +260,7 @@ export default function Settings({
 
       <ActivityLogSection onOpen={onOpenActivityLog} />
       <OnboardingSection onRerun={onRerunOnboarding} />
+      <ReportSection onOpenCustomReport={onOpenCustomReport} />
       <RetentionSection />
       <GithubSection />
       <AiSection />
@@ -1370,6 +1377,167 @@ function AiSection() {
           </p>
         ) : null}
 
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+// --- Report exporter section (Contract 15) -----------------------------
+
+function ReportSection({
+  onOpenCustomReport,
+}: {
+  onOpenCustomReport?: () => void;
+}) {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<ReportSettingsT | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [pickerBusy, setPickerBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setSettings(await ipc.reportGetSettings());
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (!settings) return null;
+
+  async function chooseFolder() {
+    setPickerBusy(true);
+    setErr(null);
+    try {
+      const picked = await openDialog({ directory: true, multiple: false });
+      if (picked && typeof picked === "string") {
+        setSettings({ ...settings!, auto_export_folder: picked });
+      }
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setPickerBusy(false);
+    }
+  }
+
+  async function persist() {
+    setBusy(true);
+    setSaved(false);
+    setErr(null);
+    try {
+      await ipc.reportSetSettings(settings!);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-reports"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("report.settings.title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("report.settings.subtitle")}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        {onOpenCustomReport ? (
+          <div>
+            <Button
+              variant="secondary"
+              onClick={onOpenCustomReport}
+              data-testid="settings-open-custom-report"
+            >
+              {t("report.custom.cta")}
+            </Button>
+          </div>
+        ) : null}
+
+        <label className="flex items-start gap-2 text-small text-saw-grey-700">
+          <input
+            type="checkbox"
+            checked={settings.auto_export_enabled}
+            onChange={(e) =>
+              setSettings({ ...settings, auto_export_enabled: e.target.checked })
+            }
+            className="mt-1"
+            data-testid="settings-reports-enable"
+          />
+          <span>{t("report.settings.enable")}</span>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("report.settings.folder_label")}</span>
+          <input
+            type="text"
+            readOnly
+            value={settings.auto_export_folder ?? ""}
+            placeholder={t("report.settings.folder_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="settings-reports-folder"
+          />
+        </label>
+        <div>
+          <Button
+            variant="secondary"
+            onClick={() => void chooseFolder()}
+            disabled={pickerBusy}
+            data-testid="settings-reports-choose-folder"
+          >
+            {t("report.settings.choose_folder")}
+          </Button>
+        </div>
+
+        <label className="flex items-start gap-2 text-small text-saw-grey-700">
+          <input
+            type="checkbox"
+            checked={settings.mask_account_ids_default}
+            onChange={(e) =>
+              setSettings({ ...settings, mask_account_ids_default: e.target.checked })
+            }
+            className="mt-1"
+            data-testid="settings-reports-mask-default"
+          />
+          <span>{t("report.settings.mask_default")}</span>
+        </label>
+
+        <div>
+          <Button
+            variant="primary"
+            onClick={() => void persist()}
+            disabled={busy}
+            data-testid="settings-reports-save"
+          >
+            {t("report.settings.save")}
+          </Button>
+        </div>
+        {saved ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="settings-reports-saved"
+          >
+            {t("report.settings.saved")}
+          </p>
+        ) : null}
         {err ? (
           <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
             {err}
