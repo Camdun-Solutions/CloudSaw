@@ -151,7 +151,7 @@ jobs:
         continue-on-error: false
 
       - name: attest build provenance
-        uses: actions/attest-build-provenance@7668a9112bfe8d4cf18112e30b08c5ca115e2cca # v1.4.4
+        uses: actions/attest-build-provenance@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: |
             out/*
