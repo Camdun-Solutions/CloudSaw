@@ -231,6 +231,27 @@ pub enum AppError {
     #[error("github: ticket already exists")]
     GithubDuplicateTicket,
 
+    // AI Suggestion Layer (Contract 13). Stable codes only; no provider
+    // response body, no API key material, no finding identifier ever
+    // appears in any of these messages.
+    #[error("ai: no provider key")]
+    AiNoProviderKey,
+
+    #[error("ai: no provider configured")]
+    AiNoProvider,
+
+    #[error("ai: provider key invalid or expired")]
+    AiKeyInvalid,
+
+    #[error("ai: rate limited")]
+    AiRateLimited,
+
+    #[error("ai: network unreachable")]
+    AiNetwork,
+
+    #[error("ai: provider error {0}")]
+    AiServerError(u16),
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -301,6 +322,12 @@ impl AppError {
             AppError::GithubServerError(_) => "github_server_error",
             AppError::GithubNoFindingsRepo => "github_no_findings_repo",
             AppError::GithubDuplicateTicket => "github_duplicate_ticket",
+            AppError::AiNoProviderKey => "ai_no_provider_key",
+            AppError::AiNoProvider => "ai_no_provider",
+            AppError::AiKeyInvalid => "ai_key_invalid",
+            AppError::AiRateLimited => "ai_rate_limited",
+            AppError::AiNetwork => "ai_network",
+            AppError::AiServerError(_) => "ai_server_error",
             AppError::Internal(_) => "internal_error",
         }
     }

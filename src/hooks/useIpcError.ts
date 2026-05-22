@@ -89,6 +89,13 @@ const KNOWN_CODES: Record<string, string> = {
   github_server_error: "github.error.server",
   github_no_findings_repo: "github.error.no_findings_repo",
   github_duplicate_ticket: "github.error.duplicate_ticket",
+  // AI Suggestion Layer (Contract 13).
+  ai_no_provider_key: "ai.error.no_provider_key",
+  ai_no_provider: "ai.error.no_provider",
+  ai_key_invalid: "ai.error.key_invalid",
+  ai_rate_limited: "ai.error.rate_limited",
+  ai_network: "ai.error.network",
+  ai_server_error: "ai.error.server",
 };
 
 export function useIpcError() {

@@ -11,12 +11,18 @@ import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
   ipc,
+  type AiProvider,
+  type AiSettings as AiSettingsT,
+  type BusinessContext,
+  type EnvironmentType,
   type GithubSettings,
   type LockPeriod,
   type LockSettings,
   type PanicWipeResult,
   type RetentionPeriod,
   type RetentionSettings,
+  type RiskTolerance,
+  type TeamSize,
 } from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
 
@@ -240,6 +246,7 @@ export default function Settings({ onClose, onOpenSchedules, onOpenActivityLog }
       <ActivityLogSection onOpen={onOpenActivityLog} />
       <RetentionSection />
       <GithubSection />
+      <AiSection />
       <PanicSection />
 
       <ChangePasswordDialog
@@ -948,6 +955,372 @@ function GithubSection() {
             {t("github.security_contact.hint")}
           </div>
         </div>
+
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+// --- AI Suggestion Layer (Contract 13) ----------------------------------
+
+function AiSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<AiSettingsT | null>(null);
+  const [provider, setProvider] = useState<AiProvider | "">("");
+  const [keyInput, setKeyInput] = useState("");
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [keySaved, setKeySaved] = useState(false);
+  const [context, setContext] = useState<BusinessContext | null>(null);
+  const [ctxSaved, setCtxSaved] = useState(false);
+  const [complianceInput, setComplianceInput] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const s = await ipc.aiGetSettings();
+      setSettings(s);
+      setProvider(s.provider ?? "");
+      setContext(s.context);
+      setComplianceInput(s.context.compliance.join(", "));
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (!settings || !context) return null;
+
+  async function saveProvider() {
+    setErr(null);
+    try {
+      await ipc.aiSetProvider(provider === "" ? null : provider);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function saveKey() {
+    setErr(null);
+    if (provider === "") {
+      setErr(t("ai.error.no_provider"));
+      return;
+    }
+    setKeyBusy(true);
+    setKeySaved(false);
+    try {
+      await ipc.aiSetProviderKey(provider, keyInput);
+      setKeyInput("");
+      setKeySaved(true);
+      window.setTimeout(() => setKeySaved(false), 3000);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setKeyBusy(false);
+    }
+  }
+  async function clearKey() {
+    setErr(null);
+    if (provider === "") return;
+    try {
+      await ipc.aiClearProviderKey(provider);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function saveContext() {
+    setErr(null);
+    if (!context) return;
+    setCtxSaved(false);
+    try {
+      const compliance = complianceInput
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const next: BusinessContext = { ...context, compliance };
+      await ipc.aiSetBusinessContext(next);
+      setCtxSaved(true);
+      window.setTimeout(() => setCtxSaved(false), 3000);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+
+  const envOptions: { value: EnvironmentType; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.env.unspecified") },
+    { value: "production", label: t("ai.context.env.production") },
+    { value: "dev_test", label: t("ai.context.env.dev_test") },
+    { value: "mixed", label: t("ai.context.env.mixed") },
+  ];
+  const riskOptions: { value: RiskTolerance; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.risk.unspecified") },
+    { value: "low", label: t("ai.context.risk.low") },
+    { value: "medium", label: t("ai.context.risk.medium") },
+    { value: "high", label: t("ai.context.risk.high") },
+  ];
+  const teamOptions: { value: TeamSize; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.team.unspecified") },
+    { value: "solo", label: t("ai.context.team.solo") },
+    { value: "small", label: t("ai.context.team.small") },
+    { value: "medium", label: t("ai.context.team.medium") },
+    { value: "large", label: t("ai.context.team.large") },
+  ];
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-ai"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("ai.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("ai.section_subtitle")}
+      </p>
+
+      {!settings.key_connected ? (
+        <div
+          className="mt-4 rounded-card border border-saw-grey-200 bg-saw-grey-50 p-3 text-small"
+          data-testid="ai-dormant-note"
+        >
+          <div className="font-medium text-saw-grey-900">
+            {t("ai.dormant.title")}
+          </div>
+          <div className="text-saw-grey-700 mt-1">{t("ai.dormant.body")}</div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 p-3 text-small">
+        <div className="font-medium text-saw-red">{t("ai.disclosure.title")}</div>
+        <div className="text-saw-grey-800 mt-1">{t("ai.disclosure.body")}</div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.provider.label")}</span>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as AiProvider | "")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-provider-select"
+          >
+            <option value="">{t("ai.provider.none")}</option>
+            <option value="anthropic">{t("ai.provider.anthropic")}</option>
+            <option value="openai">{t("ai.provider.openai")}</option>
+          </select>
+        </label>
+        <div>
+          <Button
+            variant="secondary"
+            onClick={() => void saveProvider()}
+            data-testid="ai-provider-save"
+          >
+            {provider === "" ? t("ai.provider.clear") : t("ai.provider.set")}
+          </Button>
+        </div>
+
+        {provider !== "" ? (
+          <>
+            <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+              <span>{t("ai.key.label")}</span>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder={
+                  provider === "anthropic"
+                    ? t("ai.key.placeholder_anthropic")
+                    : t("ai.key.placeholder_openai")
+                }
+                autoComplete="off"
+                className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+                data-testid="ai-key-input"
+              />
+              <span className="text-xs text-saw-grey-500">{t("ai.key.hint")}</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                onClick={() => void saveKey()}
+                disabled={keyBusy || keyInput.trim().length === 0}
+                data-testid="ai-key-save"
+              >
+                {keyBusy ? t("ai.key.saving") : t("ai.key.save")}
+              </Button>
+              {settings.key_connected ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => void clearKey()}
+                  data-testid="ai-key-clear"
+                >
+                  {t("ai.key.clear")}
+                </Button>
+              ) : null}
+            </div>
+            <p
+              className="text-small text-saw-grey-700"
+              data-testid="ai-key-status"
+            >
+              {settings.key_connected
+                ? t("ai.key.connected")
+                : t("ai.key.not_connected")}
+            </p>
+            {keySaved ? (
+              <p
+                role="status"
+                className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+              >
+                {t("ai.key.connected")}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <div>
+          <div className="font-medium text-saw-grey-900">
+            {t("ai.context.title")}
+          </div>
+          <div className="text-small text-saw-grey-600 mt-1">
+            {t("ai.context.subtitle")}
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.industry")}</span>
+          <input
+            type="text"
+            value={context.industry}
+            onChange={(e) =>
+              setContext({ ...context, industry: e.target.value })
+            }
+            placeholder={t("ai.context.industry_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-industry"
+          />
+          {settings.flags.industry_identifying ? (
+            <span
+              className="text-xs text-saw-red"
+              data-testid="ai-ctx-industry-warn"
+            >
+              {t("ai.context.industry_warn")}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.environment")}</span>
+          <select
+            value={context.environment_type}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                environment_type: e.target.value as EnvironmentType,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-env"
+          >
+            {envOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.compliance")}</span>
+          <input
+            type="text"
+            value={complianceInput}
+            onChange={(e) => setComplianceInput(e.target.value)}
+            placeholder={t("ai.context.compliance_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="ai-ctx-compliance"
+          />
+          {settings.flags.compliance_identifying ? (
+            <span
+              className="text-xs text-saw-red"
+              data-testid="ai-ctx-compliance-warn"
+            >
+              {t("ai.context.compliance_warn")}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.risk")}</span>
+          <select
+            value={context.risk_tolerance}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                risk_tolerance: e.target.value as RiskTolerance,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-risk"
+          >
+            {riskOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.team")}</span>
+          <select
+            value={context.team_size}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                team_size: e.target.value as TeamSize,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-team"
+          >
+            {teamOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div>
+          <Button
+            variant="primary"
+            onClick={() => void saveContext()}
+            data-testid="ai-ctx-save"
+          >
+            {t("ai.context.save")}
+          </Button>
+        </div>
+        {ctxSaved ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="ai-ctx-saved"
+          >
+            {t("ai.context.saved")}
+          </p>
+        ) : null}
 
         {err ? (
           <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
