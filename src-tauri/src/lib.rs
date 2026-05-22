@@ -72,6 +72,14 @@ pub fn run() {
             ipc::findings_list_scans,
             ipc::findings_get_scan,
             ipc::findings_delete_scan,
+            ipc::kb_get_article,
+            ipc::kb_list_articles,
+            ipc::kb_get_control_mappings,
+            ipc::kb_list_frameworks,
+            ipc::kb_get_refresh_settings,
+            ipc::kb_set_refresh_settings,
+            ipc::kb_check_for_update,
+            ipc::kb_apply_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -94,6 +102,12 @@ fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
     // `scans` table exists; failures here are non-fatal — the scans UI
     // will eventually self-heal as new scans land.
     let _ = scanner::reap_stale_on_boot();
+
+    // Load the knowledgebase content cache (bundled baseline, or the
+    // remote cache if the user opted in and a valid cache is on disk).
+    // Failures here are non-fatal — the UI's article surface still renders
+    // a default-article placeholder, and a future refresh can recover.
+    let _ = knowledgebase::bootstrap();
 
     // Decide whether the app starts locked or unlocked based on the stored
     // lock period and last_unlocked_at. Must happen AFTER migrations run.

@@ -20,6 +20,10 @@ use crate::errors::AppError;
 use crate::findings::{
     self, DeleteScanImpact, Finding, FindingDetail, FindingsFilter, ParseSummary,
 };
+use crate::knowledgebase::{
+    self, ArticleSummary, ControlMapping, Framework, KnowledgeArticle, RefreshApplyResult,
+    RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
+};
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
 };
@@ -331,4 +335,69 @@ pub fn findings_get_scan(scan_id: String) -> Result<ScanRecord, AppError> {
 #[tauri::command]
 pub fn findings_delete_scan(scan_id: String) -> Result<DeleteScanImpact, AppError> {
     findings::delete_scan(&scan_id).map_err(AppError::from)
+}
+
+// --- Knowledge base & compliance mapping (Contract 08) --------------------
+//
+// Bundled article + mapping reads are synchronous SQLite / in-memory
+// lookups; `kb_check_for_update` and `kb_apply_update` are async because
+// they perform a network fetch from a public documentation source. The
+// refresh feature is opt-in (default OFF) — every command validates the
+// `finding_id` inside the `knowledgebase` module before any work runs.
+//
+// CLAUDE.md §5 hard-DO-NOT: no account information, finding identifiers,
+// or scan data ever crosses the network in a refresh call. The fetch is
+// a plain GET of public security documentation.
+
+#[tauri::command]
+pub fn kb_get_article(finding_id: String) -> Result<KnowledgeArticle, AppError> {
+    knowledgebase::get_article(&finding_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn kb_list_articles() -> Result<Vec<ArticleSummary>, AppError> {
+    knowledgebase::list_articles().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn kb_get_control_mappings(finding_id: String) -> Result<ControlMapping, AppError> {
+    knowledgebase::get_control_mappings(&finding_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn kb_list_frameworks() -> Result<Vec<Framework>, AppError> {
+    knowledgebase::list_frameworks().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn kb_get_refresh_settings() -> Result<RefreshSettings, AppError> {
+    knowledgebase::get_refresh_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn kb_set_refresh_settings(
+    update: RefreshSettingsUpdate,
+) -> Result<RefreshSettings, AppError> {
+    knowledgebase::set_refresh_settings(update).map_err(AppError::from)
+}
+
+/// Probe for an available KB update. Errors with `kb_refresh_disabled`
+/// if the user hasn't opted in. Runs the HTTP fetch on a blocking
+/// worker thread because the underlying client is sync.
+#[tauri::command]
+pub async fn kb_check_for_update() -> Result<RefreshCheckResult, AppError> {
+    tokio::task::spawn_blocking(knowledgebase::check_for_kb_update)
+        .await
+        .map_err(|e| AppError::Internal(format!("kb_check spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+/// Fetch + validate + install a remote bundle. On failure the bundled
+/// baseline (or any prior remote cache) is preserved untouched.
+#[tauri::command]
+pub async fn kb_apply_update() -> Result<RefreshApplyResult, AppError> {
+    tokio::task::spawn_blocking(knowledgebase::apply_kb_update)
+        .await
+        .map_err(|e| AppError::Internal(format!("kb_apply spawn: {e}")))?
+        .map_err(AppError::from)
 }

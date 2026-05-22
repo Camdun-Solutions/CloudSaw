@@ -54,6 +54,17 @@ aws-smithy-runtime-api = "1"
 aws-smithy-types = "1"
 tokio = { version = "1", features = ["time", "rt", "macros"] }
 
+# Opt-in knowledge-base remote refresh (Contract 08). Default OFF; only
+# used when the user explicitly enables the refresh feature in Settings.
+# Pinned to a minimal feature set so we don't accidentally inherit
+# OpenSSL or cookies. `blocking` is used because every other knowledgebase
+# call site is sync — the entire surface stays uniform.
+reqwest = { version = "0.13", default-features = false, features = [
+    "blocking",
+    "rustls",
+    "http2",
+] }
+
 [target."cfg(unix)".dependencies]
 libc = "0.2"
 

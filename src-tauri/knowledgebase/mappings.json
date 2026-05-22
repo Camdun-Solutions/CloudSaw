@@ -1,0 +1,314 @@
+{
+  "frameworks": {
+    "soc2": { "name": "SOC 2 (Trust Services Criteria)" },
+    "iso27001": { "name": "ISO/IEC 27001:2022 Annex A" },
+    "hipaa": { "name": "HIPAA Security Rule (45 CFR §164)" },
+    "nist": { "name": "NIST SP 800-53 Rev. 5" }
+  },
+  "mappings": {
+    "iam-password-policy-no-minimum-length": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }
+      ],
+      "iso27001": [
+        { "control_id": "A.5.17", "title": "Authentication information" },
+        { "control_id": "A.8.5", "title": "Secure authentication" }
+      ],
+      "hipaa": [
+        { "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }
+      ],
+      "nist": [
+        { "control_id": "IA-5(1)", "title": "Password-Based Authentication" }
+      ]
+    },
+    "iam-password-policy-no-uppercase": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.5.17", "title": "Authentication information" }],
+      "hipaa": [{ "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }],
+      "nist": [{ "control_id": "IA-5(1)", "title": "Password-Based Authentication" }]
+    },
+    "iam-password-policy-no-lowercase": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.5.17", "title": "Authentication information" }],
+      "hipaa": [{ "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }],
+      "nist": [{ "control_id": "IA-5(1)", "title": "Password-Based Authentication" }]
+    },
+    "iam-password-policy-no-number": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.5.17", "title": "Authentication information" }],
+      "hipaa": [{ "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }],
+      "nist": [{ "control_id": "IA-5(1)", "title": "Password-Based Authentication" }]
+    },
+    "iam-password-policy-no-symbol": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.5.17", "title": "Authentication information" }],
+      "hipaa": [{ "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }],
+      "nist": [{ "control_id": "IA-5(1)", "title": "Password-Based Authentication" }]
+    },
+    "iam-password-policy-no-expiration": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.5.17", "title": "Authentication information" }],
+      "hipaa": [{ "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }],
+      "nist": [{ "control_id": "IA-5(1)", "title": "Password-Based Authentication" }]
+    },
+    "iam-password-policy-no-reuse-prevention": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.5.17", "title": "Authentication information" }],
+      "hipaa": [{ "control_id": "§164.308(a)(5)(ii)(D)", "title": "Password management" }],
+      "nist": [{ "control_id": "IA-5(1)", "title": "Password-Based Authentication" }]
+    },
+    "iam-user-no-mfa": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }
+      ],
+      "iso27001": [
+        { "control_id": "A.8.5", "title": "Secure authentication" },
+        { "control_id": "A.5.16", "title": "Identity management" }
+      ],
+      "hipaa": [
+        { "control_id": "§164.312(d)", "title": "Person or entity authentication" }
+      ],
+      "nist": [
+        { "control_id": "IA-2(1)", "title": "Multi-factor authentication to privileged accounts" },
+        { "control_id": "IA-2(2)", "title": "Multi-factor authentication to non-privileged accounts" }
+      ]
+    },
+    "iam-root-account-mfa-not-enabled": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.3", "title": "Logical access control over authentication credentials" }
+      ],
+      "iso27001": [
+        { "control_id": "A.8.5", "title": "Secure authentication" },
+        { "control_id": "A.5.15", "title": "Access control" }
+      ],
+      "hipaa": [
+        { "control_id": "§164.312(d)", "title": "Person or entity authentication" }
+      ],
+      "nist": [
+        { "control_id": "IA-2(1)", "title": "Multi-factor authentication to privileged accounts" },
+        { "control_id": "AC-6", "title": "Least Privilege" }
+      ]
+    },
+    "iam-root-account-with-access-keys": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.3", "title": "Logical access control over authentication credentials" }
+      ],
+      "iso27001": [
+        { "control_id": "A.5.15", "title": "Access control" },
+        { "control_id": "A.8.2", "title": "Privileged access rights" }
+      ],
+      "hipaa": [
+        { "control_id": "§164.308(a)(4)", "title": "Information access management" }
+      ],
+      "nist": [
+        { "control_id": "AC-6", "title": "Least Privilege" },
+        { "control_id": "IA-5", "title": "Authenticator Management" }
+      ]
+    },
+    "iam-user-with-inline-policies": {
+      "soc2": [{ "control_id": "CC6.3", "title": "Logical access control over authentication credentials" }],
+      "iso27001": [{ "control_id": "A.5.18", "title": "Access rights" }],
+      "hipaa": [{ "control_id": "§164.308(a)(4)", "title": "Information access management" }],
+      "nist": [{ "control_id": "AC-6", "title": "Least Privilege" }]
+    },
+    "iam-user-with-policies-attached": {
+      "soc2": [{ "control_id": "CC6.3", "title": "Logical access control over authentication credentials" }],
+      "iso27001": [{ "control_id": "A.5.18", "title": "Access rights" }],
+      "hipaa": [{ "control_id": "§164.308(a)(4)", "title": "Information access management" }],
+      "nist": [{ "control_id": "AC-6", "title": "Least Privilege" }]
+    },
+    "s3-bucket-allowing-public-access": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }
+      ],
+      "iso27001": [
+        { "control_id": "A.5.10", "title": "Acceptable use of information and other associated assets" },
+        { "control_id": "A.8.3", "title": "Information access restriction" }
+      ],
+      "hipaa": [
+        { "control_id": "§164.312(a)(1)", "title": "Access control" },
+        { "control_id": "§164.312(e)(1)", "title": "Transmission security" }
+      ],
+      "nist": [
+        { "control_id": "AC-3", "title": "Access Enforcement" },
+        { "control_id": "SC-7", "title": "Boundary Protection" }
+      ]
+    },
+    "s3-bucket-no-default-encryption": {
+      "soc2": [{ "control_id": "CC6.7", "title": "Restrict the transmission, movement, and removal of information" }],
+      "iso27001": [{ "control_id": "A.8.24", "title": "Use of cryptography" }],
+      "hipaa": [{ "control_id": "§164.312(a)(2)(iv)", "title": "Encryption and decryption" }],
+      "nist": [{ "control_id": "SC-28", "title": "Protection of Information at Rest" }]
+    },
+    "s3-bucket-no-logging": {
+      "soc2": [{ "control_id": "CC7.2", "title": "Monitor system components for anomalies" }],
+      "iso27001": [{ "control_id": "A.8.15", "title": "Logging" }],
+      "hipaa": [{ "control_id": "§164.312(b)", "title": "Audit controls" }],
+      "nist": [{ "control_id": "AU-2", "title": "Event Logging" }]
+    },
+    "s3-bucket-no-versioning": {
+      "soc2": [{ "control_id": "A1.2", "title": "Recovery objectives and processing capacity" }],
+      "iso27001": [{ "control_id": "A.8.13", "title": "Information backup" }],
+      "hipaa": [{ "control_id": "§164.308(a)(7)(ii)(A)", "title": "Data backup plan" }],
+      "nist": [{ "control_id": "CP-9", "title": "System Backup" }]
+    },
+    "s3-bucket-no-mfa-delete": {
+      "soc2": [{ "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" }],
+      "iso27001": [{ "control_id": "A.8.13", "title": "Information backup" }],
+      "hipaa": [{ "control_id": "§164.308(a)(7)(ii)(A)", "title": "Data backup plan" }],
+      "nist": [{ "control_id": "CP-9", "title": "System Backup" }]
+    },
+    "ec2-security-group-opens-all-ports-to-all": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }
+      ],
+      "iso27001": [
+        { "control_id": "A.8.20", "title": "Networks security" },
+        { "control_id": "A.8.22", "title": "Segregation of networks" }
+      ],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [
+        { "control_id": "SC-7", "title": "Boundary Protection" },
+        { "control_id": "AC-4", "title": "Information Flow Enforcement" }
+      ]
+    },
+    "ec2-security-group-opens-ssh-to-all": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }
+      ],
+      "iso27001": [{ "control_id": "A.8.20", "title": "Networks security" }],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [{ "control_id": "SC-7", "title": "Boundary Protection" }]
+    },
+    "ec2-security-group-opens-rdp-to-all": {
+      "soc2": [
+        { "control_id": "CC6.1", "title": "Logical access security software, infrastructure, and architectures" },
+        { "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }
+      ],
+      "iso27001": [{ "control_id": "A.8.20", "title": "Networks security" }],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [{ "control_id": "SC-7", "title": "Boundary Protection" }]
+    },
+    "ec2-instance-with-public-ip": {
+      "soc2": [{ "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }],
+      "iso27001": [{ "control_id": "A.8.22", "title": "Segregation of networks" }],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [{ "control_id": "SC-7", "title": "Boundary Protection" }]
+    },
+    "vpc-flow-logs-disabled": {
+      "soc2": [{ "control_id": "CC7.2", "title": "Monitor system components for anomalies" }],
+      "iso27001": [{ "control_id": "A.8.16", "title": "Monitoring activities" }],
+      "hipaa": [{ "control_id": "§164.312(b)", "title": "Audit controls" }],
+      "nist": [
+        { "control_id": "AU-2", "title": "Event Logging" },
+        { "control_id": "SI-4", "title": "System Monitoring" }
+      ]
+    },
+    "vpc-default-security-group-with-rules": {
+      "soc2": [{ "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }],
+      "iso27001": [{ "control_id": "A.8.20", "title": "Networks security" }],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [
+        { "control_id": "SC-7", "title": "Boundary Protection" },
+        { "control_id": "CM-7", "title": "Least Functionality" }
+      ]
+    },
+    "rds-instance-publicly-accessible": {
+      "soc2": [{ "control_id": "CC6.6", "title": "Logical access security measures to protect against threats" }],
+      "iso27001": [{ "control_id": "A.8.22", "title": "Segregation of networks" }],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [{ "control_id": "SC-7", "title": "Boundary Protection" }]
+    },
+    "rds-instance-no-encryption": {
+      "soc2": [{ "control_id": "CC6.7", "title": "Restrict the transmission, movement, and removal of information" }],
+      "iso27001": [{ "control_id": "A.8.24", "title": "Use of cryptography" }],
+      "hipaa": [{ "control_id": "§164.312(a)(2)(iv)", "title": "Encryption and decryption" }],
+      "nist": [{ "control_id": "SC-28", "title": "Protection of Information at Rest" }]
+    },
+    "rds-instance-no-backup": {
+      "soc2": [{ "control_id": "A1.2", "title": "Recovery objectives and processing capacity" }],
+      "iso27001": [{ "control_id": "A.8.13", "title": "Information backup" }],
+      "hipaa": [
+        { "control_id": "§164.308(a)(7)(ii)(A)", "title": "Data backup plan" },
+        { "control_id": "§164.308(a)(7)(ii)(B)", "title": "Disaster recovery plan" }
+      ],
+      "nist": [{ "control_id": "CP-9", "title": "System Backup" }]
+    },
+    "rds-instance-no-minor-version-upgrade": {
+      "soc2": [{ "control_id": "CC7.1", "title": "Detection and prevention of vulnerabilities" }],
+      "iso27001": [{ "control_id": "A.8.8", "title": "Management of technical vulnerabilities" }],
+      "hipaa": [{ "control_id": "§164.308(a)(1)(ii)(B)", "title": "Risk management" }],
+      "nist": [{ "control_id": "SI-2", "title": "Flaw Remediation" }]
+    },
+    "cloudtrail-not-enabled-globally": {
+      "soc2": [{ "control_id": "CC7.2", "title": "Monitor system components for anomalies" }],
+      "iso27001": [{ "control_id": "A.8.15", "title": "Logging" }],
+      "hipaa": [{ "control_id": "§164.312(b)", "title": "Audit controls" }],
+      "nist": [
+        { "control_id": "AU-2", "title": "Event Logging" },
+        { "control_id": "AU-12", "title": "Audit Record Generation" }
+      ]
+    },
+    "cloudtrail-no-log-file-validation": {
+      "soc2": [{ "control_id": "CC7.2", "title": "Monitor system components for anomalies" }],
+      "iso27001": [{ "control_id": "A.8.15", "title": "Logging" }],
+      "hipaa": [{ "control_id": "§164.312(c)(1)", "title": "Integrity" }],
+      "nist": [{ "control_id": "AU-10", "title": "Non-repudiation" }]
+    },
+    "cloudtrail-no-logs-encryption": {
+      "soc2": [{ "control_id": "CC6.7", "title": "Restrict the transmission, movement, and removal of information" }],
+      "iso27001": [
+        { "control_id": "A.8.24", "title": "Use of cryptography" },
+        { "control_id": "A.8.15", "title": "Logging" }
+      ],
+      "hipaa": [{ "control_id": "§164.312(a)(2)(iv)", "title": "Encryption and decryption" }],
+      "nist": [
+        { "control_id": "SC-28", "title": "Protection of Information at Rest" },
+        { "control_id": "AU-9", "title": "Protection of Audit Information" }
+      ]
+    },
+    "kms-cmk-rotation-disabled": {
+      "soc2": [{ "control_id": "CC6.7", "title": "Restrict the transmission, movement, and removal of information" }],
+      "iso27001": [{ "control_id": "A.8.24", "title": "Use of cryptography" }],
+      "hipaa": [{ "control_id": "§164.312(a)(2)(iv)", "title": "Encryption and decryption" }],
+      "nist": [{ "control_id": "SC-12", "title": "Cryptographic Key Establishment and Management" }]
+    },
+    "cloudfront-distribution-no-https": {
+      "soc2": [{ "control_id": "CC6.7", "title": "Restrict the transmission, movement, and removal of information" }],
+      "iso27001": [{ "control_id": "A.8.24", "title": "Use of cryptography" }],
+      "hipaa": [{ "control_id": "§164.312(e)(1)", "title": "Transmission security" }],
+      "nist": [{ "control_id": "SC-8", "title": "Transmission Confidentiality and Integrity" }]
+    },
+    "cloudfront-distribution-no-logs": {
+      "soc2": [{ "control_id": "CC7.2", "title": "Monitor system components for anomalies" }],
+      "iso27001": [{ "control_id": "A.8.15", "title": "Logging" }],
+      "hipaa": [{ "control_id": "§164.312(b)", "title": "Audit controls" }],
+      "nist": [{ "control_id": "AU-2", "title": "Event Logging" }]
+    },
+    "elb-no-access-logs": {
+      "soc2": [{ "control_id": "CC7.2", "title": "Monitor system components for anomalies" }],
+      "iso27001": [{ "control_id": "A.8.15", "title": "Logging" }],
+      "hipaa": [{ "control_id": "§164.312(b)", "title": "Audit controls" }],
+      "nist": [{ "control_id": "AU-2", "title": "Event Logging" }]
+    },
+    "elbv2-no-deletion-protection": {
+      "soc2": [{ "control_id": "CC7.1", "title": "Detection and prevention of vulnerabilities" }],
+      "iso27001": [{ "control_id": "A.5.30", "title": "ICT readiness for business continuity" }],
+      "hipaa": [{ "control_id": "§164.308(a)(7)(ii)(B)", "title": "Disaster recovery plan" }],
+      "nist": [{ "control_id": "CM-3", "title": "Configuration Change Control" }]
+    },
+    "lambda-old-runtime": {
+      "soc2": [{ "control_id": "CC7.1", "title": "Detection and prevention of vulnerabilities" }],
+      "iso27001": [{ "control_id": "A.8.8", "title": "Management of technical vulnerabilities" }],
+      "hipaa": [{ "control_id": "§164.308(a)(1)(ii)(B)", "title": "Risk management" }],
+      "nist": [{ "control_id": "SI-2", "title": "Flaw Remediation" }]
+    }
+  }
+}
