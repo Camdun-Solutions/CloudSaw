@@ -11,9 +11,14 @@ import { useLock } from "@/stores/lock";
 type Props = {
   onOpenSettings: () => void;
   onOpenAccounts: () => void;
+  onOpenDashboard: () => void;
 };
 
-export default function Home({ onOpenSettings, onOpenAccounts }: Props) {
+export default function Home({
+  onOpenSettings,
+  onOpenAccounts,
+  onOpenDashboard,
+}: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { refresh } = useLock();
@@ -66,6 +71,14 @@ export default function Home({ onOpenSettings, onOpenAccounts }: Props) {
             <p className="text-small text-saw-grey-500">{t("app.tagline")}</p>
           </div>
           <div className="ml-auto flex items-center gap-2 text-small text-saw-grey-500">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenDashboard}
+              data-testid="header-dashboard"
+            >
+              {t("nav.dashboard")}
+            </Button>
             <Button
               variant="ghost"
               size="sm"

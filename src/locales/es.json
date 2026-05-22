@@ -160,5 +160,20 @@
   "aws.failure.permission_denied": "Permiso denegado para esta API.",
   "aws.failure.connectivity": "Red o endpoint de AWS inaccesible.",
   "aws.failure.timeout": "AWS no respondió en 10 segundos.",
-  "aws.failure.other": "No se pudo autenticar con este perfil."
+  "aws.failure.other": "No se pudo autenticar con este perfil.",
+
+  "dashboard.title": "Hallazgos",
+  "dashboard.subtitle": "Escaneos, hallazgos, drift y tendencias para tu cuenta de AWS activa.",
+  "dashboard.tab.scans": "Historial de escaneos",
+  "dashboard.tab.findings": "Hallazgos",
+  "dashboard.tab.drift": "Drift",
+  "dashboard.tab.trends": "Tendencias",
+  "dashboard.severity.label": "Severidad",
+  "dashboard.severity.critical": "Crítica",
+  "dashboard.severity.high": "Alta",
+  "dashboard.severity.medium": "Media",
+  "dashboard.severity.low": "Baja",
+  "dashboard.severity.informational": "Informativa",
+  "dashboard.status.open": "Abierto",
+  "dashboard.status.resolved": "Resuelto"
 }

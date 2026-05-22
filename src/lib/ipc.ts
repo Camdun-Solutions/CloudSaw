@@ -244,6 +244,118 @@ export function isTerminalScanStatus(s: ScanStatus): boolean {
   return TERMINAL_SCAN_STATUSES.has(s);
 }
 
+// --- Findings parser & store (Contract 07) --------------------------------
+
+/** Normalized five-tier severity. The frontend NEVER conveys severity by
+ * color alone (WCAG 2.1 AA + Contract 09 §Constraints); every UI surface
+ * also renders the severity word. */
+export type Severity =
+  | "critical"
+  | "high"
+  | "medium"
+  | "low"
+  | "informational";
+
+export const SEVERITY_ORDER: readonly Severity[] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "informational",
+] as const;
+
+/** Finding lifecycle status. `open` = observed in its last-seen scan,
+ * not resolved by a later scan. `resolved` = a later scan covered the
+ * service and the finding no longer appeared. */
+export type FindingStatus = "open" | "resolved";
+
+/** One aggregated finding row, ready to render. The `finding_id` is a
+ * SHA-256 of `aws_account_id:rule_key` and is stable across scans;
+ * `rule_key` is the scanner slug (e.g. `iam-user-no-mfa`) and is what
+ * we pass to the knowledge-base lookups. */
+export type Finding = {
+  finding_id: string;
+  aws_account_id: string;
+  rule_key: string;
+  raw_type: string;
+  service: string;
+  severity: Severity;
+  description: string;
+  rationale: string | null;
+  dashboard_name: string | null;
+  resource_path_pattern: string | null;
+  checked_items: number;
+  flagged_items: number;
+  status: FindingStatus;
+  first_seen_at: string;
+  last_seen_at: string;
+  first_seen_scan_id: string;
+  last_seen_scan_id: string;
+  resolved_at: string | null;
+  resolved_in_scan_id: string | null;
+};
+
+export type FindingResource = {
+  finding_id: string;
+  aws_account_id: string;
+  resource_path: string;
+  invalid: boolean;
+  first_seen_at: string;
+  last_seen_at: string;
+};
+
+export type FindingDetail = {
+  finding: Finding;
+  resources: FindingResource[];
+};
+
+export type FindingsFilter = {
+  severity?: Severity[];
+  service?: string | null;
+  status?: FindingStatus | null;
+  limit?: number | null;
+  offset?: number | null;
+};
+
+// --- Knowledge base & compliance mapping (Contract 08) --------------------
+
+export type KnowledgeSource = "bundled" | "remote";
+
+/** One knowledge-base article. The body fields are RAW markdown strings —
+ * the frontend MUST render them through the sanitized markdown component
+ * (no `dangerouslySetInnerHTML`) per Contract 09 §Constraints. */
+export type KnowledgeArticle = {
+  finding_id: string;
+  matched: boolean;
+  source: KnowledgeSource;
+  title: string;
+  description: string;
+  risk: string;
+  detection_logic: string;
+  remediation: string;
+  terraform_fix: string;
+  aws_cli_fix: string;
+  false_positives: string;
+  unmatched_sections: Record<string, string>;
+};
+
+export type ControlReference = {
+  control_id: string;
+  title: string;
+};
+
+/** finding_id → framework_id → list of control entries. Frameworks the
+ * finding has no entries in are omitted from the map. */
+export type ControlMapping = {
+  finding_id: string;
+  frameworks: Record<string, ControlReference[]>;
+};
+
+export type Framework = {
+  id: string;
+  name: string;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -419,6 +531,54 @@ export const ipc = {
       awsAccountId,
       limit: limit ?? null,
     });
+  },
+
+  // --- Findings parser & store ----------------------------------------
+
+  /** Findings observed in a single scan, with optional severity / service
+   * / status filtering. Always partitioned by the scan's account_id. */
+  findingsList(scanId: string, filter?: FindingsFilter): Promise<Finding[]> {
+    return invoke<Finding[]>("findings_list", {
+      scanId,
+      filter: filter ?? null,
+    });
+  },
+
+  /** Full finding detail (row + resources) by stable finding_id. */
+  findingsGet(findingId: string): Promise<FindingDetail> {
+    return invoke<FindingDetail>("findings_get", { findingId });
+  },
+
+  /** Every scan for an account, newest first. Drives the History tab. */
+  findingsListScans(awsAccountId: string): Promise<ScanRecord[]> {
+    return invoke<ScanRecord[]>("findings_list_scans", { awsAccountId });
+  },
+
+  /** A single scan record, looked up by scan_id. */
+  findingsGetScan(scanId: string): Promise<ScanRecord> {
+    return invoke<ScanRecord>("findings_get_scan", { scanId });
+  },
+
+  // --- Knowledge base & compliance mappings ---------------------------
+
+  /** Knowledge-base article for a finding. A finding without a matching
+   * article returns `{ matched: false }` plus default copy — never an
+   * error. The body fields are raw markdown; the caller MUST render
+   * through the sanitized markdown component. */
+  kbGetArticle(findingId: string): Promise<KnowledgeArticle> {
+    return invoke<KnowledgeArticle>("kb_get_article", { findingId });
+  },
+
+  /** Compliance control mappings for a finding across all frameworks.
+   * A finding with no mappings returns an empty `frameworks` map — never
+   * an error. */
+  kbGetControlMappings(findingId: string): Promise<ControlMapping> {
+    return invoke<ControlMapping>("kb_get_control_mappings", { findingId });
+  },
+
+  /** Supported compliance frameworks (id + display name). */
+  kbListFrameworks(): Promise<Framework[]> {
+    return invoke<Framework[]>("kb_list_frameworks");
   },
 };
 
