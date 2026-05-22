@@ -356,6 +356,71 @@ export type Framework = {
   name: string;
 };
 
+// --- Scheduled & automated scans (Contract 10) ----------------------------
+
+/** Cadence shape, mirrors the Rust `ScheduleCadence` enum. The frontend
+ * picks one variant per schedule; `time_of_day_minutes` is required for
+ * daily/weekly/monthly and ignored for interval. */
+export type ScheduleCadence =
+  | { kind: "daily" }
+  | { kind: "weekly"; day_of_week: number }
+  | { kind: "monthly"; day_of_month: number }
+  | { kind: "interval"; minutes: number };
+
+/** What the runner most recently did for a schedule. */
+export type LastRunOutcome =
+  | "fired"
+  | "skipped_already_running"
+  | "skipped_role_not_provisioned"
+  | "skipped_scanner_unavailable"
+  | "catch_up"
+  | "skipped_internal_error";
+
+/** One configured schedule. `next_run_at` is null when the schedule is
+ * disabled or has no upcoming slot. */
+export type Schedule = {
+  aws_account_id: string;
+  cadence: ScheduleCadence;
+  time_of_day_minutes: number | null;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_run_outcome: LastRunOutcome | null;
+  last_run_scan_id: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SetScheduleInput = {
+  aws_account_id: string;
+  cadence: ScheduleCadence;
+  time_of_day_minutes: number | null;
+  enabled: boolean;
+};
+
+export type NextRunTime = {
+  aws_account_id: string;
+  next_run_at: string | null;
+};
+
+export type ScheduleEventKind =
+  | "config_set"
+  | "config_cleared"
+  | "enabled"
+  | "disabled"
+  | "fired"
+  | "skipped"
+  | "catch_up";
+
+export type ScheduleEvent = {
+  event_id: string;
+  aws_account_id: string;
+  occurred_at: string;
+  kind: ScheduleEventKind;
+  reason: string | null;
+  scan_id: string | null;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -579,6 +644,49 @@ export const ipc = {
   /** Supported compliance frameworks (id + display name). */
   kbListFrameworks(): Promise<Framework[]> {
     return invoke<Framework[]>("kb_list_frameworks");
+  },
+
+  // --- Scheduled & automated scans ------------------------------------
+
+  /** Configure (or replace) the schedule for an account. The backend
+   * validates inputs and persists the schedule; the background runner
+   * picks up the change without an app restart. */
+  schedulerSetSchedule(input: SetScheduleInput): Promise<Schedule> {
+    return invoke<Schedule>("scheduler_set_schedule", { input });
+  },
+
+  /** Read the configured schedule for an account. Rejects with
+   * `schedule_not_found` if none is configured. */
+  schedulerGetSchedule(awsAccountId: string): Promise<Schedule> {
+    return invoke<Schedule>("scheduler_get_schedule", { awsAccountId });
+  },
+
+  /** Remove a configured schedule. Rejects with `schedule_not_found` if
+   * none exists. */
+  schedulerClearSchedule(awsAccountId: string): Promise<void> {
+    return invoke<void>("scheduler_clear_schedule", { awsAccountId });
+  },
+
+  /** All configured schedules, ordered by account ID. */
+  schedulerListSchedules(): Promise<Schedule[]> {
+    return invoke<Schedule[]>("scheduler_list_schedules");
+  },
+
+  /** Upcoming-run timestamps for every schedule. Disabled rows return
+   * `next_run_at = null`. */
+  schedulerNextRunTimes(): Promise<NextRunTime[]> {
+    return invoke<NextRunTime[]>("scheduler_next_run_times");
+  },
+
+  /** The N most-recent scheduled-scan events for an account. */
+  schedulerRecentEvents(
+    awsAccountId: string,
+    limit?: number,
+  ): Promise<ScheduleEvent[]> {
+    return invoke<ScheduleEvent[]>("scheduler_recent_events", {
+      awsAccountId,
+      limit: limit ?? null,
+    });
   },
 };
 
