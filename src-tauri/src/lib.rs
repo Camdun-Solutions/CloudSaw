@@ -12,6 +12,7 @@ pub mod ipc;
 pub mod knowledgebase;
 pub mod reports;
 pub mod scanner;
+pub mod scheduler;
 pub mod terraform;
 
 use crate::errors::AppError;
@@ -80,6 +81,12 @@ pub fn run() {
             ipc::kb_set_refresh_settings,
             ipc::kb_check_for_update,
             ipc::kb_apply_update,
+            ipc::scheduler_set_schedule,
+            ipc::scheduler_get_schedule,
+            ipc::scheduler_clear_schedule,
+            ipc::scheduler_list_schedules,
+            ipc::scheduler_next_run_times,
+            ipc::scheduler_recent_events,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -108,6 +115,14 @@ fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
     // Failures here are non-fatal — the UI's article surface still renders
     // a default-article placeholder, and a future refresh can recover.
     let _ = knowledgebase::bootstrap();
+
+    // Round every persisted next_run_at forward to the first slot after
+    // `now` so missed scheduled times (machine sleep, app closed) collapse
+    // into a single catch-up per account. Failures here are non-fatal —
+    // a stale anchor will be revisited on the next bootstrap.
+    let _ = scheduler::runner::bootstrap_runner();
+    // Spawn the background poll thread. Idempotent across re-entry.
+    scheduler::runner::start_runner();
 
     // Decide whether the app starts locked or unlocked based on the stored
     // lock period and last_unlocked_at. Must happen AFTER migrations run.

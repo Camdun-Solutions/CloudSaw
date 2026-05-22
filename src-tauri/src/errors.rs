@@ -196,6 +196,11 @@ pub enum AppError {
     #[error("kb: remote refresh already up to date")]
     KbRefreshUpToDate,
 
+    // Scheduled & automated scans (Contract 10). Stable codes only; account
+    // IDs / labels / scan output never appear in any of these messages.
+    #[error("schedule not found")]
+    ScheduleNotFound,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -257,6 +262,7 @@ impl AppError {
             AppError::KbRefreshUnreachable => "kb_refresh_unreachable",
             AppError::KbRefreshInvalidContent => "kb_refresh_invalid_content",
             AppError::KbRefreshUpToDate => "kb_refresh_up_to_date",
+            AppError::ScheduleNotFound => "schedule_not_found",
             AppError::Internal(_) => "internal_error",
         }
     }

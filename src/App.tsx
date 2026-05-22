@@ -6,11 +6,18 @@ import Dashboard from "@/routes/Dashboard";
 import FirstRunSetup from "@/routes/FirstRunSetup";
 import Home from "@/routes/Home";
 import Profiles from "@/routes/Profiles";
+import ScheduledScans from "@/routes/ScheduledScans";
 import Settings from "@/routes/Settings";
 import UnlockScreen from "@/routes/UnlockScreen";
 import { useLock } from "@/stores/lock";
 
-type Route = "home" | "accounts" | "profiles" | "settings" | "dashboard";
+type Route =
+  | "home"
+  | "accounts"
+  | "profiles"
+  | "settings"
+  | "schedules"
+  | "dashboard";
 
 export default function App() {
   const t = useT();
@@ -51,7 +58,15 @@ export default function App() {
   if (state.locked) return <UnlockScreen />;
 
   if (route === "settings") {
-    return <Settings onClose={() => setRoute("home")} />;
+    return (
+      <Settings
+        onClose={() => setRoute("home")}
+        onOpenSchedules={() => setRoute("schedules")}
+      />
+    );
+  }
+  if (route === "schedules") {
+    return <ScheduledScans onBack={() => setRoute("settings")} />;
   }
   if (route === "accounts") {
     return (

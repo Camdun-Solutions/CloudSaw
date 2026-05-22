@@ -27,6 +27,9 @@ use crate::knowledgebase::{
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
 };
+use crate::scheduler::{
+    self, NextRunTime, Schedule, ScheduleEvent, SetScheduleInput,
+};
 use crate::terraform::{
     self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
 };
@@ -400,4 +403,46 @@ pub async fn kb_apply_update() -> Result<RefreshApplyResult, AppError> {
         .await
         .map_err(|e| AppError::Internal(format!("kb_apply spawn: {e}")))?
         .map_err(AppError::from)
+}
+
+// --- Scheduled & automated scans (Contract 10) ---------------------------
+//
+// Every command validates inputs inside the `scheduler` module before any
+// SQL runs. Account IDs are re-checked against the 12-digit grammar so a
+// malformed string can never become a SQL primary key. Schedules are
+// non-secret configuration only — the actual scan still flows through the
+// `scanner` namespace, which is where AssumeRole + binary verification
+// live (CLAUDE.md §4.3).
+
+#[tauri::command]
+pub fn scheduler_set_schedule(input: SetScheduleInput) -> Result<Schedule, AppError> {
+    scheduler::set_schedule(input).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_get_schedule(aws_account_id: String) -> Result<Schedule, AppError> {
+    scheduler::get_schedule(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_clear_schedule(aws_account_id: String) -> Result<(), AppError> {
+    scheduler::clear_schedule(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_list_schedules() -> Result<Vec<Schedule>, AppError> {
+    scheduler::list_schedules().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_next_run_times() -> Result<Vec<NextRunTime>, AppError> {
+    scheduler::next_run_times().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_recent_events(
+    aws_account_id: String,
+    limit: Option<usize>,
+) -> Result<Vec<ScheduleEvent>, AppError> {
+    scheduler::recent_events(&aws_account_id, limit.unwrap_or(20)).map_err(AppError::from)
 }

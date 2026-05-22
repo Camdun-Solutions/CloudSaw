@@ -44,9 +44,9 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
   }
 };
 
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; onOpenSchedules: () => void };
 
-export default function Settings({ onClose }: Props) {
+export default function Settings({ onClose, onOpenSchedules }: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { state, refresh } = useLock();
@@ -201,6 +201,27 @@ export default function Settings({ onClose }: Props) {
               {t("applock.settings.lock_now")}
             </Button>
           </div>
+        </div>
+      </section>
+
+      <section
+        className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        data-testid="settings-section-schedules"
+      >
+        <h2 className="text-h3 font-semibold text-saw-grey-900">
+          {t("schedules.section_title")}
+        </h2>
+        <p className="mt-1 text-small text-saw-grey-600">
+          {t("schedules.section_subtitle")}
+        </p>
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            onClick={onOpenSchedules}
+            data-testid="settings-open-schedules"
+          >
+            {t("schedules.section_cta")}
+          </Button>
         </div>
       </section>
 
