@@ -3,6 +3,7 @@
 // (desktop) and from platform-specific entry points (mobile, future).
 
 pub mod accounts;
+pub mod ai;
 pub mod applock;
 pub mod auth;
 pub mod db;
@@ -119,6 +120,14 @@ pub fn run() {
             ipc::github_browser_fallback_for_finding,
             ipc::github_get_finding_ticket,
             ipc::github_list_finding_tickets,
+            ipc::ai_get_settings,
+            ipc::ai_set_provider,
+            ipc::ai_set_provider_key,
+            ipc::ai_clear_provider_key,
+            ipc::ai_has_provider_key,
+            ipc::ai_set_business_context,
+            ipc::ai_prepare_request,
+            ipc::ai_send_request,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

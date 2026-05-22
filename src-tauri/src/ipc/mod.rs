@@ -14,6 +14,7 @@ use zeroize::Zeroizing;
 use crate::accounts::{
     self, Account, AccountsDisplaySettings, AddAccountInput, RemovalImpact, UpdateAccountInput,
 };
+use crate::ai::{self, AiRequestPreview, AiSettings, AiSuggestion, BusinessContext, Provider};
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
 use crate::deletion::{self, HardDeleteOptions, HardDeleteSummary};
@@ -655,4 +656,60 @@ pub fn github_list_finding_tickets(
     aws_account_id: String,
 ) -> Result<Vec<FindingTicket>, AppError> {
     github::list_finding_tickets(&aws_account_id).map_err(AppError::from)
+}
+
+// --- AI Suggestion Layer (Contract 13) -----------------------------------
+//
+// Fully OPT-IN: with no provider key configured, no AI command makes any
+// network call. The bridge here re-checks every gate inside the
+// underlying module so a direct IPC caller can never bypass the
+// "must preview before send" rule (CLAUDE.md §4.1).
+
+#[tauri::command]
+pub fn ai_get_settings() -> Result<AiSettings, AppError> {
+    ai::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_provider(provider: Option<Provider>) -> Result<(), AppError> {
+    ai::set_provider(provider).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_provider_key(provider: Provider, key: String) -> Result<(), AppError> {
+    ai::set_provider_key(provider, key).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_clear_provider_key(provider: Provider) -> Result<(), AppError> {
+    ai::clear_provider_key(provider).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_has_provider_key(provider: Provider) -> Result<bool, AppError> {
+    ai::has_provider_key(provider).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_business_context(context: BusinessContext) -> Result<(), AppError> {
+    ai::set_business_context(context).map_err(AppError::from)
+}
+
+/// Build the request preview the UI MUST display to the user before
+/// any `ai_send_request` call. The returned value IS the payload that
+/// would be transmitted.
+#[tauri::command]
+pub fn ai_prepare_request(finding_id: String) -> Result<AiRequestPreview, AppError> {
+    ai::prepare_request(&finding_id).map_err(AppError::from)
+}
+
+/// Send the previously-built preview to the connected provider.
+/// Spawns on a blocking worker because the underlying transport is
+/// sync (`reqwest::blocking`).
+#[tauri::command]
+pub async fn ai_send_request(preview: AiRequestPreview) -> Result<AiSuggestion, AppError> {
+    tokio::task::spawn_blocking(move || ai::send_request(preview))
+        .await
+        .map_err(|e| AppError::Internal(format!("ai_send spawn: {e}")))?
+        .map_err(AppError::from)
 }

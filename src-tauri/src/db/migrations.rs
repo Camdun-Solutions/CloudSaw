@@ -65,6 +65,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0009_github_integration",
         include_str!("../../migrations/0009_github_integration.sql"),
     ),
+    (
+        "0010_ai_context",
+        include_str!("../../migrations/0010_ai_context.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {

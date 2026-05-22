@@ -30,6 +30,14 @@ use crate::errors::AppError;
 pub const GITHUB_PAT_SERVICE: &str = "cloudsaw.github_pat";
 pub const GITHUB_PAT_ACCOUNT: &str = "default";
 
+/// Canonical service name for AI provider API keys (Contract 13).
+/// The `account` slot stores the provider (`anthropic` | `openai`)
+/// so a user can switch providers without losing the other key. Both
+/// rows are enumerated by the panic wipe.
+pub const LLM_KEY_SERVICE: &str = "cloudsaw.llm_api_key";
+pub const LLM_KEY_ACCOUNT_ANTHROPIC: &str = "anthropic";
+pub const LLM_KEY_ACCOUNT_OPENAI: &str = "openai";
+
 /// All service/account pairs CloudSaw is permitted to write to the OS
 /// keychain. The panic wipe enumerates this list and removes every entry.
 ///
@@ -38,10 +46,8 @@ pub const GITHUB_PAT_ACCOUNT: &str = "default";
 const REGISTRY: &[(&str, &str)] = &[
     // (service, account)
     (GITHUB_PAT_SERVICE, GITHUB_PAT_ACCOUNT),
-    //
-    // Future:
-    //   ("cloudsaw.ai_api_key", "anthropic"),
-    //   ("cloudsaw.ai_api_key", "openai"),
+    (LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_ANTHROPIC),
+    (LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_OPENAI),
 ];
 
 #[derive(Debug, Error)]
@@ -145,5 +151,12 @@ mod tests {
         assert!(snap
             .iter()
             .any(|(s, a)| *s == GITHUB_PAT_SERVICE && *a == GITHUB_PAT_ACCOUNT));
+        // Contract 13 registers the LLM provider keys (one per provider).
+        assert!(snap
+            .iter()
+            .any(|(s, a)| *s == LLM_KEY_SERVICE && *a == LLM_KEY_ACCOUNT_ANTHROPIC));
+        assert!(snap
+            .iter()
+            .any(|(s, a)| *s == LLM_KEY_SERVICE && *a == LLM_KEY_ACCOUNT_OPENAI));
     }
 }

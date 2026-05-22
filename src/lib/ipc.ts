@@ -574,6 +574,72 @@ export type FindingTicket = {
   created_at: string;
 };
 
+// --- AI Suggestion Layer (Contract 13) -----------------------------------
+
+export type AiProvider = "anthropic" | "openai";
+
+export type EnvironmentType =
+  | "production"
+  | "dev_test"
+  | "mixed"
+  | "unspecified";
+
+export type RiskTolerance = "low" | "medium" | "high" | "unspecified";
+
+export type TeamSize = "solo" | "small" | "medium" | "large" | "unspecified";
+
+export type BusinessContext = {
+  industry: string;
+  environment_type: EnvironmentType;
+  compliance: string[];
+  risk_tolerance: RiskTolerance;
+  team_size: TeamSize;
+};
+
+export type ContextFlags = {
+  industry_identifying: boolean;
+  compliance_identifying: boolean;
+};
+
+export type AiSettings = {
+  provider: AiProvider | null;
+  key_connected: boolean;
+  context: BusinessContext;
+  flags: ContextFlags;
+};
+
+export type FindingDigest = {
+  rule_key: string;
+  service: string;
+  severity: string;
+  checked_items: number;
+  flagged_items: number;
+  resource_category: string;
+};
+
+/** The exact payload that will be transmitted. Shown to the user BEFORE
+ * any send (Contract 13 §Constraints). The UI passes the same value to
+ * `aiSendRequest` so what the user saw IS what gets sent. */
+export type AiRequestPreview = {
+  provider: AiProvider;
+  model: string;
+  system_prompt: string;
+  user_message: string;
+  digest: FindingDigest;
+  context: BusinessContext;
+  flags: ContextFlags;
+  placeholders_used: string[];
+};
+
+export type AiSuggestion = {
+  provider: AiProvider;
+  model: string;
+  generated_at: string;
+  suggestion_markdown: string;
+  usage_input_tokens: number | null;
+  usage_output_tokens: number | null;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -1019,6 +1085,48 @@ export const ipc = {
     return invoke<FindingTicket[]>("github_list_finding_tickets", {
       awsAccountId,
     });
+  },
+
+  // --- AI Suggestion Layer (Contract 13) ------------------------------
+
+  /** Read provider selection, key status, business context, and the
+   * "this looks identifying" flags in one round-trip. */
+  aiGetSettings(): Promise<AiSettings> {
+    return invoke<AiSettings>("ai_get_settings");
+  },
+
+  aiSetProvider(provider: AiProvider | null): Promise<void> {
+    return invoke<void>("ai_set_provider", { provider });
+  },
+
+  /** Store the user-supplied API key. The value goes ONLY to the OS
+   * keychain — never SQLite, never logs, never URLs. */
+  aiSetProviderKey(provider: AiProvider, key: string): Promise<void> {
+    return invoke<void>("ai_set_provider_key", { provider, key });
+  },
+
+  aiClearProviderKey(provider: AiProvider): Promise<void> {
+    return invoke<void>("ai_clear_provider_key", { provider });
+  },
+
+  aiHasProviderKey(provider: AiProvider): Promise<boolean> {
+    return invoke<boolean>("ai_has_provider_key", { provider });
+  },
+
+  aiSetBusinessContext(context: BusinessContext): Promise<void> {
+    return invoke<void>("ai_set_business_context", { context });
+  },
+
+  /** Build the request preview the UI MUST show to the user. The
+   * returned value IS the payload that would be transmitted. */
+  aiPrepareRequest(findingId: string): Promise<AiRequestPreview> {
+    return invoke<AiRequestPreview>("ai_prepare_request", { findingId });
+  },
+
+  /** Send the previously-built preview to the connected provider.
+   * Rejects with `ai_no_provider_key` if no key is connected. */
+  aiSendRequest(preview: AiRequestPreview): Promise<AiSuggestion> {
+    return invoke<AiSuggestion>("ai_send_request", { preview });
   },
 };
 
