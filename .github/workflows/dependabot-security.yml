@@ -1,0 +1,109 @@
+# Dependabot security fast-track — Contract 16D.
+#
+# When Dependabot opens a PR that fixes a *security* vulnerability,
+# this workflow runs the full test suite. On pass, it adds the
+# `security-fast-track` label so a maintainer sees the PR as
+# release-blocking. Contract 16 §Constraints + §Security Check:
+#
+#   * No auto-merge. The label only.
+#   * No auto-release. A human still tags the release.
+#   * Test failure leaves the PR un-labeled and a clear status visible
+#     so a maintainer can triage.
+#
+# Trigger: every Dependabot-authored PR. The job below is a no-op for
+# non-security PRs — the security gate is `steps.alert.outputs.security`.
+
+name: dependabot-security
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dependabot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-track:
+    if: github.actor == 'dependabot[bot]'
+    name: dependabot security fast-track
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: read dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@dbb049abf0d677abbd7f7eee0375145b417fdd34 # v2.2.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: short-circuit non-security update
+        if: steps.meta.outputs.alert-state != 'OPEN'
+        run: |
+          echo "::notice::This Dependabot PR is not flagged as a security update — fast-track gate skipped."
+          exit 0
+
+      # Real test suite — same set of steps as ci.yml.
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        if: steps.meta.outputs.alert-state == 'OPEN'
+        with:
+          node-version: "20"
+          cache: "npm"
+      - if: steps.meta.outputs.alert-state == 'OPEN'
+        run: npm ci
+      - if: steps.meta.outputs.alert-state == 'OPEN'
+        run: npm run lint
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        if: steps.meta.outputs.alert-state == 'OPEN'
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
+        if: steps.meta.outputs.alert-state == 'OPEN'
+        with:
+          workspaces: "src-tauri -> target"
+      - name: install linux tauri prereqs
+        if: steps.meta.outputs.alert-state == 'OPEN'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev build-essential curl wget \
+            file libxdo-dev pkg-config
+      - if: steps.meta.outputs.alert-state == 'OPEN'
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast
+
+      - name: fast-track on green
+        if: steps.meta.outputs.alert-state == 'OPEN' && success()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const labels = ['security-fast-track', 'needs-human-review'];
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              labels,
+            });
+            const body = [
+              '🛡 **Security fast-track**',
+              '',
+              'This Dependabot PR fixes a flagged security vulnerability and the',
+              'full test suite passed. A maintainer should review and merge as',
+              'soon as feasible; no auto-merge runs.',
+              '',
+              'Releasing this fix to users still requires:',
+              '1. Manual approval + merge of this PR.',
+              '2. Tagging an out-of-band CalVer patch (e.g. `2026.07.1`).',
+              '3. Running the release workflow + signing locally.',
+              '',
+              'Contract 16 §Constraints — no auto-merge, no auto-release.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

@@ -1,0 +1,44 @@
+# Dependabot configuration — Contract 16D.
+#
+# CloudSaw's dependency ecosystem covers three managers: cargo (Rust),
+# npm (frontend), and GitHub Actions. Each opens PRs against `master`;
+# security-flagged PRs are routed to the security-fast-track workflow
+# (see .github/workflows/dependabot-security.yml). No auto-merge.
+
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/src-tauri"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - rust
+    commit-message:
+      prefix: "deps(rust)"
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - npm
+    commit-message:
+      prefix: "deps(npm)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "deps(actions)"

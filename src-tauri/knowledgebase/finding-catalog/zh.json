@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "description": "CloudSaw 发现类型目录 — 合同 16E。AI 起草,等待人工审核。资源标识符和 AWS API 语义绝不翻译。",
+    "locale": "zh",
+    "version": "1"
+  },
+  "s3-public-bucket": {
+    "name": "S3 存储桶允许公开访问",
+    "summary": "某个 S3 存储桶允许匿名读取或写入。"
+  },
+  "iam-user-no-mfa": {
+    "name": "IAM 用户未启用 MFA",
+    "summary": "某个 IAM 用户可以在没有第二因素的情况下登录。"
+  },
+  "iam-root-access-keys": {
+    "name": "根账户访问密钥",
+    "summary": "根账户存在长期访问密钥 — 应当删除。"
+  },
+  "iam-password-policy-no-minimum-length": {
+    "name": "IAM 密码策略:未设置最短长度",
+    "summary": "账户的 IAM 密码策略没有强制最短长度。"
+  },
+  "iam-password-policy-no-expiration": {
+    "name": "IAM 密码策略:密码永不过期",
+    "summary": "密码可以无限期使用。"
+  },
+  "iam-password-policy-no-reuse-prevention": {
+    "name": "IAM 密码策略:未阻止密码重用",
+    "summary": "用户可以重新使用以前的密码。"
+  },
+  "ec2-security-group-opens-ssh-to-all": {
+    "name": "EC2 安全组将 SSH(22)暴露给公网",
+    "summary": "至少一个安全组允许 0.0.0.0/0 访问端口 22。"
+  },
+  "ec2-security-group-opens-rdp-to-all": {
+    "name": "EC2 安全组将 RDP(3389)暴露给公网",
+    "summary": "至少一个安全组允许 0.0.0.0/0 访问端口 3389。"
+  },
+  "ec2-security-group-opens-all-ports-to-all": {
+    "name": "EC2 安全组将所有端口暴露给公网",
+    "summary": "存在未限制端口的 0.0.0.0/0 入站规则,并已附加到某个资源。"
+  },
+  "ec2-instance-with-public-ip": {
+    "name": "EC2 实例分配了公网 IP",
+    "summary": "某个 EC2 实例可直接从公网访问。"
+  },
+  "cloudtrail-not-enabled-globally": {
+    "name": "CloudTrail 未在所有区域启用",
+    "summary": "至少一个区域没有覆盖它的 CloudTrail 跟踪。"
+  },
+  "cloudtrail-no-log-file-validation": {
+    "name": "CloudTrail 日志文件验证未启用",
+    "summary": "未启用累计日志完整性哈希。"
+  },
+  "cloudtrail-no-logs-encryption": {
+    "name": "CloudTrail 日志未使用 KMS 加密",
+    "summary": "CloudTrail 日志在静态状态下未加密存储。"
+  },
+  "cloudfront-distribution-no-https": {
+    "name": "CloudFront 分发未强制使用 HTTPS",
+    "summary": "某个分发允许 HTTP 明文流量到达源站。"
+  },
+  "cloudfront-distribution-no-logs": {
+    "name": "CloudFront 分发未启用访问日志",
+    "summary": "至少一个分发禁用了访问日志记录。"
+  },
+  "elb-no-access-logs": {
+    "name": "Classic ELB 未启用访问日志",
+    "summary": "至少一个 Classic ELB 禁用了访问日志记录。"
+  },
+  "elbv2-no-deletion-protection": {
+    "name": "ELBv2 未启用删除保护",
+    "summary": "可在没有人工确认的情况下删除某个负载均衡器。"
+  }
+}

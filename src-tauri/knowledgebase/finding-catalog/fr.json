@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "description": "Catalogue des types de résultats CloudSaw — Contrat 16E. Brouillon IA, en attente de révision humaine. Les identifiants de ressources et la sémantique de l'API AWS ne sont JAMAIS traduits.",
+    "locale": "fr",
+    "version": "1"
+  },
+  "s3-public-bucket": {
+    "name": "Bucket S3 accessible publiquement",
+    "summary": "Un bucket S3 autorise les lectures ou écritures anonymes."
+  },
+  "iam-user-no-mfa": {
+    "name": "Utilisateur IAM sans MFA",
+    "summary": "Un utilisateur IAM peut se connecter sans second facteur."
+  },
+  "iam-root-access-keys": {
+    "name": "Clés d'accès du compte racine",
+    "summary": "Le compte racine possède des clés d'accès longue durée — elles doivent être supprimées."
+  },
+  "iam-password-policy-no-minimum-length": {
+    "name": "Politique de mot de passe IAM : longueur minimale absente",
+    "summary": "La politique de mot de passe IAM du compte n'impose pas de longueur minimale."
+  },
+  "iam-password-policy-no-expiration": {
+    "name": "Politique de mot de passe IAM : pas d'expiration",
+    "summary": "Les mots de passe peuvent vivre indéfiniment."
+  },
+  "iam-password-policy-no-reuse-prevention": {
+    "name": "Politique de mot de passe IAM : réutilisation autorisée",
+    "summary": "Les utilisateurs peuvent revenir à un mot de passe précédent."
+  },
+  "ec2-security-group-opens-ssh-to-all": {
+    "name": "Groupe de sécurité EC2 expose SSH (22) à internet",
+    "summary": "0.0.0.0/0 atteint le port 22 sur au moins un groupe de sécurité."
+  },
+  "ec2-security-group-opens-rdp-to-all": {
+    "name": "Groupe de sécurité EC2 expose RDP (3389) à internet",
+    "summary": "0.0.0.0/0 atteint le port 3389 sur au moins un groupe de sécurité."
+  },
+  "ec2-security-group-opens-all-ports-to-all": {
+    "name": "Groupe de sécurité EC2 ouvre tous les ports à internet",
+    "summary": "0.0.0.0/0 sans restriction de port est attaché à au moins une ressource."
+  },
+  "ec2-instance-with-public-ip": {
+    "name": "Instance EC2 avec IP publique",
+    "summary": "Une instance EC2 est accessible directement depuis internet."
+  },
+  "cloudtrail-not-enabled-globally": {
+    "name": "CloudTrail non activé dans toutes les régions",
+    "summary": "Au moins une région n'a aucun trail CloudTrail la couvrant."
+  },
+  "cloudtrail-no-log-file-validation": {
+    "name": "Validation des fichiers de log CloudTrail désactivée",
+    "summary": "Les hashes d'intégrité cumulatifs ne sont pas activés."
+  },
+  "cloudtrail-no-logs-encryption": {
+    "name": "Logs CloudTrail non chiffrés par KMS",
+    "summary": "Les fichiers de log CloudTrail sont stockés non chiffrés au repos."
+  },
+  "cloudfront-distribution-no-https": {
+    "name": "Distribution CloudFront sans HTTPS forcé",
+    "summary": "Une distribution autorise le trafic HTTP en clair vers son origine."
+  },
+  "cloudfront-distribution-no-logs": {
+    "name": "Distribution CloudFront sans logs d'accès",
+    "summary": "La journalisation des accès est désactivée pour au moins une distribution."
+  },
+  "elb-no-access-logs": {
+    "name": "ELB Classic sans logs d'accès",
+    "summary": "La journalisation des accès est désactivée pour au moins un ELB Classic."
+  },
+  "elbv2-no-deletion-protection": {
+    "name": "Protection de suppression ELBv2 désactivée",
+    "summary": "Un load balancer peut être supprimé sans confirmation manuelle."
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "description": "CloudSaw finding-type catalog — Contract 16E. Maps rule_key to a localized display name and short description. AI-drafted, human-reviewed. Resource identifiers and AWS API semantics are NEVER translated — only the human-facing display name and one-line description.",
+    "locale": "en",
+    "version": "1"
+  },
+  "s3-public-bucket": {
+    "name": "S3 bucket allows public access",
+    "summary": "An S3 bucket is open to anonymous reads or writes."
+  },
+  "iam-user-no-mfa": {
+    "name": "IAM user without MFA",
+    "summary": "An IAM user is allowed to sign in without a second factor."
+  },
+  "iam-root-access-keys": {
+    "name": "Root account access keys",
+    "summary": "The root account has long-lived access keys — these should be deleted."
+  },
+  "iam-password-policy-no-minimum-length": {
+    "name": "IAM password policy: missing minimum length",
+    "summary": "The account's IAM password policy does not enforce a minimum length."
+  },
+  "iam-password-policy-no-expiration": {
+    "name": "IAM password policy: passwords never expire",
+    "summary": "Passwords are allowed to live indefinitely."
+  },
+  "iam-password-policy-no-reuse-prevention": {
+    "name": "IAM password policy: reuse not prevented",
+    "summary": "Users can rotate back to a previous password."
+  },
+  "ec2-security-group-opens-ssh-to-all": {
+    "name": "EC2 security group exposes SSH (22) to the internet",
+    "summary": "0.0.0.0/0 is allowed to reach port 22 on at least one security group."
+  },
+  "ec2-security-group-opens-rdp-to-all": {
+    "name": "EC2 security group exposes RDP (3389) to the internet",
+    "summary": "0.0.0.0/0 is allowed to reach port 3389 on at least one security group."
+  },
+  "ec2-security-group-opens-all-ports-to-all": {
+    "name": "EC2 security group opens every port to the internet",
+    "summary": "0.0.0.0/0 with no port restriction is attached to at least one resource."
+  },
+  "ec2-instance-with-public-ip": {
+    "name": "EC2 instance with a public IP",
+    "summary": "An EC2 instance is reachable directly from the public internet."
+  },
+  "cloudtrail-not-enabled-globally": {
+    "name": "CloudTrail not enabled in all regions",
+    "summary": "At least one region has no CloudTrail trail covering it."
+  },
+  "cloudtrail-no-log-file-validation": {
+    "name": "CloudTrail log file validation disabled",
+    "summary": "Cumulative log integrity hashes are not enabled."
+  },
+  "cloudtrail-no-logs-encryption": {
+    "name": "CloudTrail logs not KMS-encrypted",
+    "summary": "CloudTrail log files are stored unencrypted at rest."
+  },
+  "cloudfront-distribution-no-https": {
+    "name": "CloudFront distribution does not force HTTPS",
+    "summary": "A distribution allows plaintext HTTP traffic to its origin."
+  },
+  "cloudfront-distribution-no-logs": {
+    "name": "CloudFront distribution with no access logs",
+    "summary": "Access logging is disabled for at least one distribution."
+  },
+  "elb-no-access-logs": {
+    "name": "Classic ELB without access logs",
+    "summary": "Access logging is disabled for at least one Classic ELB."
+  },
+  "elbv2-no-deletion-protection": {
+    "name": "ELBv2 deletion protection disabled",
+    "summary": "A load balancer can be deleted without manual confirmation."
+  }
+}

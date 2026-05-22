@@ -22,6 +22,12 @@ tauri = { version = "2", features = [] }
 # the Rust side never trusts a frontend-supplied arbitrary string
 # (CLAUDE.md §4.1 + Contract 15 §Constraints).
 tauri-plugin-dialog = "2"
+# Tauri 2 auto-updater plugin (Contract 16). Configured in
+# `tauri.conf.json` and registered as notify-only — the plugin
+# verifies an Ed25519 signature against the configured public key
+# before applying an update. The private key NEVER lives in the
+# repo; see docs/release-signing.md.
+tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }

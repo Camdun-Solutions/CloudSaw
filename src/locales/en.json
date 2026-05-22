@@ -775,5 +775,11 @@
   "report.settings.choose_folder": "Choose folder…",
   "report.settings.mask_default": "Mask account IDs in reports by default",
   "report.settings.save": "Save",
-  "report.settings.saved": "Settings saved."
+  "report.settings.saved": "Settings saved.",
+
+  "updater.available_title": "New version available",
+  "updater.install_cta": "Install update",
+  "updater.installing": "Installing…",
+  "updater.installed": "Installed — restart to finish",
+  "updater.check_failed": "Update check failed"
 }

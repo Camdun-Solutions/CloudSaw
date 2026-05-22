@@ -1,0 +1,220 @@
+# Release pipeline — Contract 16A + 16B.
+#
+# Triggered by a CalVer git tag (`YYYY.MM.PATCH`). Builds three
+# platform artifacts in a matrix, generates SHA-256 checksums,
+# CycloneDX SBOMs, and SLSA build-provenance attestations, and
+# uploads everything to a GitHub Release.
+#
+# Signing notes (see docs/release-signing.md):
+#   * macOS  — signed with the Apple Developer ID + notarized via
+#              `notarytool`. Secrets: APPLE_CERTIFICATE,
+#              APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#              APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
+#   * Linux  — unsigned by CI. The maintainer signs the .AppImage
+#              and .deb LOCALLY with the project GPG key and uploads
+#              the detached `.asc` signatures to the release. The
+#              release-finalize job is intentionally manual.
+#   * Windows — unsigned at Phase 1. CLAUDE.md §6.2 + Contract 16
+#              §Constraints document the absence; the website /
+#              install guide carries the disclaimer.
+#
+# The Ed25519 updater key is NOT loaded into CI. The maintainer
+# signs the `latest.json` manifest locally with the key from their
+# password manager and attaches it to the release alongside the
+# binaries. Approach #1 from docs/release-signing.md.
+#
+# Every Action is pinned to a full commit SHA — Contract 16
+# §Constraints. The trailing comment is informational; updates
+# require a deliberate PR.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "[0-9][0-9][0-9][0-9].[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build (${{ matrix.platform.name }})
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux,   runner: ubuntu-latest,  bundles: "deb,appimage" }
+          - { name: macos,   runner: macos-latest,   bundles: "dmg,app" }
+          - { name: windows, runner: windows-latest, bundles: "nsis" }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: install linux tauri prereqs
+        if: matrix.platform.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev build-essential curl wget \
+            file libxdo-dev pkg-config
+
+      # macOS code-signing setup. The certificate is base64-encoded in
+      # the secret; we materialize it into a temporary keychain and
+      # let Tauri's bundler pick it up via TAURI_SIGNING_IDENTITY.
+      - name: import apple developer id certificate
+        if: matrix.platform.name == 'macos'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "::warning::APPLE_CERTIFICATE not set — macOS artifact will be UNSIGNED"
+            echo "CLOUDSAW_MACOS_SIGNED=0" >> $GITHUB_ENV
+            exit 0
+          fi
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import /tmp/cert.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k actions build.keychain
+          rm -f /tmp/cert.p12
+          echo "CLOUDSAW_MACOS_SIGNED=1" >> $GITHUB_ENV
+
+      - name: tauri build
+        env:
+          # macOS signing identity (e.g. "Developer ID Application: Acme (TEAMID)").
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Tauri-updater signing — Contract 16 §Constraints: these
+          # secrets are NOT used in CI. They are intentionally left
+          # unset here so that any signed-update artifact emitted by
+          # this workflow goes unsigned and the maintainer signs
+          # `latest.json` locally and attaches it (approach #1 in
+          # docs/release-signing.md).
+        run: npx tauri build --bundles ${{ matrix.platform.bundles }}
+
+      - name: compute sha-256 checksums
+        shell: bash
+        run: |
+          set -e
+          mkdir -p out
+          find src-tauri/target/release/bundle -type f \
+            \( -name "*.dmg" -o -name "*.app" -o -name "*.deb" \
+               -o -name "*.AppImage" -o -name "*.exe" \
+               -o -name "*.msi" -o -name "*.nsis.zip" \
+               -o -name "*.sig" \) -print0 | while IFS= read -r -d '' f; do
+            cp "$f" out/
+          done
+          cd out
+          if command -v shasum >/dev/null; then
+            shasum -a 256 * | tee SHA256SUMS-${{ matrix.platform.name }}.txt
+          else
+            sha256sum * | tee SHA256SUMS-${{ matrix.platform.name }}.txt
+          fi
+
+      - name: install cyclonedx generators
+        if: matrix.platform.name == 'linux'
+        run: |
+          cargo install --locked cargo-cyclonedx
+          npm install --no-save @cyclonedx/cyclonedx-npm
+
+      - name: generate cyclonedx sboms
+        if: matrix.platform.name == 'linux'
+        run: |
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml \
+            --format json --override-filename cloudsaw-rust-sbom
+          mv src-tauri/cloudsaw-rust-sbom.cdx.json out/cloudsaw-rust-sbom.cdx.json
+          npx @cyclonedx/cyclonedx-npm --output-file out/cloudsaw-npm-sbom.cdx.json
+        continue-on-error: false
+
+      - name: attest build provenance
+        uses: actions/attest-build-provenance@7668a9112bfe8d4cf18112e30b08c5ca115e2cca # v1.4.4
+        with:
+          subject-path: |
+            out/*
+
+      - name: upload artifacts to workflow run
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: release-${{ matrix.platform.name }}
+          path: out/
+
+  publish:
+    name: publish github release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: artifacts/
+      - name: stage release files
+        run: |
+          set -e
+          mkdir -p release
+          find artifacts -type f -print0 | while IFS= read -r -d '' f; do
+            cp "$f" release/
+          done
+          cd release
+          # Combined checksum file across platforms — easier for users to
+          # verify the artifact they downloaded.
+          cat SHA256SUMS-linux.txt SHA256SUMS-macos.txt SHA256SUMS-windows.txt \
+            > SHA256SUMS.txt
+          ls -lah
+      - name: publish github release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: CloudSaw ${{ github.ref_name }}
+          draft: true
+          generate_release_notes: true
+          body: |
+            **Signing status**
+
+            * macOS (.dmg): signed with the Apple Developer ID + notarized.
+            * Linux (.AppImage, .deb): unsigned in CI. The maintainer attaches
+              a detached GPG signature (`.asc`) to this release after manual
+              signing. Verify with `gpg --verify cloudsaw_*.AppImage.asc cloudsaw_*.AppImage`.
+            * Windows (.exe NSIS): **unsigned** at this stage. Read the install
+              guide on cloud-saw.com for the verification path.
+
+            **Auto-updater**
+
+            The maintainer signs `latest.json` LOCALLY with the Ed25519
+            updater key and attaches it to this release. Installed apps
+            verify the signature before applying.
+
+            **Supply-chain artifacts**
+
+            * `SHA256SUMS.txt` — checksums for every artifact.
+            * `cloudsaw-rust-sbom.cdx.json` + `cloudsaw-npm-sbom.cdx.json`
+              — CycloneDX SBOMs.
+            * Build-provenance attestations (SLSA) via `actions/attest-build-provenance`.
+          files: |
+            release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
