@@ -66,6 +66,12 @@ pub fn run() {
             ipc::scanner_scan_status,
             ipc::scanner_cancel_scan,
             ipc::scanner_list_recent,
+            ipc::findings_parse_and_store,
+            ipc::findings_list,
+            ipc::findings_get,
+            ipc::findings_list_scans,
+            ipc::findings_get_scan,
+            ipc::findings_delete_scan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
