@@ -163,6 +163,39 @@ pub enum AppError {
     #[error("scanner output missing")]
     ScannerOutputMissing,
 
+    // Findings parser & store (Contract 07). Stable codes only; raw scanner
+    // JSON, ARNs, account IDs, or credential material never appear in any
+    // of these messages.
+    #[error("finding not found")]
+    FindingNotFound,
+
+    #[error("findings: no raw output")]
+    FindingsNoRawOutput,
+
+    #[error("findings: raw output missing")]
+    FindingsRawOutputMissing,
+
+    #[error("findings: malformed scanner output: {0}")]
+    FindingsParseMalformed(String),
+
+    #[error("findings: account mismatch")]
+    FindingsAccountMismatch,
+
+    // Knowledge base & compliance mapping (Contract 08). The KB module only
+    // reads bundled markdown and, when opted-in, public documentation —
+    // these errors carry no credential material, ARNs, or account IDs.
+    #[error("kb: remote refresh disabled")]
+    KbRefreshDisabled,
+
+    #[error("kb: remote refresh unreachable")]
+    KbRefreshUnreachable,
+
+    #[error("kb: remote refresh content invalid")]
+    KbRefreshInvalidContent,
+
+    #[error("kb: remote refresh already up to date")]
+    KbRefreshUpToDate,
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -215,6 +248,15 @@ impl AppError {
             AppError::ScannerProcessLost => "scanner_process_lost",
             AppError::ScannerProcessFailed => "scanner_process_failed",
             AppError::ScannerOutputMissing => "scanner_output_missing",
+            AppError::FindingNotFound => "finding_not_found",
+            AppError::FindingsNoRawOutput => "findings_no_raw_output",
+            AppError::FindingsRawOutputMissing => "findings_raw_output_missing",
+            AppError::FindingsParseMalformed(_) => "findings_parse_malformed",
+            AppError::FindingsAccountMismatch => "findings_account_mismatch",
+            AppError::KbRefreshDisabled => "kb_refresh_disabled",
+            AppError::KbRefreshUnreachable => "kb_refresh_unreachable",
+            AppError::KbRefreshInvalidContent => "kb_refresh_invalid_content",
+            AppError::KbRefreshUpToDate => "kb_refresh_up_to_date",
             AppError::Internal(_) => "internal_error",
         }
     }

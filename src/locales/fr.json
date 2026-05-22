@@ -160,5 +160,20 @@
   "aws.failure.permission_denied": "Autorisation refusée pour cette API.",
   "aws.failure.connectivity": "Réseau ou endpoint AWS inaccessible.",
   "aws.failure.timeout": "AWS n'a pas répondu en 10 secondes.",
-  "aws.failure.other": "Impossible de s'authentifier avec ce profil."
+  "aws.failure.other": "Impossible de s'authentifier avec ce profil.",
+
+  "dashboard.title": "Conclusions",
+  "dashboard.subtitle": "Scans, conclusions, drift et tendances pour votre compte AWS actif.",
+  "dashboard.tab.scans": "Historique des scans",
+  "dashboard.tab.findings": "Conclusions",
+  "dashboard.tab.drift": "Drift",
+  "dashboard.tab.trends": "Tendances",
+  "dashboard.severity.label": "Sévérité",
+  "dashboard.severity.critical": "Critique",
+  "dashboard.severity.high": "Élevée",
+  "dashboard.severity.medium": "Moyenne",
+  "dashboard.severity.low": "Faible",
+  "dashboard.severity.informational": "Informative",
+  "dashboard.status.open": "Ouvert",
+  "dashboard.status.resolved": "Résolu"
 }

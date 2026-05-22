@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
+import Dashboard from "@/routes/Dashboard";
 import FirstRunSetup from "@/routes/FirstRunSetup";
 import Home from "@/routes/Home";
 import Profiles from "@/routes/Profiles";
@@ -9,7 +10,7 @@ import Settings from "@/routes/Settings";
 import UnlockScreen from "@/routes/UnlockScreen";
 import { useLock } from "@/stores/lock";
 
-type Route = "home" | "accounts" | "profiles" | "settings";
+type Route = "home" | "accounts" | "profiles" | "settings" | "dashboard";
 
 export default function App() {
   const t = useT();
@@ -63,10 +64,19 @@ export default function App() {
   if (route === "profiles") {
     return <Profiles onClose={() => setRoute("accounts")} />;
   }
+  if (route === "dashboard") {
+    return (
+      <Dashboard
+        onClose={() => setRoute("home")}
+        onOpenAccounts={() => setRoute("accounts")}
+      />
+    );
+  }
   return (
     <Home
       onOpenSettings={() => setRoute("settings")}
       onOpenAccounts={() => setRoute("accounts")}
+      onOpenDashboard={() => setRoute("dashboard")}
     />
   );
 }
