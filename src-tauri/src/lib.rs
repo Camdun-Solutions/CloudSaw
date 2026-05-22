@@ -3,16 +3,25 @@
 // (desktop) and from platform-specific entry points (mobile, future).
 
 pub mod accounts;
+pub mod ai;
 pub mod applock;
 pub mod auth;
 pub mod db;
+pub mod deletion;
 pub mod errors;
+pub mod eventlog;
 pub mod findings;
+pub mod github;
 pub mod ipc;
+pub mod keychain;
 pub mod knowledgebase;
+pub mod onboarding;
 pub mod reports;
+pub mod retention;
 pub mod scanner;
+pub mod scheduler;
 pub mod terraform;
+pub mod wipe;
 
 use crate::errors::AppError;
 
@@ -80,6 +89,52 @@ pub fn run() {
             ipc::kb_set_refresh_settings,
             ipc::kb_check_for_update,
             ipc::kb_apply_update,
+            ipc::scheduler_set_schedule,
+            ipc::scheduler_get_schedule,
+            ipc::scheduler_clear_schedule,
+            ipc::scheduler_list_schedules,
+            ipc::scheduler_next_run_times,
+            ipc::scheduler_recent_events,
+            ipc::eventlog_list,
+            ipc::eventlog_search,
+            ipc::eventlog_export,
+            ipc::eventlog_clear_view,
+            ipc::eventlog_count,
+            ipc::retention_get_settings,
+            ipc::retention_set_scan,
+            ipc::retention_set_eventlog,
+            ipc::retention_run_now,
+            ipc::deletion_hard_delete_scan,
+            ipc::deletion_vacuum_now,
+            ipc::system_panic_wipe,
+            ipc::system_request_reboot,
+            ipc::github_get_settings,
+            ipc::github_set_token,
+            ipc::github_clear_token,
+            ipc::github_set_findings_repo,
+            ipc::github_generate_token_url,
+            ipc::github_prepare_error_report,
+            ipc::github_submit_error_report,
+            ipc::github_browser_fallback_for_error,
+            ipc::github_prepare_finding_ticket,
+            ipc::github_submit_finding_ticket,
+            ipc::github_browser_fallback_for_finding,
+            ipc::github_get_finding_ticket,
+            ipc::github_list_finding_tickets,
+            ipc::ai_get_settings,
+            ipc::ai_set_provider,
+            ipc::ai_set_provider_key,
+            ipc::ai_clear_provider_key,
+            ipc::ai_has_provider_key,
+            ipc::ai_set_business_context,
+            ipc::ai_prepare_request,
+            ipc::ai_send_request,
+            ipc::onboarding_get_state,
+            ipc::onboarding_set_language,
+            ipc::onboarding_set_current_step,
+            ipc::onboarding_mark_step_completed,
+            ipc::onboarding_complete,
+            ipc::onboarding_reset_for_rerun,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -108,6 +163,24 @@ fn bootstrap() -> Result<std::sync::Arc<applock::SessionState>, AppError> {
     // Failures here are non-fatal — the UI's article surface still renders
     // a default-article placeholder, and a future refresh can recover.
     let _ = knowledgebase::bootstrap();
+
+    // Round every persisted next_run_at forward to the first slot after
+    // `now` so missed scheduled times (machine sleep, app closed) collapse
+    // into a single catch-up per account. Failures here are non-fatal —
+    // a stale anchor will be revisited on the next bootstrap.
+    let _ = scheduler::runner::bootstrap_runner();
+    // Spawn the background poll thread. Idempotent across re-entry.
+    scheduler::runner::start_runner();
+
+    // Retention sweep — Contract 11B. Best-effort; the engine purges raw
+    // scan output and event-log rows older than their configured
+    // retention windows. Findings metadata is intentionally never purged.
+    retention::bootstrap_sweep();
+
+    // App-started event. Records that the process came up so the
+    // Activity Log can show "app started at X" without depending on
+    // shell-level logging.
+    eventlog::record_simple(eventlog::EventKind::AppStarted, "CloudSaw started.");
 
     // Decide whether the app starts locked or unlocked based on the stored
     // lock period and last_unlocked_at. Must happen AFTER migrations run.

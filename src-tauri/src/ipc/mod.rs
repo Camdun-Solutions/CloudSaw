@@ -14,22 +14,35 @@ use zeroize::Zeroizing;
 use crate::accounts::{
     self, Account, AccountsDisplaySettings, AddAccountInput, RemovalImpact, UpdateAccountInput,
 };
+use crate::ai::{self, AiRequestPreview, AiSettings, AiSuggestion, BusinessContext, Provider};
 use crate::applock::{self, LockSettings, LockState, SessionState};
 use crate::auth::{self, CallerIdentity, ProfileInfo, ProfileTestResult};
+use crate::deletion::{self, HardDeleteOptions, HardDeleteSummary};
 use crate::errors::AppError;
+use crate::eventlog::{self, EventLogEntry, EventLogFilter};
 use crate::findings::{
     self, DeleteScanImpact, Finding, FindingDetail, FindingsFilter, ParseSummary,
+};
+use crate::github::{
+    self, BrowserSubmission, FindingTicket, GithubSettings, IssueCreated, IssuePreview,
+    RepoSelection,
 };
 use crate::knowledgebase::{
     self, ArticleSummary, ControlMapping, Framework, KnowledgeArticle, RefreshApplyResult,
     RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
 };
+use crate::onboarding::{self, OnboardingState, OnboardingStep};
+use crate::retention::{self, RetentionPeriod, RetentionRunSummary, RetentionSettings};
 use crate::scanner::{
     self, ScanRecord, ScoutSuiteAvailability,
+};
+use crate::scheduler::{
+    self, NextRunTime, Schedule, ScheduleEvent, SetScheduleInput,
 };
 use crate::terraform::{
     self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
 };
+use crate::wipe::{self, PanicWipeResult};
 
 /// Returns the running CalVer build string (e.g. "2026.5.0").
 ///
@@ -400,4 +413,346 @@ pub async fn kb_apply_update() -> Result<RefreshApplyResult, AppError> {
         .await
         .map_err(|e| AppError::Internal(format!("kb_apply spawn: {e}")))?
         .map_err(AppError::from)
+}
+
+// --- Scheduled & automated scans (Contract 10) ---------------------------
+//
+// Every command validates inputs inside the `scheduler` module before any
+// SQL runs. Account IDs are re-checked against the 12-digit grammar so a
+// malformed string can never become a SQL primary key. Schedules are
+// non-secret configuration only — the actual scan still flows through the
+// `scanner` namespace, which is where AssumeRole + binary verification
+// live (CLAUDE.md §4.3).
+
+#[tauri::command]
+pub fn scheduler_set_schedule(input: SetScheduleInput) -> Result<Schedule, AppError> {
+    scheduler::set_schedule(input).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_get_schedule(aws_account_id: String) -> Result<Schedule, AppError> {
+    scheduler::get_schedule(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_clear_schedule(aws_account_id: String) -> Result<(), AppError> {
+    scheduler::clear_schedule(&aws_account_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_list_schedules() -> Result<Vec<Schedule>, AppError> {
+    scheduler::list_schedules().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_next_run_times() -> Result<Vec<NextRunTime>, AppError> {
+    scheduler::next_run_times().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn scheduler_recent_events(
+    aws_account_id: String,
+    limit: Option<usize>,
+) -> Result<Vec<ScheduleEvent>, AppError> {
+    scheduler::recent_events(&aws_account_id, limit.unwrap_or(20)).map_err(AppError::from)
+}
+
+// --- Event log, retention, hard delete & panic (Contract 11) -------------
+//
+// The event log is append-only. Every command here validates its inputs
+// inside the underlying module before any write runs. Deletion / panic
+// gates use a typed-confirmation string the backend re-checks
+// (CLAUDE.md §4.1: every command validates its inputs; the frontend gate
+// is convenience, not security).
+
+#[tauri::command]
+pub fn eventlog_list(filter: Option<EventLogFilter>) -> Result<Vec<EventLogEntry>, AppError> {
+    eventlog::list_events(filter.unwrap_or_default()).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn eventlog_search(
+    query: String,
+    limit: Option<i64>,
+) -> Result<Vec<EventLogEntry>, AppError> {
+    eventlog::search_events(&query, limit).map_err(AppError::from)
+}
+
+/// Returns the full activity log as newline-delimited JSON. The caller
+/// (Settings → Activity Log) writes this to a user-chosen file.
+#[tauri::command]
+pub fn eventlog_export() -> Result<String, AppError> {
+    eventlog::export_events().map_err(AppError::from)
+}
+
+/// Clears only the activity-log VIEW. Underlying rows remain subject to
+/// the event-log retention policy and still appear in Export.
+#[tauri::command]
+pub fn eventlog_clear_view() -> Result<(), AppError> {
+    eventlog::clear_event_view().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn eventlog_count() -> Result<i64, AppError> {
+    eventlog::count_events().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_get_settings() -> Result<RetentionSettings, AppError> {
+    retention::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_set_scan(period: RetentionPeriod) -> Result<(), AppError> {
+    retention::set_scan_retention(period).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_set_eventlog(period: RetentionPeriod) -> Result<(), AppError> {
+    retention::set_eventlog_retention(period).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn retention_run_now() -> Result<RetentionRunSummary, AppError> {
+    retention::run_now().map_err(AppError::from)
+}
+
+/// Hard-delete a scan. Requires the user to have typed either `DELETE`
+/// or the full scan ID. Runs the SQLite cascade, unlinks the raw file
+/// (and per-scan output directory), then executes `VACUUM` so removed
+/// rows are not trivially recoverable.
+#[tauri::command]
+pub fn deletion_hard_delete_scan(
+    scan_id: String,
+    confirmation: String,
+    options: Option<HardDeleteOptions>,
+) -> Result<HardDeleteSummary, AppError> {
+    deletion::hard_delete_scan(&scan_id, &confirmation, options.unwrap_or_default())
+        .map_err(AppError::from)
+}
+
+/// Run `VACUUM` against the SQLite file. Exposed so a tooling script
+/// (and the QA contract) can request it without forcing a delete.
+#[tauri::command]
+pub fn deletion_vacuum_now() -> Result<(), AppError> {
+    deletion::run_vacuum().map_err(AppError::from)
+}
+
+/// Panic — wipe every CloudSaw trace on this machine. The data wipe is
+/// IMMEDIATE and SYNCHRONOUS. Requires the literal confirmation string
+/// `"PANIC"`. The two-phase app/installer self-delete is staged via a
+/// platform-specific helper; the data wipe still succeeds if staging
+/// fails.
+#[tauri::command]
+pub fn system_panic_wipe(confirmation: String) -> Result<PanicWipeResult, AppError> {
+    wipe::run_panic_wipe(&confirmation)
+}
+
+/// Reboot the machine at user-level. Only called after the user picks
+/// "Reboot now" in the post-panic dialog — "Later" never calls this.
+#[tauri::command]
+pub fn system_request_reboot() -> Result<(), AppError> {
+    wipe::selfdelete::request_user_reboot()
+        .map_err(|e| AppError::Io(format!("reboot: {e}")))
+}
+
+// --- GitHub integration (Contract 12) ------------------------------------
+//
+// Two surfaces share one PAT (stored only in the OS keychain at
+// `cloudsaw.github_pat`). The IPC bridge never accepts a token in plain
+// IPC payloads other than `github_set_token`; every other call reads
+// the PAT from the keychain inside the underlying module. Direct API
+// submission always goes through the `prepare → preview → submit`
+// dance — the UI shows the preview to the user before submission
+// (Contract 12 §Constraints).
+
+#[tauri::command]
+pub fn github_get_settings() -> Result<GithubSettings, AppError> {
+    github::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_set_token(token: String) -> Result<(), AppError> {
+    github::set_token(token).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_clear_token() -> Result<(), AppError> {
+    github::clear_token().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_set_findings_repo(repo: Option<RepoSelection>) -> Result<(), AppError> {
+    github::set_findings_repo(repo).map_err(AppError::from)
+}
+
+/// URL of the GitHub fine-grained-token settings page. Returned to the
+/// frontend so the "Generate token" button opens it via the OS browser.
+#[tauri::command]
+pub fn github_generate_token_url() -> String {
+    github::generate_token_url().to_string()
+}
+
+#[tauri::command]
+pub async fn github_prepare_error_report(
+    notes: Option<String>,
+    locale: String,
+) -> Result<IssuePreview, AppError> {
+    tokio::task::spawn_blocking(move || github::prepare_error_report(notes, &locale))
+        .await
+        .map_err(|e| AppError::Internal(format!("github_prepare_error spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn github_submit_error_report(
+    preview: IssuePreview,
+) -> Result<IssueCreated, AppError> {
+    tokio::task::spawn_blocking(move || github::submit_error_report(&preview))
+        .await
+        .map_err(|e| AppError::Internal(format!("github_submit_error spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_browser_fallback_for_error(
+    preview: IssuePreview,
+) -> Result<BrowserSubmission, AppError> {
+    Ok(github::browser_fallback_for_error_report(&preview))
+}
+
+#[tauri::command]
+pub fn github_prepare_finding_ticket(
+    finding_id: String,
+    repo: RepoSelection,
+) -> Result<IssuePreview, AppError> {
+    github::prepare_finding_ticket(&finding_id, &repo).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn github_submit_finding_ticket(
+    finding_id: String,
+    preview: IssuePreview,
+) -> Result<FindingTicket, AppError> {
+    tokio::task::spawn_blocking(move || github::submit_finding_ticket(&finding_id, &preview))
+        .await
+        .map_err(|e| AppError::Internal(format!("github_submit_finding spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_browser_fallback_for_finding(
+    preview: IssuePreview,
+) -> Result<BrowserSubmission, AppError> {
+    Ok(github::browser_fallback_for_finding_ticket(&preview))
+}
+
+#[tauri::command]
+pub fn github_get_finding_ticket(finding_id: String) -> Result<Option<FindingTicket>, AppError> {
+    github::get_finding_ticket(&finding_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn github_list_finding_tickets(
+    aws_account_id: String,
+) -> Result<Vec<FindingTicket>, AppError> {
+    github::list_finding_tickets(&aws_account_id).map_err(AppError::from)
+}
+
+// --- AI Suggestion Layer (Contract 13) -----------------------------------
+//
+// Fully OPT-IN: with no provider key configured, no AI command makes any
+// network call. The bridge here re-checks every gate inside the
+// underlying module so a direct IPC caller can never bypass the
+// "must preview before send" rule (CLAUDE.md §4.1).
+
+#[tauri::command]
+pub fn ai_get_settings() -> Result<AiSettings, AppError> {
+    ai::get_settings().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_provider(provider: Option<Provider>) -> Result<(), AppError> {
+    ai::set_provider(provider).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_provider_key(provider: Provider, key: String) -> Result<(), AppError> {
+    ai::set_provider_key(provider, key).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_clear_provider_key(provider: Provider) -> Result<(), AppError> {
+    ai::clear_provider_key(provider).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_has_provider_key(provider: Provider) -> Result<bool, AppError> {
+    ai::has_provider_key(provider).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_business_context(context: BusinessContext) -> Result<(), AppError> {
+    ai::set_business_context(context).map_err(AppError::from)
+}
+
+/// Build the request preview the UI MUST display to the user before
+/// any `ai_send_request` call. The returned value IS the payload that
+/// would be transmitted.
+#[tauri::command]
+pub fn ai_prepare_request(finding_id: String) -> Result<AiRequestPreview, AppError> {
+    ai::prepare_request(&finding_id).map_err(AppError::from)
+}
+
+/// Send the previously-built preview to the connected provider.
+/// Spawns on a blocking worker because the underlying transport is
+/// sync (`reqwest::blocking`).
+#[tauri::command]
+pub async fn ai_send_request(preview: AiRequestPreview) -> Result<AiSuggestion, AppError> {
+    tokio::task::spawn_blocking(move || ai::send_request(preview))
+        .await
+        .map_err(|e| AppError::Internal(format!("ai_send spawn: {e}")))?
+        .map_err(AppError::from)
+}
+
+// --- Onboarding wizard (Contract 14) ------------------------------------
+//
+// The wizard is the only entry point on first launch (App.tsx gates the
+// main app behind `onboarding_get_state().completed`). Every IPC here
+// just touches the singleton onboarding row — credentials, account
+// identifiers, and the master password ALL live in their owning
+// modules (applock / accounts / terraform / scanner / ai). The wizard
+// itself stores only step flags + language.
+
+#[tauri::command]
+pub fn onboarding_get_state() -> Result<OnboardingState, AppError> {
+    onboarding::get_state().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_set_language(language: String) -> Result<(), AppError> {
+    onboarding::set_language(&language).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_set_current_step(step: OnboardingStep) -> Result<(), AppError> {
+    onboarding::set_current_step(step).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_mark_step_completed(step: OnboardingStep) -> Result<(), AppError> {
+    onboarding::mark_step_completed(step).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn onboarding_complete() -> Result<(), AppError> {
+    onboarding::complete().map_err(AppError::from)
+}
+
+/// Reset the wizard for a Settings-driven re-run. `start_at` lets the
+/// caller jump straight to a specific step (typically `aws_account` for
+/// "add another account").
+#[tauri::command]
+pub fn onboarding_reset_for_rerun(start_at: OnboardingStep) -> Result<(), AppError> {
+    onboarding::reset_for_rerun(start_at).map_err(AppError::from)
 }

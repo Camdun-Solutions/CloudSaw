@@ -78,6 +78,24 @@ const KNOWN_CODES: Record<string, string> = {
   scanner_process_lost: "scanner.failure.scanner_process_lost",
   scanner_process_failed: "scanner.failure.scanner_process_failed",
   scanner_output_missing: "scanner.failure.scanner_output_missing",
+  // Event log, retention, hard delete & panic (Contract 11).
+  confirmation_rejected: "eventlog.error.confirmation_rejected",
+  schedule_not_found: "eventlog.error.generic",
+  // GitHub integration (Contract 12).
+  github_no_token: "github.error.no_token",
+  github_token_invalid: "github.error.token_invalid",
+  github_rate_limited: "github.error.rate_limited",
+  github_network: "github.error.network",
+  github_server_error: "github.error.server",
+  github_no_findings_repo: "github.error.no_findings_repo",
+  github_duplicate_ticket: "github.error.duplicate_ticket",
+  // AI Suggestion Layer (Contract 13).
+  ai_no_provider_key: "ai.error.no_provider_key",
+  ai_no_provider: "ai.error.no_provider",
+  ai_key_invalid: "ai.error.key_invalid",
+  ai_rate_limited: "ai.error.rate_limited",
+  ai_network: "ai.error.network",
+  ai_server_error: "ai.error.server",
 };
 
 export function useIpcError() {

@@ -63,7 +63,29 @@ reqwest = { version = "0.13", default-features = false, features = [
     "blocking",
     "rustls",
     "http2",
+    "json",
 ] }
+
+# OS-native secure storage used for the small number of long-lived secrets
+# CloudSaw stores (GitHub PATs from Contract 12, the user's own AI provider
+# key from Contract 13). The eventlog/retention/panic-wipe contract (C11)
+# pulls the crate in so the panic action can enumerate and remove every
+# CloudSaw keychain entry across macOS Keychain, Windows Credential Manager,
+# and the Linux Secret Service. The set of services CloudSaw writes is
+# tracked in `keychain::cloudsaw_entries()` — later contracts append to it.
+keyring = { version = "3", default-features = false, features = [
+    "apple-native",
+    "windows-native",
+    "sync-secret-service",
+    "vendored",
+] }
+
+# Redaction rules for the GitHub error-report bundle (Contract 12).
+# Used purely for token-level pattern matching against a known-static
+# set of patterns (AWS ARNs, account IDs, access keys, PAT formats). The
+# crate is already in our transitive graph via tauri/aws-sdk; pulling it
+# in directly removes the version-drift risk.
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"

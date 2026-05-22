@@ -4,11 +4,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  AiRequestPreviewModal,
   Button,
   EmptyState,
   SafeMarkdown,
   Select,
   SeverityBadge,
+  SubmissionPreviewModal,
   VirtualList,
 } from "@/components";
 import { useT } from "@/hooks/useT";
@@ -16,11 +18,17 @@ import { useIpcError } from "@/hooks/useIpcError";
 import {
   ipc,
   SEVERITY_ORDER,
+  type AiRequestPreview,
+  type AiSettings as AiSettingsT,
+  type AiSuggestion,
   type ControlMapping,
   type Finding,
   type FindingDetail,
   type FindingStatus,
   type FindingsFilter,
+  type FindingTicket,
+  type GithubSettings,
+  type IssuePreview,
   type KnowledgeArticle,
   type Severity,
 } from "@/lib/ipc";
@@ -384,6 +392,13 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
   const [mapping, setMapping] = useState<ControlMapping | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<FindingTicket | null>(null);
+  const [github, setGithub] = useState<GithubSettings | null>(null);
+  const [preview, setPreview] = useState<IssuePreview | null>(null);
+  const [aiSettings, setAiSettings] = useState<AiSettingsT | null>(null);
+  const [aiPreview, setAiPreview] = useState<AiRequestPreview | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!findingId) return;
@@ -392,6 +407,9 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
     setMapping(null);
     setError(null);
     setErrorCode(null);
+    setTicket(null);
+    setAiSuggestion(null);
+    setAiError(null);
     try {
       const d = await ipc.findingsGet(findingId);
       setDetail(d);
@@ -401,12 +419,18 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
       // those don't throw, so we surface them as their respective empty
       // states below.
       const ruleKey = d.finding.rule_key;
-      const [art, map] = await Promise.all([
+      const [art, map, t2, gh, ai] = await Promise.all([
         ipc.kbGetArticle(ruleKey),
         ipc.kbGetControlMappings(ruleKey),
+        ipc.githubGetFindingTicket(findingId),
+        ipc.githubGetSettings(),
+        ipc.aiGetSettings(),
       ]);
       setArticle(art);
       setMapping(map);
+      setTicket(t2);
+      setGithub(gh);
+      setAiSettings(ai);
     } catch (err) {
       setError(formatError(err));
       setErrorCode(
@@ -420,6 +444,49 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function startAiSuggestion() {
+    if (!findingId) return;
+    setAiError(null);
+    setAiSuggestion(null);
+    if (!aiSettings || !aiSettings.key_connected) {
+      // Contract 13 §Edge Cases: no key → direct the user to Settings.
+      setAiError(t("ai.error.no_provider_key"));
+      return;
+    }
+    try {
+      const p = await ipc.aiPrepareRequest(findingId);
+      setAiPreview(p);
+    } catch (err) {
+      setAiError(formatError(err));
+    }
+  }
+
+  async function sendAiRequest(p: AiRequestPreview): Promise<AiSuggestion> {
+    const suggestion = await ipc.aiSendRequest(p);
+    setAiSuggestion(suggestion);
+    setAiPreview(null);
+    return suggestion;
+  }
+
+  async function startCreateTicket() {
+    if (!findingId || !github) return;
+    if (!github.findings_repo) {
+      setError(t("github.error.no_findings_repo"));
+      return;
+    }
+    if (ticket) {
+      // Already linked — the UI shows the link rather than filing a
+      // duplicate (Contract 12 §Edge Cases).
+      return;
+    }
+    try {
+      const p = await ipc.githubPrepareFindingTicket(findingId, github.findings_repo);
+      setPreview(p);
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
 
   if (!findingId) {
     return (
@@ -482,15 +549,199 @@ function FindingDetailPanel({ findingId }: { findingId: string | null }) {
           </div>
         </div>
 
+        <FindingTicketRow
+          ticket={ticket}
+          onCreate={() => void startCreateTicket()}
+          tokenConfigured={github?.token.configured ?? false}
+          findingsRepoConfigured={!!github?.findings_repo}
+        />
+
         {article.matched ? (
           <ArticleBody article={article} />
         ) : (
           <NoArticleBlock finding={detail.finding} />
         )}
+
+        <AiSuggestionBlock
+          settings={aiSettings}
+          suggestion={aiSuggestion}
+          aiError={aiError}
+          onStart={() => void startAiSuggestion()}
+        />
       </div>
 
       <ResourceList detail={detail} />
       <MappingList mapping={mapping} />
+
+      <SubmissionPreviewModal
+        preview={preview}
+        onClose={() => setPreview(null)}
+        onSubmitApi={async (p) => {
+          if (!findingId) throw new Error("no finding id");
+          const created = await ipc.githubSubmitFindingTicket(findingId, p);
+          // Reload so the linked-ticket row replaces the CTA.
+          await load();
+          return {
+            repo: created.repo,
+            issue_number: created.issue_number,
+            issue_url: created.issue_url,
+          };
+        }}
+        onBrowserFallback={(p) => ipc.githubBrowserFallbackForFinding(p)}
+        tokenConfigured={github?.token.configured ?? false}
+      />
+
+      <AiRequestPreviewModal
+        preview={aiPreview}
+        onClose={() => setAiPreview(null)}
+        onSend={sendAiRequest}
+      />
+    </div>
+  );
+}
+
+// AI suggestion sub-panel — visually distinct from the KB article above.
+// Renders an opt-in CTA, the disabled-hint pointing to Settings if no key
+// is connected, and (after a Send) the suggestion with a clear
+// "AI-generated, unreviewed" label + placeholder reminder + token usage.
+function AiSuggestionBlock({
+  settings,
+  suggestion,
+  aiError,
+  onStart,
+}: {
+  settings: AiSettingsT | null;
+  suggestion: AiSuggestion | null;
+  aiError: string | null;
+  onStart: () => void;
+}) {
+  const t = useT();
+  const ready = !!settings?.key_connected;
+
+  return (
+    <div
+      className="mt-5 rounded-card border border-dashed border-saw-grey-300 bg-saw-grey-50 p-4"
+      data-testid="ai-suggestion-block"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="rounded-full bg-saw-grey-200 px-2 py-0.5 text-xs font-medium text-saw-grey-800">
+            {t("ai.suggestion.label")}
+          </span>
+        </div>
+        <Button
+          variant={ready ? "secondary" : "ghost"}
+          size="sm"
+          onClick={onStart}
+          data-testid="ai-suggestion-cta"
+        >
+          {t("ai.suggestion.cta")}
+        </Button>
+      </div>
+      {!ready ? (
+        <p
+          className="mt-2 text-small text-saw-grey-600"
+          data-testid="ai-suggestion-disabled-hint"
+        >
+          {t("ai.suggestion.disabled_hint")}
+        </p>
+      ) : null}
+      {aiError ? (
+        <p
+          role="alert"
+          className="mt-2 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+          data-testid="ai-suggestion-error"
+        >
+          {aiError}
+        </p>
+      ) : null}
+      {suggestion ? (
+        <div className="mt-3" data-testid="ai-suggestion-result">
+          <p className="text-xs text-saw-grey-600">
+            {t("ai.suggestion.disclaimer")}
+          </p>
+          <p className="mt-1 text-xs text-saw-grey-600">
+            {t("ai.suggestion.placeholders_note")}
+          </p>
+          <div className="mt-3 rounded-card bg-saw-white border border-saw-grey-200 p-3">
+            {suggestion.suggestion_markdown.trim().length > 0 ? (
+              <SafeMarkdown markdown={suggestion.suggestion_markdown} />
+            ) : (
+              <p className="text-small text-saw-grey-600">
+                {t("ai.suggestion.empty")}
+              </p>
+            )}
+          </div>
+          <div className="mt-2 text-xs text-saw-grey-500">
+            {t("ai.suggestion.model")}: {suggestion.provider} · {suggestion.model}
+            {suggestion.usage_input_tokens !== null &&
+            suggestion.usage_output_tokens !== null ? (
+              <>
+                {" "}
+                ·{" "}
+                {t("ai.suggestion.usage")
+                  .replace("{input}", String(suggestion.usage_input_tokens))
+                  .replace("{output}", String(suggestion.usage_output_tokens))}
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FindingTicketRow({
+  ticket,
+  onCreate,
+  tokenConfigured,
+  findingsRepoConfigured,
+}: {
+  ticket: FindingTicket | null;
+  onCreate: () => void;
+  tokenConfigured: boolean;
+  findingsRepoConfigured: boolean;
+}) {
+  const t = useT();
+  if (ticket) {
+    return (
+      <div
+        className="mt-3 rounded-card bg-saw-grey-50 border border-saw-grey-200 px-3 py-2 text-small flex items-center justify-between"
+        data-testid="finding-ticket-linked"
+      >
+        <span className="text-saw-grey-900 font-mono">
+          {t("findingticket.linked")
+            .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
+            .replace("{n}", String(ticket.issue_number))}
+        </span>
+        <a
+          href={ticket.issue_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-small text-saw-grey-700 underline underline-offset-2"
+          data-testid="finding-ticket-link"
+        >
+          {t("findingticket.linked_view")}
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onCreate}
+        disabled={!findingsRepoConfigured && !tokenConfigured}
+        data-testid="finding-create-ticket"
+      >
+        {t("findingticket.cta")}
+      </Button>
+      {!findingsRepoConfigured ? (
+        <p className="mt-1 text-xs text-saw-grey-500" data-testid="finding-create-ticket-hint">
+          {t("github.findings_repo.none")}
+        </p>
+      ) : null}
     </div>
   );
 }

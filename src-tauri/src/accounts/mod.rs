@@ -61,6 +61,13 @@ pub async fn add_account(input: AddAccountInput) -> Result<Account, AccountsErro
     })?;
 
     promote_if_no_active(&inserted.aws_account_id)?;
+    crate::eventlog::record_event(
+        crate::eventlog::EventInput::new(
+            crate::eventlog::EventKind::AccountAdded,
+            format!("Account \"{}\" added.", inserted.label),
+        )
+        .with_account(inserted.aws_account_id.clone()),
+    );
     Ok(inserted)
 }
 
@@ -108,7 +115,9 @@ pub async fn update_account(input: UpdateAccountInput) -> Result<Account, Accoun
 }
 
 /// Remove an account row. If the row was the active account, the active
-/// selection is cleared in the same transaction.
+/// selection is cleared in the same transaction. Also cascades to the
+/// scheduler so a removed account doesn't leave an orphan schedule that
+/// would fire against a vanished AWS context.
 ///
 /// Right now the returned `RemovalImpact` only reports `was_active` — later
 /// contracts that add scan/findings/tf-work tables will populate the counts
@@ -116,6 +125,18 @@ pub async fn update_account(input: UpdateAccountInput) -> Result<Account, Accoun
 pub fn remove_account(aws_account_id: &str) -> Result<RemovalImpact, AccountsError> {
     validation::validate_aws_account_id(aws_account_id)?;
     let was_active = storage::delete(aws_account_id)?;
+    // Best-effort schedule cascade. A residual schedule for a deleted
+    // account would still be skipped by the runner's gate-check, but
+    // removing it keeps the Settings UI list accurate and avoids
+    // surprising the user with a stale row.
+    let _ = crate::scheduler::clear_schedule_if_present(aws_account_id);
+    crate::eventlog::record_event(
+        crate::eventlog::EventInput::new(
+            crate::eventlog::EventKind::AccountRemoved,
+            "Account removed.",
+        )
+        .with_account(aws_account_id.to_string()),
+    );
     Ok(RemovalImpact {
         scans: 0,
         findings: 0,

@@ -4,12 +4,26 @@
 // build out the full settings surface; for now Settings is a single panel
 // dedicated to app-lock configuration, reachable from the main header.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button, Modal, PasswordField, Select, Switch } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
-import { ipc, type LockPeriod, type LockSettings } from "@/lib/ipc";
+import {
+  ipc,
+  type AiProvider,
+  type AiSettings as AiSettingsT,
+  type BusinessContext,
+  type EnvironmentType,
+  type GithubSettings,
+  type LockPeriod,
+  type LockSettings,
+  type PanicWipeResult,
+  type RetentionPeriod,
+  type RetentionSettings,
+  type RiskTolerance,
+  type TeamSize,
+} from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
 
 type PeriodChoice = "immediate" | "1d" | "7d" | "30d" | "never";
@@ -44,9 +58,22 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
   }
 };
 
-type Props = { onClose: () => void };
+type Props = {
+  onClose: () => void;
+  onOpenSchedules: () => void;
+  onOpenActivityLog: () => void;
+  /** Re-enter the onboarding wizard at a specific step. Settings uses
+   * this to expose "Add another AWS account" and "Re-run the full
+   * wizard" actions (Contract 14 §Expected Output). */
+  onRerunOnboarding?: (startAt: "aws_account" | "language") => void;
+};
 
-export default function Settings({ onClose }: Props) {
+export default function Settings({
+  onClose,
+  onOpenSchedules,
+  onOpenActivityLog,
+  onRerunOnboarding,
+}: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { state, refresh } = useLock();
@@ -204,6 +231,34 @@ export default function Settings({ onClose }: Props) {
         </div>
       </section>
 
+      <section
+        className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        data-testid="settings-section-schedules"
+      >
+        <h2 className="text-h3 font-semibold text-saw-grey-900">
+          {t("schedules.section_title")}
+        </h2>
+        <p className="mt-1 text-small text-saw-grey-600">
+          {t("schedules.section_subtitle")}
+        </p>
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            onClick={onOpenSchedules}
+            data-testid="settings-open-schedules"
+          >
+            {t("schedules.section_cta")}
+          </Button>
+        </div>
+      </section>
+
+      <ActivityLogSection onOpen={onOpenActivityLog} />
+      <OnboardingSection onRerun={onRerunOnboarding} />
+      <RetentionSection />
+      <GithubSection />
+      <AiSection />
+      <PanicSection />
+
       <ChangePasswordDialog
         open={changeOpen}
         onClose={() => setChangeOpen(false)}
@@ -213,6 +268,397 @@ export default function Settings({ onClose }: Props) {
         }}
       />
     </main>
+  );
+}
+
+// --- Contract 11 sections -----------------------------------------------
+
+function OnboardingSection({
+  onRerun,
+}: {
+  onRerun?: (startAt: "aws_account" | "language") => void;
+}) {
+  const t = useT();
+  if (!onRerun) return null;
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-onboarding"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("settings.section.onboarding_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("settings.section.onboarding_subtitle")}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => onRerun("aws_account")}
+          data-testid="settings-onboarding-add-account"
+        >
+          {t("settings.section.onboarding_add_account")}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => onRerun("language")}
+          data-testid="settings-onboarding-rerun-full"
+        >
+          {t("settings.section.onboarding_rerun_full")}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
+  const t = useT();
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-activitylog"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("eventlog.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("eventlog.section_subtitle")}
+      </p>
+      <div className="mt-4">
+        <Button
+          variant="secondary"
+          onClick={onOpen}
+          data-testid="settings-open-activitylog"
+        >
+          {t("eventlog.section_cta")}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+type RetentionChoice = "30d" | "60d" | "90d" | "180d" | "365d" | "never";
+
+function periodToChoice(p: RetentionPeriod): RetentionChoice {
+  if (p.kind === "never") return "never";
+  switch (p.days) {
+    case 30: return "30d";
+    case 60: return "60d";
+    case 90: return "90d";
+    case 180: return "180d";
+    case 365: return "365d";
+    default: return "90d";
+  }
+}
+
+function choiceToPeriod(c: RetentionChoice): RetentionPeriod {
+  switch (c) {
+    case "never": return { kind: "never" };
+    case "30d": return { kind: "days", days: 30 };
+    case "60d": return { kind: "days", days: 60 };
+    case "90d": return { kind: "days", days: 90 };
+    case "180d": return { kind: "days", days: 180 };
+    case "365d": return { kind: "days", days: 365 };
+  }
+}
+
+function RetentionSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<RetentionSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setSettings(await ipc.retentionGetSettings());
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (!settings) {
+    return null;
+  }
+
+  const scanChoice = periodToChoice(settings.scan_retention);
+  const eventChoice = periodToChoice(settings.eventlog_retention);
+
+  const options: { value: RetentionChoice; label: string }[] = [
+    { value: "30d", label: t("retention.period.30d") },
+    { value: "60d", label: t("retention.period.60d") },
+    { value: "90d", label: t("retention.period.90d") },
+    { value: "180d", label: t("retention.period.180d") },
+    { value: "365d", label: t("retention.period.365d") },
+    { value: "never", label: t("retention.period.never") },
+  ];
+
+  async function updateScan(c: RetentionChoice) {
+    setErr(null);
+    try {
+      await ipc.retentionSetScan(choiceToPeriod(c));
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function updateEventlog(c: RetentionChoice) {
+    setErr(null);
+    try {
+      await ipc.retentionSetEventlog(choiceToPeriod(c));
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function runNow() {
+    setBusy(true);
+    setErr(null);
+    setToast(null);
+    try {
+      const summary = await ipc.retentionRunNow();
+      setToast(
+        t("retention.toast")
+          .replace("{scans}", String(summary.scan_dirs_removed))
+          .replace("{raw}", String(summary.raw_files_removed))
+          .replace("{events}", String(summary.eventlog_rows_removed)),
+      );
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+      window.setTimeout(() => setToast(null), 4000);
+    }
+  }
+
+  const lastRun = settings.last_run_at
+    ? t("retention.last_run").replace("{at}", new Date(settings.last_run_at).toLocaleString())
+    : t("retention.never_run");
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-retention"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("retention.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("retention.section_subtitle")}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <Select<RetentionChoice>
+          label={t("retention.scan.label")}
+          description={t("retention.scan.hint")}
+          value={scanChoice}
+          options={options}
+          onChange={(c) => void updateScan(c)}
+          data-testid="settings-retention-scan"
+        />
+        <Select<RetentionChoice>
+          label={t("retention.eventlog.label")}
+          description={t("retention.eventlog.hint")}
+          value={eventChoice}
+          options={options}
+          onChange={(c) => void updateEventlog(c)}
+          data-testid="settings-retention-eventlog"
+        />
+        {(scanChoice === "never" || eventChoice === "never") ? (
+          <p className="text-small text-saw-grey-600">
+            {t("retention.never_storage_hint")}
+          </p>
+        ) : null}
+        <p className="text-small text-saw-grey-500">{lastRun}</p>
+
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+        {toast ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="settings-retention-toast"
+          >
+            {toast}
+          </p>
+        ) : null}
+
+        <div>
+          <Button
+            variant="secondary"
+            onClick={() => void runNow()}
+            disabled={busy}
+            data-testid="settings-retention-run"
+          >
+            {busy ? t("retention.run_busy") : t("retention.run_now")}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PanicSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<PanicWipeResult | null>(null);
+
+  function close() {
+    setOpen(false);
+    setConfirm("");
+    setErr(null);
+  }
+
+  async function doPanic() {
+    if (confirm !== "PANIC") {
+      setErr(t("eventlog.error.confirmation_rejected"));
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const out = await ipc.systemPanicWipe(confirm);
+      setResult(out);
+      setOpen(false);
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+      setConfirm("");
+    }
+  }
+
+  async function doReboot() {
+    try {
+      await ipc.systemRequestReboot();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setResult(null);
+    }
+  }
+
+  return (
+    <>
+      <section
+        className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-red/40 p-6"
+        data-testid="settings-section-panic"
+      >
+        <h2 className="text-h3 font-semibold text-saw-red">{t("panic.section_title")}</h2>
+        <p className="mt-1 text-small text-saw-grey-700">{t("panic.section_subtitle")}</p>
+        <div className="mt-4">
+          <Button
+            variant="primary"
+            onClick={() => setOpen(true)}
+            data-testid="settings-panic-cta"
+          >
+            {t("panic.section_cta")}
+          </Button>
+        </div>
+      </section>
+
+      <Modal
+        open={open}
+        onClose={close}
+        title={t("panic.title")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={close} disabled={busy}>
+              {t("panic.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void doPanic()}
+              disabled={busy || confirm !== "PANIC"}
+              data-testid="panic-confirm"
+            >
+              {busy ? t("panic.busy") : t("panic.confirm_cta")}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p>{t("panic.explainer")}</p>
+          <p className="text-small text-saw-red">{t("panic.warning")}</p>
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+            <span>{t("panic.confirm_label")}</span>
+            <input
+              type="text"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder={t("panic.confirm_placeholder")}
+              autoFocus
+              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+              data-testid="panic-confirm-input"
+            />
+          </label>
+          {err ? (
+            <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+              {err}
+            </p>
+          ) : null}
+        </div>
+      </Modal>
+
+      {result ? (
+        <Modal
+          open={!!result}
+          onClose={() => setResult(null)}
+          title={t("panic.success.title")}
+          footer={
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setResult(null)}
+                data-testid="panic-later"
+              >
+                {t("panic.success.later")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void doReboot()}
+                data-testid="panic-reboot-now"
+              >
+                {t("panic.success.reboot_now")}
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <p>
+              {t("panic.success.body")
+                .replace("{scans}", String(result.scan_dirs_removed))
+                .replace("{tf}", String(result.tf_workdirs_removed))
+                .replace("{logs}", String(result.log_files_removed))
+                .replace("{dbs}", String(result.db_files_removed))
+                .replace("{keychain}", String(result.keychain.removed))
+                .replace(
+                  "{staged}",
+                  result.self_delete_staged
+                    ? t("panic.success.staged_yes")
+                    : t("panic.success.staged_no"),
+                )}
+            </p>
+            <p className="text-small text-saw-grey-700">
+              {t("panic.success.reboot_question")}
+            </p>
+          </div>
+        </Modal>
+      ) : null}
+    </>
   );
 }
 
@@ -332,5 +778,604 @@ function ChangePasswordDialog({
         ) : null}
       </div>
     </Modal>
+  );
+}
+
+// --- GitHub integration (Contract 12) -----------------------------------
+
+function GithubSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<GithubSettings | null>(null);
+  const [tokenInput, setTokenInput] = useState("");
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
+  const [repoInput, setRepoInput] = useState("");
+  const [repoBusy, setRepoBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const s = await ipc.githubGetSettings();
+      setSettings(s);
+      setRepoInput(s.findings_repo ? `${s.findings_repo.owner}/${s.findings_repo.name}` : "");
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  async function saveToken() {
+    setErr(null);
+    setTokenBusy(true);
+    setTokenSaved(false);
+    try {
+      await ipc.githubSetToken(tokenInput);
+      setTokenInput("");
+      setTokenSaved(true);
+      window.setTimeout(() => setTokenSaved(false), 3000);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+  async function clearToken() {
+    setErr(null);
+    try {
+      await ipc.githubClearToken();
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function saveRepo() {
+    setErr(null);
+    setRepoBusy(true);
+    try {
+      const parts = repoInput.trim().split("/");
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        setErr(t("github.error.no_findings_repo"));
+        return;
+      }
+      await ipc.githubSetFindingsRepo({ owner: parts[0], name: parts[1] });
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setRepoBusy(false);
+    }
+  }
+  async function clearRepo() {
+    setErr(null);
+    try {
+      await ipc.githubSetFindingsRepo(null);
+      setRepoInput("");
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function openTokenPage() {
+    try {
+      const url = await ipc.githubGenerateTokenUrl();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+
+  if (!settings) return null;
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-github"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("github.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("github.section_subtitle")}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <p
+          className="text-small text-saw-grey-700"
+          data-testid="settings-github-token-status"
+        >
+          {settings.token.configured
+            ? t("github.token.configured")
+            : t("github.token.not_configured")}
+        </p>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("github.token.label")}</span>
+          <input
+            type="password"
+            value={tokenInput}
+            onChange={(e) => setTokenInput(e.target.value)}
+            placeholder={t("github.token.placeholder")}
+            autoComplete="off"
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="settings-github-token-input"
+          />
+          <span className="text-xs text-saw-grey-500">{t("github.token.hint")}</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            onClick={() => void saveToken()}
+            disabled={tokenBusy || tokenInput.trim().length === 0}
+            data-testid="settings-github-token-save"
+          >
+            {tokenBusy ? t("github.token.saving") : t("github.token.save")}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => void openTokenPage()}
+            data-testid="settings-github-generate"
+          >
+            {t("github.token.generate_cta")}
+          </Button>
+          {settings.token.configured ? (
+            <Button
+              variant="ghost"
+              onClick={() => void clearToken()}
+              data-testid="settings-github-token-clear"
+            >
+              {t("github.token.clear")}
+            </Button>
+          ) : null}
+        </div>
+        {tokenSaved ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="settings-github-token-saved"
+          >
+            {t("github.token.configured")}
+          </p>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("github.findings_repo.label")}</span>
+          <input
+            type="text"
+            value={repoInput}
+            onChange={(e) => setRepoInput(e.target.value)}
+            placeholder={t("github.findings_repo.placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="settings-github-repo-input"
+          />
+          <span className="text-xs text-saw-grey-500">{t("github.findings_repo.hint")}</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            onClick={() => void saveRepo()}
+            disabled={repoBusy || repoInput.trim().length === 0}
+            data-testid="settings-github-repo-save"
+          >
+            {t("github.findings_repo.save")}
+          </Button>
+          {settings.findings_repo ? (
+            <Button
+              variant="ghost"
+              onClick={() => void clearRepo()}
+              data-testid="settings-github-repo-clear"
+            >
+              {t("github.findings_repo.clear")}
+            </Button>
+          ) : null}
+        </div>
+        {!settings.findings_repo ? (
+          <p className="text-small text-saw-grey-500" data-testid="settings-github-repo-none">
+            {t("github.findings_repo.none")}
+          </p>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <div className="text-small text-saw-grey-700">
+          <div className="font-medium">{t("github.error_repo.label")}</div>
+          <div className="font-mono text-saw-grey-900">
+            {settings.error_report_repo.owner}/{settings.error_report_repo.name}
+          </div>
+          <div className="text-xs text-saw-grey-500 mt-1">
+            {t("github.error_repo.hint")}
+          </div>
+        </div>
+        <div className="text-small text-saw-grey-700">
+          <div className="font-medium">{t("github.security_contact.label")}</div>
+          <div
+            className="font-mono text-saw-grey-900"
+            data-testid="settings-github-security-contact"
+          >
+            {settings.security_contact}
+          </div>
+          <div className="text-xs text-saw-grey-500 mt-1">
+            {t("github.security_contact.hint")}
+          </div>
+        </div>
+
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+// --- AI Suggestion Layer (Contract 13) ----------------------------------
+
+function AiSection() {
+  const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<AiSettingsT | null>(null);
+  const [provider, setProvider] = useState<AiProvider | "">("");
+  const [keyInput, setKeyInput] = useState("");
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [keySaved, setKeySaved] = useState(false);
+  const [context, setContext] = useState<BusinessContext | null>(null);
+  const [ctxSaved, setCtxSaved] = useState(false);
+  const [complianceInput, setComplianceInput] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const s = await ipc.aiGetSettings();
+      setSettings(s);
+      setProvider(s.provider ?? "");
+      setContext(s.context);
+      setComplianceInput(s.context.compliance.join(", "));
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (!settings || !context) return null;
+
+  async function saveProvider() {
+    setErr(null);
+    try {
+      await ipc.aiSetProvider(provider === "" ? null : provider);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function saveKey() {
+    setErr(null);
+    if (provider === "") {
+      setErr(t("ai.error.no_provider"));
+      return;
+    }
+    setKeyBusy(true);
+    setKeySaved(false);
+    try {
+      await ipc.aiSetProviderKey(provider, keyInput);
+      setKeyInput("");
+      setKeySaved(true);
+      window.setTimeout(() => setKeySaved(false), 3000);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setKeyBusy(false);
+    }
+  }
+  async function clearKey() {
+    setErr(null);
+    if (provider === "") return;
+    try {
+      await ipc.aiClearProviderKey(provider);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+  async function saveContext() {
+    setErr(null);
+    if (!context) return;
+    setCtxSaved(false);
+    try {
+      const compliance = complianceInput
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const next: BusinessContext = { ...context, compliance };
+      await ipc.aiSetBusinessContext(next);
+      setCtxSaved(true);
+      window.setTimeout(() => setCtxSaved(false), 3000);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+
+  const envOptions: { value: EnvironmentType; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.env.unspecified") },
+    { value: "production", label: t("ai.context.env.production") },
+    { value: "dev_test", label: t("ai.context.env.dev_test") },
+    { value: "mixed", label: t("ai.context.env.mixed") },
+  ];
+  const riskOptions: { value: RiskTolerance; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.risk.unspecified") },
+    { value: "low", label: t("ai.context.risk.low") },
+    { value: "medium", label: t("ai.context.risk.medium") },
+    { value: "high", label: t("ai.context.risk.high") },
+  ];
+  const teamOptions: { value: TeamSize; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.team.unspecified") },
+    { value: "solo", label: t("ai.context.team.solo") },
+    { value: "small", label: t("ai.context.team.small") },
+    { value: "medium", label: t("ai.context.team.medium") },
+    { value: "large", label: t("ai.context.team.large") },
+  ];
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-ai"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("ai.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("ai.section_subtitle")}
+      </p>
+
+      {!settings.key_connected ? (
+        <div
+          className="mt-4 rounded-card border border-saw-grey-200 bg-saw-grey-50 p-3 text-small"
+          data-testid="ai-dormant-note"
+        >
+          <div className="font-medium text-saw-grey-900">
+            {t("ai.dormant.title")}
+          </div>
+          <div className="text-saw-grey-700 mt-1">{t("ai.dormant.body")}</div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 p-3 text-small">
+        <div className="font-medium text-saw-red">{t("ai.disclosure.title")}</div>
+        <div className="text-saw-grey-800 mt-1">{t("ai.disclosure.body")}</div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.provider.label")}</span>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as AiProvider | "")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-provider-select"
+          >
+            <option value="">{t("ai.provider.none")}</option>
+            <option value="anthropic">{t("ai.provider.anthropic")}</option>
+            <option value="openai">{t("ai.provider.openai")}</option>
+          </select>
+        </label>
+        <div>
+          <Button
+            variant="secondary"
+            onClick={() => void saveProvider()}
+            data-testid="ai-provider-save"
+          >
+            {provider === "" ? t("ai.provider.clear") : t("ai.provider.set")}
+          </Button>
+        </div>
+
+        {provider !== "" ? (
+          <>
+            <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+              <span>{t("ai.key.label")}</span>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder={
+                  provider === "anthropic"
+                    ? t("ai.key.placeholder_anthropic")
+                    : t("ai.key.placeholder_openai")
+                }
+                autoComplete="off"
+                className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+                data-testid="ai-key-input"
+              />
+              <span className="text-xs text-saw-grey-500">{t("ai.key.hint")}</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                onClick={() => void saveKey()}
+                disabled={keyBusy || keyInput.trim().length === 0}
+                data-testid="ai-key-save"
+              >
+                {keyBusy ? t("ai.key.saving") : t("ai.key.save")}
+              </Button>
+              {settings.key_connected ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => void clearKey()}
+                  data-testid="ai-key-clear"
+                >
+                  {t("ai.key.clear")}
+                </Button>
+              ) : null}
+            </div>
+            <p
+              className="text-small text-saw-grey-700"
+              data-testid="ai-key-status"
+            >
+              {settings.key_connected
+                ? t("ai.key.connected")
+                : t("ai.key.not_connected")}
+            </p>
+            {keySaved ? (
+              <p
+                role="status"
+                className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+              >
+                {t("ai.key.connected")}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <div>
+          <div className="font-medium text-saw-grey-900">
+            {t("ai.context.title")}
+          </div>
+          <div className="text-small text-saw-grey-600 mt-1">
+            {t("ai.context.subtitle")}
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.industry")}</span>
+          <input
+            type="text"
+            value={context.industry}
+            onChange={(e) =>
+              setContext({ ...context, industry: e.target.value })
+            }
+            placeholder={t("ai.context.industry_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-industry"
+          />
+          {settings.flags.industry_identifying ? (
+            <span
+              className="text-xs text-saw-red"
+              data-testid="ai-ctx-industry-warn"
+            >
+              {t("ai.context.industry_warn")}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.environment")}</span>
+          <select
+            value={context.environment_type}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                environment_type: e.target.value as EnvironmentType,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-env"
+          >
+            {envOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.compliance")}</span>
+          <input
+            type="text"
+            value={complianceInput}
+            onChange={(e) => setComplianceInput(e.target.value)}
+            placeholder={t("ai.context.compliance_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="ai-ctx-compliance"
+          />
+          {settings.flags.compliance_identifying ? (
+            <span
+              className="text-xs text-saw-red"
+              data-testid="ai-ctx-compliance-warn"
+            >
+              {t("ai.context.compliance_warn")}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.risk")}</span>
+          <select
+            value={context.risk_tolerance}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                risk_tolerance: e.target.value as RiskTolerance,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-risk"
+          >
+            {riskOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.team")}</span>
+          <select
+            value={context.team_size}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                team_size: e.target.value as TeamSize,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="ai-ctx-team"
+          >
+            {teamOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div>
+          <Button
+            variant="primary"
+            onClick={() => void saveContext()}
+            data-testid="ai-ctx-save"
+          >
+            {t("ai.context.save")}
+          </Button>
+        </div>
+        {ctxSaved ? (
+          <p
+            role="status"
+            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            data-testid="ai-ctx-saved"
+          >
+            {t("ai.context.saved")}
+          </p>
+        ) : null}
+
+        {err ? (
+          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }

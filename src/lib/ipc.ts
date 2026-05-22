@@ -356,6 +356,314 @@ export type Framework = {
   name: string;
 };
 
+// --- Scheduled & automated scans (Contract 10) ----------------------------
+
+/** Cadence shape, mirrors the Rust `ScheduleCadence` enum. The frontend
+ * picks one variant per schedule; `time_of_day_minutes` is required for
+ * daily/weekly/monthly and ignored for interval. */
+export type ScheduleCadence =
+  | { kind: "daily" }
+  | { kind: "weekly"; day_of_week: number }
+  | { kind: "monthly"; day_of_month: number }
+  | { kind: "interval"; minutes: number };
+
+/** What the runner most recently did for a schedule. */
+export type LastRunOutcome =
+  | "fired"
+  | "skipped_already_running"
+  | "skipped_role_not_provisioned"
+  | "skipped_scanner_unavailable"
+  | "catch_up"
+  | "skipped_internal_error";
+
+/** One configured schedule. `next_run_at` is null when the schedule is
+ * disabled or has no upcoming slot. */
+export type Schedule = {
+  aws_account_id: string;
+  cadence: ScheduleCadence;
+  time_of_day_minutes: number | null;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_run_outcome: LastRunOutcome | null;
+  last_run_scan_id: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SetScheduleInput = {
+  aws_account_id: string;
+  cadence: ScheduleCadence;
+  time_of_day_minutes: number | null;
+  enabled: boolean;
+};
+
+export type NextRunTime = {
+  aws_account_id: string;
+  next_run_at: string | null;
+};
+
+export type ScheduleEventKind =
+  | "config_set"
+  | "config_cleared"
+  | "enabled"
+  | "disabled"
+  | "fired"
+  | "skipped"
+  | "catch_up";
+
+export type ScheduleEvent = {
+  event_id: string;
+  aws_account_id: string;
+  occurred_at: string;
+  kind: ScheduleEventKind;
+  reason: string | null;
+  scan_id: string | null;
+};
+
+// --- Event log, retention, hard delete & panic (Contract 11) -------------
+
+/** Stable, enumerated event kinds. Mirrors the Rust `EventKind` enum. The
+ * frontend MUST treat any unknown string as a forward-compatible new kind
+ * (don't `as never`-cast). */
+export type EventKind =
+  | "app_started"
+  | "app_stopping"
+  | "scan_completed"
+  | "scan_failed"
+  | "scan_canceled"
+  | "scheduled_scan_fired"
+  | "scheduled_scan_skipped"
+  | "github_ticket_created"
+  | "master_password_changed"
+  | "master_password_reset"
+  | "account_added"
+  | "account_removed"
+  | "scan_deleted"
+  | "export"
+  | "panic_wipe"
+  | "settings_changed"
+  | "retention_purged";
+
+/** One row of the activity log. `aws_account_id_masked` is `****dddd` — the
+ * backend never returns the full account ID over IPC in event-log payloads. */
+export type EventLogEntry = {
+  event_id: string;
+  occurred_at: string;
+  kind: EventKind;
+  summary: string;
+  detail: string | null;
+  aws_account_id_masked: string | null;
+  scan_id: string | null;
+  path: string | null;
+  item_count: number | null;
+};
+
+export type EventLogFilter = {
+  kinds?: EventKind[];
+  since?: string | null;
+  until?: string | null;
+  limit?: number | null;
+  offset?: number | null;
+  /** When true, ignore the "view cleared at" marker. Used for Export. */
+  include_cleared?: boolean;
+};
+
+/** Retention period. `never` means "never auto-purge". */
+export type RetentionPeriod =
+  | { kind: "days"; days: number }
+  | { kind: "never" };
+
+export type RetentionSettings = {
+  scan_retention: RetentionPeriod;
+  eventlog_retention: RetentionPeriod;
+  last_run_at: string | null;
+};
+
+export type RetentionRunSummary = {
+  scan_dirs_removed: number;
+  raw_files_removed: number;
+  eventlog_rows_removed: number;
+  scan_cutoff: string | null;
+  eventlog_cutoff: string | null;
+};
+
+export type HardDeleteOptions = {
+  secure_overwrite?: boolean;
+};
+
+export type HardDeleteSummary = {
+  scan_id: string;
+  findings_removed: number;
+  findings_updated: number;
+  resources_removed: number;
+  raw_files_removed: number;
+  raw_dir_removed: boolean;
+  secure_overwrite_attempted: boolean;
+  vacuum_run: boolean;
+};
+
+export type KeychainWipeResult = {
+  removed: number;
+  not_present: number;
+  failed: number;
+};
+
+export type PanicWipeResult = {
+  data_root_removed: boolean;
+  db_files_removed: number;
+  scan_dirs_removed: number;
+  tf_workdirs_removed: number;
+  log_files_removed: number;
+  event_log_rows_wiped: number;
+  keychain: KeychainWipeResult;
+  self_delete_staged: boolean;
+};
+
+// --- GitHub integration (Contract 12) ------------------------------------
+
+export type RepoSelection = { owner: string; name: string };
+
+export type TokenStatus = { configured: boolean };
+
+export type GithubSettings = {
+  token: TokenStatus;
+  findings_repo: RepoSelection | null;
+  /** Hard-coded by the backend — the CloudSaw repo error reports land on. */
+  error_report_repo: RepoSelection;
+  /** `security@cloud-saw.com`. Backend-supplied so the UI shows the canonical
+   * value rather than a hard-coded literal in the frontend. */
+  security_contact: string;
+};
+
+export type DiagnosticBundle = {
+  app_version: string;
+  os_family: string;
+  os_release: string;
+  locale: string;
+  generated_at: string;
+  redacted_log_lines: string[];
+  notes: string | null;
+};
+
+/** The exact content that would be submitted. Shown to the user BEFORE any
+ * direct API call (Contract 12 §Constraints). The UI passes the same value
+ * back to `githubSubmit*` so what the user reviewed is what gets sent. */
+export type IssuePreview = {
+  repo: RepoSelection;
+  title: string;
+  body: string;
+  labels: string[];
+  bundle: DiagnosticBundle;
+};
+
+export type IssueCreated = {
+  repo: RepoSelection;
+  issue_number: number;
+  issue_url: string;
+};
+
+export type BrowserSubmission = { url: string };
+
+export type FindingTicket = {
+  finding_id: string;
+  aws_account_id_masked: string;
+  repo: RepoSelection;
+  issue_number: number;
+  issue_url: string;
+  created_at: string;
+};
+
+// --- AI Suggestion Layer (Contract 13) -----------------------------------
+
+export type AiProvider = "anthropic" | "openai";
+
+export type EnvironmentType =
+  | "production"
+  | "dev_test"
+  | "mixed"
+  | "unspecified";
+
+export type RiskTolerance = "low" | "medium" | "high" | "unspecified";
+
+export type TeamSize = "solo" | "small" | "medium" | "large" | "unspecified";
+
+export type BusinessContext = {
+  industry: string;
+  environment_type: EnvironmentType;
+  compliance: string[];
+  risk_tolerance: RiskTolerance;
+  team_size: TeamSize;
+};
+
+export type ContextFlags = {
+  industry_identifying: boolean;
+  compliance_identifying: boolean;
+};
+
+export type AiSettings = {
+  provider: AiProvider | null;
+  key_connected: boolean;
+  context: BusinessContext;
+  flags: ContextFlags;
+};
+
+export type FindingDigest = {
+  rule_key: string;
+  service: string;
+  severity: string;
+  checked_items: number;
+  flagged_items: number;
+  resource_category: string;
+};
+
+/** The exact payload that will be transmitted. Shown to the user BEFORE
+ * any send (Contract 13 §Constraints). The UI passes the same value to
+ * `aiSendRequest` so what the user saw IS what gets sent. */
+export type AiRequestPreview = {
+  provider: AiProvider;
+  model: string;
+  system_prompt: string;
+  user_message: string;
+  digest: FindingDigest;
+  context: BusinessContext;
+  flags: ContextFlags;
+  placeholders_used: string[];
+};
+
+export type AiSuggestion = {
+  provider: AiProvider;
+  model: string;
+  generated_at: string;
+  suggestion_markdown: string;
+  usage_input_tokens: number | null;
+  usage_output_tokens: number | null;
+};
+
+// --- Onboarding wizard (Contract 14) ----------------------------------
+
+export type OnboardingStep =
+  | "language"
+  | "master_password"
+  | "aws_account"
+  | "terraform"
+  | "business_context"
+  | "first_scan"
+  | "done";
+
+export type OnboardingState = {
+  completed: boolean;
+  current_step: OnboardingStep;
+  language: string;
+  step_language_completed: boolean;
+  step_password_completed: boolean;
+  step_account_completed: boolean;
+  step_terraform_completed: boolean;
+  step_context_completed: boolean;
+  step_first_scan_completed: boolean;
+  completed_at: string | null;
+};
+
 export const ipc = {
   /** CalVer build string, e.g. "2026.5.0". */
   appVersion(): Promise<string> {
@@ -579,6 +887,302 @@ export const ipc = {
   /** Supported compliance frameworks (id + display name). */
   kbListFrameworks(): Promise<Framework[]> {
     return invoke<Framework[]>("kb_list_frameworks");
+  },
+
+  // --- Scheduled & automated scans ------------------------------------
+
+  /** Configure (or replace) the schedule for an account. The backend
+   * validates inputs and persists the schedule; the background runner
+   * picks up the change without an app restart. */
+  schedulerSetSchedule(input: SetScheduleInput): Promise<Schedule> {
+    return invoke<Schedule>("scheduler_set_schedule", { input });
+  },
+
+  /** Read the configured schedule for an account. Rejects with
+   * `schedule_not_found` if none is configured. */
+  schedulerGetSchedule(awsAccountId: string): Promise<Schedule> {
+    return invoke<Schedule>("scheduler_get_schedule", { awsAccountId });
+  },
+
+  /** Remove a configured schedule. Rejects with `schedule_not_found` if
+   * none exists. */
+  schedulerClearSchedule(awsAccountId: string): Promise<void> {
+    return invoke<void>("scheduler_clear_schedule", { awsAccountId });
+  },
+
+  /** All configured schedules, ordered by account ID. */
+  schedulerListSchedules(): Promise<Schedule[]> {
+    return invoke<Schedule[]>("scheduler_list_schedules");
+  },
+
+  /** Upcoming-run timestamps for every schedule. Disabled rows return
+   * `next_run_at = null`. */
+  schedulerNextRunTimes(): Promise<NextRunTime[]> {
+    return invoke<NextRunTime[]>("scheduler_next_run_times");
+  },
+
+  /** The N most-recent scheduled-scan events for an account. */
+  schedulerRecentEvents(
+    awsAccountId: string,
+    limit?: number,
+  ): Promise<ScheduleEvent[]> {
+    return invoke<ScheduleEvent[]>("scheduler_recent_events", {
+      awsAccountId,
+      limit: limit ?? null,
+    });
+  },
+
+  // --- Event log, retention, hard delete & panic (Contract 11) -------
+
+  /** Paginated activity log. The default list hides entries from before
+   * the user's last "Clear all" call; pass `include_cleared: true` to
+   * see everything. */
+  eventlogList(filter?: EventLogFilter): Promise<EventLogEntry[]> {
+    return invoke<EventLogEntry[]>("eventlog_list", {
+      filter: filter ?? null,
+    });
+  },
+
+  /** Substring search over the event log (`summary` and `detail`). */
+  eventlogSearch(query: string, limit?: number): Promise<EventLogEntry[]> {
+    return invoke<EventLogEntry[]>("eventlog_search", {
+      query,
+      limit: limit ?? null,
+    });
+  },
+
+  /** Returns the full activity log as newline-delimited JSON. */
+  eventlogExport(): Promise<string> {
+    return invoke<string>("eventlog_export");
+  },
+
+  /** Clear the activity-log VIEW. Underlying rows persist subject to
+   * retention; Export still sees them. */
+  eventlogClearView(): Promise<void> {
+    return invoke<void>("eventlog_clear_view");
+  },
+
+  /** Total event-log row count. */
+  eventlogCount(): Promise<number> {
+    return invoke<number>("eventlog_count");
+  },
+
+  /** Read both retention periods + the last-run timestamp. */
+  retentionGetSettings(): Promise<RetentionSettings> {
+    return invoke<RetentionSettings>("retention_get_settings");
+  },
+
+  retentionSetScan(period: RetentionPeriod): Promise<void> {
+    return invoke<void>("retention_set_scan", { period });
+  },
+
+  retentionSetEventlog(period: RetentionPeriod): Promise<void> {
+    return invoke<void>("retention_set_eventlog", { period });
+  },
+
+  retentionRunNow(): Promise<RetentionRunSummary> {
+    return invoke<RetentionRunSummary>("retention_run_now");
+  },
+
+  /** Hard-delete a scan. `confirmation` must be either the literal
+   * `"DELETE"` or the full scan ID — the backend re-checks this. */
+  deletionHardDeleteScan(
+    scanId: string,
+    confirmation: string,
+    options?: HardDeleteOptions,
+  ): Promise<HardDeleteSummary> {
+    return invoke<HardDeleteSummary>("deletion_hard_delete_scan", {
+      scanId,
+      confirmation,
+      options: options ?? null,
+    });
+  },
+
+  /** Issue `VACUUM` against the SQLite file. */
+  deletionVacuumNow(): Promise<void> {
+    return invoke<void>("deletion_vacuum_now");
+  },
+
+  /** Wipe every CloudSaw trace on this machine. Requires the literal
+   * confirmation string `"PANIC"`. Synchronous; returns once the data
+   * wipe is done. */
+  systemPanicWipe(confirmation: string): Promise<PanicWipeResult> {
+    return invoke<PanicWipeResult>("system_panic_wipe", { confirmation });
+  },
+
+  /** User-level reboot. Called ONLY after the user explicitly picks
+   * "Reboot now" in the post-panic dialog. */
+  systemRequestReboot(): Promise<void> {
+    return invoke<void>("system_request_reboot");
+  },
+
+  // --- GitHub integration (Contract 12) -------------------------------
+
+  /** Read current PAT status, findings-ticket repo, error-report repo,
+   * and security contact in one call. */
+  githubGetSettings(): Promise<GithubSettings> {
+    return invoke<GithubSettings>("github_get_settings");
+  },
+
+  /** Store the user-supplied PAT. The value goes ONLY to the OS keychain
+   * — never SQLite, never logs, never URLs. */
+  githubSetToken(token: string): Promise<void> {
+    return invoke<void>("github_set_token", { token });
+  },
+
+  githubClearToken(): Promise<void> {
+    return invoke<void>("github_clear_token");
+  },
+
+  githubSetFindingsRepo(repo: RepoSelection | null): Promise<void> {
+    return invoke<void>("github_set_findings_repo", { repo });
+  },
+
+  /** URL of the GitHub fine-grained-token settings page. Frontend opens
+   * this in the system browser when the user clicks "Generate token". */
+  githubGenerateTokenUrl(): Promise<string> {
+    return invoke<string>("github_generate_token_url");
+  },
+
+  /** Build the issue preview for an error report. The UI MUST show this
+   * to the user before invoking `githubSubmitErrorReport`. */
+  githubPrepareErrorReport(
+    notes: string | null,
+    locale: string,
+  ): Promise<IssuePreview> {
+    return invoke<IssuePreview>("github_prepare_error_report", { notes, locale });
+  },
+
+  /** Submit the error report via the GitHub API. Requires a configured
+   * PAT; rejects with `github_no_token` otherwise. */
+  githubSubmitErrorReport(preview: IssuePreview): Promise<IssueCreated> {
+    return invoke<IssueCreated>("github_submit_error_report", { preview });
+  },
+
+  /** Build the prefilled GitHub new-issue URL for the browser fallback.
+   * Always available — does NOT require a token. */
+  githubBrowserFallbackForError(preview: IssuePreview): Promise<BrowserSubmission> {
+    return invoke<BrowserSubmission>("github_browser_fallback_for_error", {
+      preview,
+    });
+  },
+
+  /** Build the issue preview for a finding ticket against a user-
+   * selected repo. */
+  githubPrepareFindingTicket(
+    findingId: string,
+    repo: RepoSelection,
+  ): Promise<IssuePreview> {
+    return invoke<IssuePreview>("github_prepare_finding_ticket", {
+      findingId,
+      repo,
+    });
+  },
+
+  /** Submit the finding ticket via the GitHub API. Persists the
+   * finding↔issue link on success. */
+  githubSubmitFindingTicket(
+    findingId: string,
+    preview: IssuePreview,
+  ): Promise<FindingTicket> {
+    return invoke<FindingTicket>("github_submit_finding_ticket", {
+      findingId,
+      preview,
+    });
+  },
+
+  githubBrowserFallbackForFinding(
+    preview: IssuePreview,
+  ): Promise<BrowserSubmission> {
+    return invoke<BrowserSubmission>("github_browser_fallback_for_finding", {
+      preview,
+    });
+  },
+
+  /** Read the linked ticket for a finding, if any. */
+  githubGetFindingTicket(findingId: string): Promise<FindingTicket | null> {
+    return invoke<FindingTicket | null>("github_get_finding_ticket", { findingId });
+  },
+
+  /** All linked tickets for an account, newest first. */
+  githubListFindingTickets(awsAccountId: string): Promise<FindingTicket[]> {
+    return invoke<FindingTicket[]>("github_list_finding_tickets", {
+      awsAccountId,
+    });
+  },
+
+  // --- AI Suggestion Layer (Contract 13) ------------------------------
+
+  /** Read provider selection, key status, business context, and the
+   * "this looks identifying" flags in one round-trip. */
+  aiGetSettings(): Promise<AiSettings> {
+    return invoke<AiSettings>("ai_get_settings");
+  },
+
+  aiSetProvider(provider: AiProvider | null): Promise<void> {
+    return invoke<void>("ai_set_provider", { provider });
+  },
+
+  /** Store the user-supplied API key. The value goes ONLY to the OS
+   * keychain — never SQLite, never logs, never URLs. */
+  aiSetProviderKey(provider: AiProvider, key: string): Promise<void> {
+    return invoke<void>("ai_set_provider_key", { provider, key });
+  },
+
+  aiClearProviderKey(provider: AiProvider): Promise<void> {
+    return invoke<void>("ai_clear_provider_key", { provider });
+  },
+
+  aiHasProviderKey(provider: AiProvider): Promise<boolean> {
+    return invoke<boolean>("ai_has_provider_key", { provider });
+  },
+
+  aiSetBusinessContext(context: BusinessContext): Promise<void> {
+    return invoke<void>("ai_set_business_context", { context });
+  },
+
+  /** Build the request preview the UI MUST show to the user. The
+   * returned value IS the payload that would be transmitted. */
+  aiPrepareRequest(findingId: string): Promise<AiRequestPreview> {
+    return invoke<AiRequestPreview>("ai_prepare_request", { findingId });
+  },
+
+  /** Send the previously-built preview to the connected provider.
+   * Rejects with `ai_no_provider_key` if no key is connected. */
+  aiSendRequest(preview: AiRequestPreview): Promise<AiSuggestion> {
+    return invoke<AiSuggestion>("ai_send_request", { preview });
+  },
+
+  // --- Onboarding wizard (Contract 14) -------------------------------
+
+  /** Read the full wizard state. App.tsx calls this on mount; if
+   * `completed` is false, the only entry point is the wizard. */
+  onboardingGetState(): Promise<OnboardingState> {
+    return invoke<OnboardingState>("onboarding_get_state");
+  },
+
+  onboardingSetLanguage(language: string): Promise<void> {
+    return invoke<void>("onboarding_set_language", { language });
+  },
+
+  onboardingSetCurrentStep(step: OnboardingStep): Promise<void> {
+    return invoke<void>("onboarding_set_current_step", { step });
+  },
+
+  onboardingMarkStepCompleted(step: OnboardingStep): Promise<void> {
+    return invoke<void>("onboarding_mark_step_completed", { step });
+  },
+
+  /** Flip the global completed flag. Called after the FirstScan step
+   * finishes. Subsequent launches route straight to the main app. */
+  onboardingComplete(): Promise<void> {
+    return invoke<void>("onboarding_complete");
+  },
+
+  /** Re-enter the wizard from Settings, jumping straight to a
+   * specific step (typically `aws_account` to add another). */
+  onboardingResetForRerun(startAt: OnboardingStep): Promise<void> {
+    return invoke<void>("onboarding_reset_for_rerun", { startAt });
   },
 };
 

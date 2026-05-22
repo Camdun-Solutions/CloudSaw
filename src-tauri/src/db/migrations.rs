@@ -53,6 +53,26 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0006_findings",
         include_str!("../../migrations/0006_findings.sql"),
     ),
+    (
+        "0007_scheduler",
+        include_str!("../../migrations/0007_scheduler.sql"),
+    ),
+    (
+        "0008_eventlog_retention",
+        include_str!("../../migrations/0008_eventlog_retention.sql"),
+    ),
+    (
+        "0009_github_integration",
+        include_str!("../../migrations/0009_github_integration.sql"),
+    ),
+    (
+        "0010_ai_context",
+        include_str!("../../migrations/0010_ai_context.sql"),
+    ),
+    (
+        "0011_onboarding",
+        include_str!("../../migrations/0011_onboarding.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {

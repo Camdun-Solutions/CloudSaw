@@ -196,6 +196,62 @@ pub enum AppError {
     #[error("kb: remote refresh already up to date")]
     KbRefreshUpToDate,
 
+    // Scheduled & automated scans (Contract 10). Stable codes only; account
+    // IDs / labels / scan output never appear in any of these messages.
+    #[error("schedule not found")]
+    ScheduleNotFound,
+
+    // Event log, retention, hard delete & panic (Contract 11). Stable
+    // codes only; no scan output, no credential material, no path content
+    // ever appears in any of these messages.
+    #[error("confirmation rejected")]
+    ConfirmationRejected,
+
+    // GitHub integration (Contract 12). Stable codes only; no PAT
+    // material, no Authorization header, no raw API response body
+    // appears in any of these messages.
+    #[error("github: no token configured")]
+    GithubNoToken,
+
+    #[error("github: token invalid or expired")]
+    GithubTokenInvalid,
+
+    #[error("github: rate limited")]
+    GithubRateLimited,
+
+    #[error("github: network unreachable")]
+    GithubNetwork,
+
+    #[error("github: server error {0}")]
+    GithubServerError(u16),
+
+    #[error("github: no findings repo configured")]
+    GithubNoFindingsRepo,
+
+    #[error("github: ticket already exists")]
+    GithubDuplicateTicket,
+
+    // AI Suggestion Layer (Contract 13). Stable codes only; no provider
+    // response body, no API key material, no finding identifier ever
+    // appears in any of these messages.
+    #[error("ai: no provider key")]
+    AiNoProviderKey,
+
+    #[error("ai: no provider configured")]
+    AiNoProvider,
+
+    #[error("ai: provider key invalid or expired")]
+    AiKeyInvalid,
+
+    #[error("ai: rate limited")]
+    AiRateLimited,
+
+    #[error("ai: network unreachable")]
+    AiNetwork,
+
+    #[error("ai: provider error {0}")]
+    AiServerError(u16),
+
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -257,6 +313,21 @@ impl AppError {
             AppError::KbRefreshUnreachable => "kb_refresh_unreachable",
             AppError::KbRefreshInvalidContent => "kb_refresh_invalid_content",
             AppError::KbRefreshUpToDate => "kb_refresh_up_to_date",
+            AppError::ScheduleNotFound => "schedule_not_found",
+            AppError::ConfirmationRejected => "confirmation_rejected",
+            AppError::GithubNoToken => "github_no_token",
+            AppError::GithubTokenInvalid => "github_token_invalid",
+            AppError::GithubRateLimited => "github_rate_limited",
+            AppError::GithubNetwork => "github_network",
+            AppError::GithubServerError(_) => "github_server_error",
+            AppError::GithubNoFindingsRepo => "github_no_findings_repo",
+            AppError::GithubDuplicateTicket => "github_duplicate_ticket",
+            AppError::AiNoProviderKey => "ai_no_provider_key",
+            AppError::AiNoProvider => "ai_no_provider",
+            AppError::AiKeyInvalid => "ai_key_invalid",
+            AppError::AiRateLimited => "ai_rate_limited",
+            AppError::AiNetwork => "ai_network",
+            AppError::AiServerError(_) => "ai_server_error",
             AppError::Internal(_) => "internal_error",
         }
     }
