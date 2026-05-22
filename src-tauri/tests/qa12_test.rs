@@ -18,9 +18,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::Utc;
-use cloudsaw_lib::accounts::{
-    storage as accounts_storage, types::AccountRecord, Environment,
-};
+use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::eventlog::{self, EventKind, EventLogFilter};
 use cloudsaw_lib::findings::Severity;
@@ -98,8 +96,7 @@ fn seed_finding(sandbox: &Sandbox, aws_id: &str, rule_key: &str) -> String {
     )
     .unwrap();
 
-    let finding_id =
-        cloudsaw_lib::findings::parser::finding_id_for(aws_id, rule_key);
+    let finding_id = cloudsaw_lib::findings::parser::finding_id_for(aws_id, rule_key);
     conn.execute(
         "INSERT INTO findings (
             finding_id, aws_account_id, rule_key, raw_type, service,
@@ -110,12 +107,7 @@ fn seed_finding(sandbox: &Sandbox, aws_id: &str, rule_key: &str) -> String {
          ) VALUES (?1, ?2, ?3, 'rule', 's3', 'high',
                    'Bucket allows public access to 111122223333.', NULL, NULL,
                    NULL, 0, 0, 'open', ?4, ?4, 'scan-1', 'scan-1', NULL, NULL)",
-        params![
-            finding_id,
-            aws_id,
-            rule_key,
-            Utc::now().to_rfc3339(),
-        ],
+        params![finding_id, aws_id, rule_key, Utc::now().to_rfc3339(),],
     )
     .unwrap();
     conn.execute(
@@ -255,7 +247,9 @@ fn happy_no_token_browser_fallback_url_is_built_with_prefilled_content() {
 
     let preview = github::prepare_error_report(Some("crash".into()), "en").unwrap();
     let fallback = github::browser_fallback_for_error_report(&preview);
-    assert!(fallback.url.starts_with("https://github.com/Camdun-Solutions/CloudSaw/issues/new"));
+    assert!(fallback
+        .url
+        .starts_with("https://github.com/Camdun-Solutions/CloudSaw/issues/new"));
     assert!(fallback.url.contains("title="));
     assert!(fallback.url.contains("body="));
     // No token in the URL — defense in depth.
@@ -270,7 +264,10 @@ fn happy_finding_ticket_files_on_user_selected_repo_with_remediation() {
     seed_account("111122223333");
     let finding_id = seed_finding(&s, "111122223333", "s3-public-bucket");
     github::pat::set(Zeroizing::new("ghp_aaaaaaaaaaaaaaaaaaaaa".into())).unwrap();
-    let repo = RepoSelection { owner: "acme".into(), name: "infra".into() };
+    let repo = RepoSelection {
+        owner: "acme".into(),
+        name: "infra".into(),
+    };
     github::set_findings_repo(Some(repo.clone())).unwrap();
 
     let preview = github::prepare_finding_ticket(&finding_id, &repo).unwrap();
@@ -321,7 +318,8 @@ fn happy_finding_ticket_files_on_user_selected_repo_with_remediation() {
 #[test]
 fn happy_generate_token_url_points_at_finegrained_settings_page() {
     let _s = Sandbox::new("token-url");
-    assert!(github::generate_token_url().starts_with("https://github.com/settings/personal-access-tokens"));
+    assert!(github::generate_token_url()
+        .starts_with("https://github.com/settings/personal-access-tokens"));
 }
 
 // --- Error States -------------------------------------------------------
@@ -367,7 +365,10 @@ fn error_duplicate_ticket_is_rejected_existing_link_remains() {
     let s = Sandbox::new("dup");
     seed_account("111122223333");
     let finding_id = seed_finding(&s, "111122223333", "s3-public-bucket");
-    let repo = RepoSelection { owner: "acme".into(), name: "infra".into() };
+    let repo = RepoSelection {
+        owner: "acme".into(),
+        name: "infra".into(),
+    };
     gh_storage::upsert_finding_ticket(
         &finding_id,
         "111122223333",
@@ -468,7 +469,10 @@ fn state_finding_no_ticket_then_link_then_get_returns_link() {
     let finding_id = seed_finding(&s, "111122223333", "s3-public-bucket");
     assert!(github::get_finding_ticket(&finding_id).unwrap().is_none());
 
-    let repo = RepoSelection { owner: "acme".into(), name: "infra".into() };
+    let repo = RepoSelection {
+        owner: "acme".into(),
+        name: "infra".into(),
+    };
     gh_storage::upsert_finding_ticket(
         &finding_id,
         "111122223333",
@@ -493,9 +497,7 @@ fn security_pat_lives_only_in_keychain_registry_includes_it_for_panic_wipe() {
     // Verify nothing matching the PAT shape is in the DB.
     let conn = Connection::open(_s.db_path()).unwrap();
     let mut stmt = conn
-        .prepare(
-            "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')",
-        )
+        .prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')")
         .unwrap();
     let tables: Vec<String> = stmt
         .query_map([], |r| r.get::<_, String>(0))
@@ -506,9 +508,7 @@ fn security_pat_lives_only_in_keychain_registry_includes_it_for_panic_wipe() {
         if table.starts_with("_") || table == "sqlite_sequence" {
             continue;
         }
-        let sql = format!(
-            "SELECT * FROM {table} LIMIT 10000"
-        );
+        let sql = format!("SELECT * FROM {table} LIMIT 10000");
         let mut q = conn.prepare(&sql).unwrap();
         let n_cols = q.column_count();
         let rows = q.query_map([], |row| {
@@ -537,8 +537,7 @@ fn security_pat_lives_only_in_keychain_registry_includes_it_for_panic_wipe() {
     let snap = keychain::registry_snapshot();
     assert!(
         snap.iter()
-            .any(|(s, a)| *s == keychain::GITHUB_PAT_SERVICE
-                && *a == keychain::GITHUB_PAT_ACCOUNT),
+            .any(|(s, a)| *s == keychain::GITHUB_PAT_SERVICE && *a == keychain::GITHUB_PAT_ACCOUNT),
         "keychain registry must include the GitHub PAT entry",
     );
 
@@ -597,7 +596,10 @@ fn security_finding_ticket_body_redacts_account_ids() {
     let s = Sandbox::new("finding-body-redact");
     seed_account("111122223333");
     let finding_id = seed_finding(&s, "111122223333", "s3-public-bucket");
-    let repo = RepoSelection { owner: "acme".into(), name: "infra".into() };
+    let repo = RepoSelection {
+        owner: "acme".into(),
+        name: "infra".into(),
+    };
     let preview = github::prepare_finding_ticket(&finding_id, &repo).unwrap();
     // The seed finding's description deliberately includes 111122223333.
     assert!(!preview.body.contains("111122223333"));
@@ -613,7 +615,10 @@ fn security_findings_ticket_only_files_on_user_selected_repo() {
     // IPC accepts. The Settings UI is what wires the user's selection
     // into that argument; we assert here that the preview faithfully
     // reflects the destination passed in.
-    let repo = RepoSelection { owner: "user-picked".into(), name: "destination".into() };
+    let repo = RepoSelection {
+        owner: "user-picked".into(),
+        name: "destination".into(),
+    };
     let preview = github::prepare_finding_ticket(&finding_id, &repo).unwrap();
     assert_eq!(preview.repo, repo);
 }
@@ -623,7 +628,10 @@ fn security_ticket_creation_is_recorded_in_event_log() {
     let s = Sandbox::new("ticket-event");
     seed_account("111122223333");
     let finding_id = seed_finding(&s, "111122223333", "s3-public-bucket");
-    let repo = RepoSelection { owner: "acme".into(), name: "infra".into() };
+    let repo = RepoSelection {
+        owner: "acme".into(),
+        name: "infra".into(),
+    };
     gh_storage::upsert_finding_ticket(
         &finding_id,
         "111122223333",

@@ -32,14 +32,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::{Duration, Utc};
-use cloudsaw_lib::accounts::{
-    storage as accounts_storage, types::AccountRecord, Environment,
-};
+use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::eventlog::{self, EventKind, EventLogFilter};
-use cloudsaw_lib::reports::{
-    self, AccountIdDisclosure, ReportsError,
-};
+use cloudsaw_lib::reports::{self, AccountIdDisclosure, ReportsError};
 use rusqlite::{params, Connection};
 
 fn env_lock() -> &'static Mutex<()> {
@@ -112,8 +108,7 @@ fn seed_terminal_scan_with_finding(
     )
     .unwrap();
 
-    let finding_id =
-        cloudsaw_lib::findings::parser::finding_id_for(aws_id, rule_key);
+    let finding_id = cloudsaw_lib::findings::parser::finding_id_for(aws_id, rule_key);
     conn.execute(
         "INSERT INTO findings (
             finding_id, aws_account_id, rule_key, raw_type, service,
@@ -190,12 +185,8 @@ fn happy_per_scan_html_is_self_contained_and_carries_banner() {
     );
 
     let output = s.output_path("scan-1.html");
-    let outcome = reports::export_scan_html(
-        "scan-1",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let outcome =
+        reports::export_scan_html("scan-1", &output, AccountIdDisclosure::Masked).unwrap();
     assert_eq!(outcome.primary_path, output);
     let body = fs::read_to_string(&output).unwrap();
 
@@ -234,12 +225,7 @@ fn happy_per_scan_pdf_starts_with_magic_and_contains_every_finding() {
         );
     }
     let output = s.output_path("scan-a.pdf");
-    let outcome = reports::export_scan_pdf(
-        "scan-a",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let outcome = reports::export_scan_pdf("scan-a", &output, AccountIdDisclosure::Masked).unwrap();
     let bytes = fs::read(&outcome.primary_path).unwrap();
     assert!(bytes.starts_with(b"%PDF-"));
     let tail = if bytes.ends_with(b"%%EOF\n") {
@@ -332,12 +318,8 @@ fn happy_auto_export_copies_to_configured_folder() {
     .unwrap();
 
     let output = s.output_path("scan-x.html");
-    let outcome = reports::export_scan_html(
-        "scan-x",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let outcome =
+        reports::export_scan_html("scan-x", &output, AccountIdDisclosure::Masked).unwrap();
     assert!(!outcome.auto_export_failed);
     let auto = outcome.auto_export_path.expect("auto export path set");
     assert!(PathBuf::from(&auto).is_file());
@@ -368,8 +350,7 @@ fn happy_export_records_event_log_entry() {
     assert!(
         entries
             .iter()
-            .any(|e| matches!(e.kind, EventKind::Export)
-                && e.summary.contains("Report exported")),
+            .any(|e| matches!(e.kind, EventKind::Export) && e.summary.contains("Report exported")),
         "expected an Export event-log entry"
     );
 }
@@ -381,8 +362,7 @@ fn error_empty_output_path_is_rejected() {
     let s = Sandbox::new("empty-path");
     seed_account("111122223333", "dev");
     seed_terminal_scan(&s, "scan-x", "111122223333", Utc::now());
-    let err = reports::export_scan_html("scan-x", "", AccountIdDisclosure::Masked)
-        .unwrap_err();
+    let err = reports::export_scan_html("scan-x", "", AccountIdDisclosure::Masked).unwrap_err();
     assert!(matches!(err, ReportsError::InvalidInput(_)));
 }
 
@@ -394,12 +374,8 @@ fn error_directory_shaped_path_is_rejected_with_no_partial_file() {
     let dir = s.dir.join("sub");
     fs::create_dir_all(&dir).unwrap();
     let trailing = format!("{}{}", dir.to_string_lossy(), std::path::MAIN_SEPARATOR);
-    let err = reports::export_scan_html(
-        "scan-x",
-        &trailing,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap_err();
+    let err =
+        reports::export_scan_html("scan-x", &trailing, AccountIdDisclosure::Masked).unwrap_err();
     assert!(matches!(err, ReportsError::InvalidInput(_)));
     // The target sub directory still has no `.partial` file.
     let leftover: Vec<_> = fs::read_dir(&dir).unwrap().collect();
@@ -429,12 +405,7 @@ fn error_zero_finding_scan_still_generates_with_empty_state() {
     seed_account("111122223333", "dev");
     seed_terminal_scan(&s, "scan-empty", "111122223333", Utc::now());
     let output = s.output_path("empty.html");
-    let _ = reports::export_scan_html(
-        "scan-empty",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let _ = reports::export_scan_html("scan-empty", &output, AccountIdDisclosure::Masked).unwrap();
     let body = fs::read_to_string(&output).unwrap();
     // Report still has the banner.
     assert!(body.contains("Review this report"));
@@ -466,12 +437,8 @@ fn error_auto_export_folder_unavailable_primary_export_still_succeeds() {
     .unwrap();
 
     let output = s.output_path("scan-y.html");
-    let outcome = reports::export_scan_html(
-        "scan-y",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let outcome =
+        reports::export_scan_html("scan-y", &output, AccountIdDisclosure::Masked).unwrap();
     // Primary export succeeded — the file exists.
     assert!(PathBuf::from(&outcome.primary_path).is_file());
     // The auto-export copy failed; the IPC surfaces the diagnostic.
@@ -523,12 +490,7 @@ fn responsiveness_large_report_generates_in_bounded_time() {
 
     let output = s.output_path("scan-big.html");
     let start = Instant::now();
-    let _ = reports::export_scan_html(
-        "scan-big",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let _ = reports::export_scan_html("scan-big", &output, AccountIdDisclosure::Masked).unwrap();
     let elapsed = start.elapsed();
     assert!(
         elapsed < std::time::Duration::from_secs(30),
@@ -575,12 +537,8 @@ fn state_per_scan_export_then_file_exists_with_expected_bytes() {
         Utc::now(),
     );
     let output = s.output_path("scan-shape.html");
-    let outcome = reports::export_scan_html(
-        "scan-shape",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let outcome =
+        reports::export_scan_html("scan-shape", &output, AccountIdDisclosure::Masked).unwrap();
     let on_disk = fs::metadata(&output).unwrap().len();
     assert_eq!(outcome.bytes_written, on_disk);
 }
@@ -602,23 +560,14 @@ fn security_full_disclosure_is_opt_in_only() {
     );
 
     let masked_path = s.output_path("masked.html");
-    let _ = reports::export_scan_html(
-        "scan-id",
-        &masked_path,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let _ =
+        reports::export_scan_html("scan-id", &masked_path, AccountIdDisclosure::Masked).unwrap();
     let masked = fs::read_to_string(&masked_path).unwrap();
     assert!(masked.contains("****3333"));
     assert!(!masked.contains("111122223333"));
 
     let full_path = s.output_path("full.html");
-    let _ = reports::export_scan_html(
-        "scan-id",
-        &full_path,
-        AccountIdDisclosure::Full,
-    )
-    .unwrap();
+    let _ = reports::export_scan_html("scan-id", &full_path, AccountIdDisclosure::Full).unwrap();
     let full = fs::read_to_string(&full_path).unwrap();
     assert!(full.contains("111122223333"));
 }
@@ -640,12 +589,7 @@ fn security_html_escapes_finding_text_so_a_script_payload_renders_as_text() {
         Utc::now(),
     );
     let output = s.output_path("scan-xss.html");
-    let _ = reports::export_scan_html(
-        "scan-xss",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let _ = reports::export_scan_html("scan-xss", &output, AccountIdDisclosure::Masked).unwrap();
     let body = fs::read_to_string(&output).unwrap();
     assert!(!body.contains("<script"));
     assert!(!body.contains("</script"));
@@ -659,12 +603,7 @@ fn security_output_file_has_user_only_permissions_on_unix() {
     seed_account("111122223333", "dev");
     seed_terminal_scan(&s, "scan-p", "111122223333", Utc::now());
     let output = s.output_path("perms.html");
-    let _ = reports::export_scan_html(
-        "scan-p",
-        &output,
-        AccountIdDisclosure::Masked,
-    )
-    .unwrap();
+    let _ = reports::export_scan_html("scan-p", &output, AccountIdDisclosure::Masked).unwrap();
 
     #[cfg(unix)]
     {

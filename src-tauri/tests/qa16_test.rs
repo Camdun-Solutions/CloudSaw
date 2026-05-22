@@ -187,7 +187,10 @@ fn security_release_workflow_pins_actions_to_full_commit_shas() {
         );
         count += 1;
     }
-    assert!(count >= 5, "release workflow should reference at least 5 Actions; saw {count}");
+    assert!(
+        count >= 5,
+        "release workflow should reference at least 5 Actions; saw {count}"
+    );
 }
 
 #[test]
@@ -353,7 +356,10 @@ fn happy_cloudsaw_local_run_doc_covers_all_three_platforms() {
         "Rust 1.77",
         "Node.js 20",
     ] {
-        assert!(raw.contains(needle), "CloudSaw-Local-Run.md missing `{needle}`");
+        assert!(
+            raw.contains(needle),
+            "CloudSaw-Local-Run.md missing `{needle}`"
+        );
     }
 }
 

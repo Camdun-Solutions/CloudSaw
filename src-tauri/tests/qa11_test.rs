@@ -19,11 +19,9 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::{Duration as ChronoDuration, Utc};
-use cloudsaw_lib::accounts::{
-    storage as accounts_storage, types::AccountRecord, Environment,
-};
+use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
-use cloudsaw_lib::deletion::{self, HardDeleteOptions, DeletionError};
+use cloudsaw_lib::deletion::{self, DeletionError, HardDeleteOptions};
 use cloudsaw_lib::eventlog::{self, EventInput, EventKind, EventLogFilter};
 use cloudsaw_lib::keychain;
 use cloudsaw_lib::retention::{self, RetentionPeriod};
@@ -186,7 +184,9 @@ fn happy_clear_view_hides_earlier_entries_export_still_includes_them() {
         "after-clear entry should be visible"
     );
     assert!(
-        !visible_summaries.iter().any(|s| s.contains("Before clear.")),
+        !visible_summaries
+            .iter()
+            .any(|s| s.contains("Before clear.")),
         "before-clear entry should be hidden by the view marker"
     );
 
@@ -227,8 +227,14 @@ fn happy_retention_purges_old_scan_output_and_old_eventlog_rows() {
     eventlog::record_event(EventInput::new(EventKind::ScanCompleted, "fresh entry"));
 
     let summary = retention::run_now().unwrap();
-    assert!(summary.raw_files_removed >= 1, "old raw file should be purged");
-    assert!(summary.eventlog_rows_removed >= 1, "old event row should be purged");
+    assert!(
+        summary.raw_files_removed >= 1,
+        "old raw file should be purged"
+    );
+    assert!(
+        summary.eventlog_rows_removed >= 1,
+        "old event row should be purged"
+    );
     assert!(!raw_old.is_file(), "old raw file is unlinked");
     assert!(raw_recent.is_file(), "recent raw file remains");
 
@@ -244,7 +250,10 @@ fn happy_retention_purges_old_scan_output_and_old_eventlog_rows() {
             |r| r.get::<_, Option<String>>(0),
         )
         .unwrap();
-    assert!(path_remaining.is_none(), "raw_output_path cleared after purge");
+    assert!(
+        path_remaining.is_none(),
+        "raw_output_path cleared after purge"
+    );
 }
 
 #[test]
@@ -254,12 +263,8 @@ fn happy_hard_delete_with_correct_confirmation_removes_data_and_runs_vacuum() {
     let raw = seed_terminal_scan(&s, "scan-del", "111122223333", Utc::now());
     assert!(raw.is_file());
 
-    let summary = deletion::hard_delete_scan(
-        "scan-del",
-        "DELETE",
-        HardDeleteOptions::default(),
-    )
-    .unwrap();
+    let summary =
+        deletion::hard_delete_scan("scan-del", "DELETE", HardDeleteOptions::default()).unwrap();
     assert!(summary.vacuum_run);
     assert!(!raw.is_file(), "raw file unlinked");
     assert!(!s.raw_dir_for("scan-del").is_dir(), "per-scan dir removed");
@@ -292,7 +297,11 @@ fn happy_panic_wipe_removes_db_scans_tfwork_logs_and_clears_eventlog() {
     seed_terminal_scan(&s, "scan-p", "111122223333", Utc::now());
     // Fake tf-work + logs to prove they're swept too.
     fs::create_dir_all(s.dir.join("tf-work").join("111122223333")).unwrap();
-    fs::write(s.dir.join("tf-work").join("111122223333").join("state"), b"x").unwrap();
+    fs::write(
+        s.dir.join("tf-work").join("111122223333").join("state"),
+        b"x",
+    )
+    .unwrap();
     fs::create_dir_all(s.dir.join("logs")).unwrap();
     fs::write(s.dir.join("logs").join("app.log"), b"x").unwrap();
     eventlog::record_event(EventInput::new(EventKind::ScanCompleted, "x"));
@@ -302,7 +311,10 @@ fn happy_panic_wipe_removes_db_scans_tfwork_logs_and_clears_eventlog() {
     assert!(result.log_files_removed >= 1);
     assert!(result.scan_dirs_removed >= 1);
     assert!(result.db_files_removed >= 1 || result.data_root_removed);
-    assert!(!s.dir.join("db").join("cloudsaw.db").exists(), "db file gone");
+    assert!(
+        !s.dir.join("db").join("cloudsaw.db").exists(),
+        "db file gone"
+    );
     assert!(!s.dir.join("scans").exists(), "scans dir gone");
     assert!(!s.dir.join("tf-work").exists(), "tf-work dir gone");
     assert!(!s.dir.join("logs").exists(), "logs dir gone");
@@ -372,7 +384,10 @@ fn error_panic_with_wrong_confirmation_rejected_and_data_intact() {
     seed_terminal_scan(&s, "scan-keep", "111122223333", Utc::now());
 
     let err = wipe::run_panic_wipe("panic").unwrap_err();
-    assert!(matches!(err, cloudsaw_lib::errors::AppError::ConfirmationRejected));
+    assert!(matches!(
+        err,
+        cloudsaw_lib::errors::AppError::ConfirmationRejected
+    ));
     assert!(s.db_path().is_file(), "db survives bad confirmation");
 }
 
@@ -442,12 +457,8 @@ fn responsiveness_hard_delete_with_many_findings_completes_quickly() {
     }
 
     let start = Instant::now();
-    let summary = deletion::hard_delete_scan(
-        "scan-perf",
-        "DELETE",
-        HardDeleteOptions::default(),
-    )
-    .unwrap();
+    let summary =
+        deletion::hard_delete_scan("scan-perf", "DELETE", HardDeleteOptions::default()).unwrap();
     let elapsed = start.elapsed();
     assert_eq!(summary.findings_removed, 5_000);
     assert!(summary.vacuum_run);
@@ -482,7 +493,10 @@ fn responsiveness_panic_wipe_completes_promptly() {
 fn state_action_then_event_log_entry_appended() {
     let _s = Sandbox::new("state-action");
     let before = eventlog::count_events().unwrap();
-    eventlog::record_event(EventInput::new(EventKind::MasterPasswordChanged, "Changed."));
+    eventlog::record_event(EventInput::new(
+        EventKind::MasterPasswordChanged,
+        "Changed.",
+    ));
     let after = eventlog::count_events().unwrap();
     assert_eq!(after, before + 1);
 }
@@ -531,12 +545,8 @@ fn state_targeted_data_then_hard_delete_data_gone_vacuum_run() {
     let s = Sandbox::new("state-delete");
     seed_account("111122223333", "dev");
     let raw = seed_terminal_scan(&s, "scan-x", "111122223333", Utc::now());
-    let summary = deletion::hard_delete_scan(
-        "scan-x",
-        "scan-x",
-        HardDeleteOptions::default(),
-    )
-    .unwrap();
+    let summary =
+        deletion::hard_delete_scan("scan-x", "scan-x", HardDeleteOptions::default()).unwrap();
     assert!(summary.vacuum_run);
     assert!(!raw.is_file());
 }
@@ -589,8 +599,7 @@ fn security_event_log_never_records_secret_values() {
     // here is the masking rule for account IDs.
     let _s = Sandbox::new("masking");
     eventlog::record_event(
-        EventInput::new(EventKind::ScanCompleted, "scan ok")
-            .with_account("111122223333"),
+        EventInput::new(EventKind::ScanCompleted, "scan ok").with_account("111122223333"),
     );
     let listed = eventlog::list_events(EventLogFilter::default()).unwrap();
     let row = listed.first().expect("one row");
@@ -642,7 +651,10 @@ fn security_independent_retention_policies() {
     retention::set_eventlog_retention(RetentionPeriod::Days(180)).unwrap();
     let settings = retention::get_settings().unwrap();
     assert!(matches!(settings.scan_retention, RetentionPeriod::Days(30)));
-    assert!(matches!(settings.eventlog_retention, RetentionPeriod::Days(180)));
+    assert!(matches!(
+        settings.eventlog_retention,
+        RetentionPeriod::Days(180)
+    ));
 }
 
 #[test]
@@ -650,12 +662,8 @@ fn security_hard_delete_runs_vacuum_after_delete() {
     let s = Sandbox::new("vacuum");
     seed_account("111122223333", "dev");
     seed_terminal_scan(&s, "scan-v", "111122223333", Utc::now());
-    let summary = deletion::hard_delete_scan(
-        "scan-v",
-        "DELETE",
-        HardDeleteOptions::default(),
-    )
-    .unwrap();
+    let summary =
+        deletion::hard_delete_scan("scan-v", "DELETE", HardDeleteOptions::default()).unwrap();
     assert!(summary.vacuum_run);
 }
 

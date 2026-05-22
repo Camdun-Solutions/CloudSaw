@@ -55,9 +55,7 @@ pub fn set_schedule(input: SetScheduleInput) -> Result<Schedule, SchedulerError>
     // re-resolves the account at fire time.
     match accounts::get_account(&input.aws_account_id) {
         Ok(_) => {}
-        Err(accounts::AccountsError::NotFound) => {
-            return Err(SchedulerError::AccountNotFound)
-        }
+        Err(accounts::AccountsError::NotFound) => return Err(SchedulerError::AccountNotFound),
         Err(e) => return Err(SchedulerError::Accounts(e)),
     }
 

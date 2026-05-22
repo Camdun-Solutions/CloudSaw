@@ -99,7 +99,10 @@ pub fn set_repo_url(url: &str) -> Result<(), KnowledgebaseError> {
 }
 
 pub fn is_remote_active() -> Result<bool, KnowledgebaseError> {
-    Ok(matches!(read_string(KEY_REMOTE_ACTIVE)?.as_deref(), Some("1")))
+    Ok(matches!(
+        read_string(KEY_REMOTE_ACTIVE)?.as_deref(),
+        Some("1")
+    ))
 }
 
 pub fn set_remote_active(active: bool) -> Result<(), KnowledgebaseError> {
@@ -235,10 +238,8 @@ pub fn write_remote_cache(
 /// `(version, articles, mappings_json)` so `registry::build_remote_content`
 /// can consume it directly.
 #[allow(clippy::type_complexity)]
-pub fn read_remote_cache() -> Result<
-    Option<(String, BTreeMap<String, String>, String)>,
-    KnowledgebaseError,
-> {
+pub fn read_remote_cache(
+) -> Result<Option<(String, BTreeMap<String, String>, String)>, KnowledgebaseError> {
     let version_path = cache_version_path()?;
     if !version_path.exists() {
         return Ok(None);

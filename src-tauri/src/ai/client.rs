@@ -31,21 +31,13 @@ const OPENAI_API: &str = "https://api.openai.com/v1/chat/completions";
 /// `ReqwestTransport`. The transport receives the EXACT bytes built by
 /// `builder::build_preview`; it does no further rewriting.
 pub trait Transport: Send + Sync {
-    fn send(
-        &self,
-        preview: &AiRequestPreview,
-        token: &str,
-    ) -> Result<AiSuggestion, AiError>;
+    fn send(&self, preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, AiError>;
 }
 
 pub struct ReqwestTransport;
 
 impl Transport for ReqwestTransport {
-    fn send(
-        &self,
-        preview: &AiRequestPreview,
-        token: &str,
-    ) -> Result<AiSuggestion, AiError> {
+    fn send(&self, preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, AiError> {
         match preview.provider {
             Provider::Anthropic => send_anthropic(preview, token),
             Provider::Openai => send_openai(preview, token),

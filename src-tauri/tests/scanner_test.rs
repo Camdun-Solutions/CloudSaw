@@ -26,17 +26,13 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cloudsaw_lib::accounts::{
-    storage as accounts_storage, types::AccountRecord, Environment,
-};
+use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::scanner::{
-    self, binary, handles, storage as scan_storage, types::ScanStatus,
-    ScannerError, ScoutSuiteAvailability,
+    self, binary, handles, storage as scan_storage, types::ScanStatus, ScannerError,
+    ScoutSuiteAvailability,
 };
-use cloudsaw_lib::terraform::{
-    storage as tf_storage, types::PolicyVariant,
-};
+use cloudsaw_lib::terraform::{storage as tf_storage, types::PolicyVariant};
 
 fn env_lock() -> &'static Mutex<()> {
     static L: OnceLock<Mutex<()>> = OnceLock::new();
@@ -159,7 +155,10 @@ fn wait_for_terminal(scan_id: &str, deadline: Duration) -> cloudsaw_lib::scanner
     let mut latest = scanner::scan_status(scan_id).unwrap();
     while !latest.status.is_terminal() {
         if start.elapsed() > deadline {
-            panic!("scan {scan_id} stuck in {:?} after {deadline:?}", latest.status);
+            panic!(
+                "scan {scan_id} stuck in {:?} after {deadline:?}",
+                latest.status
+            );
         }
         std::thread::sleep(Duration::from_millis(50));
         latest = scanner::scan_status(scan_id).unwrap();
@@ -253,9 +252,7 @@ fn run_scan_rejects_malformed_account_id() {
     assert!(matches!(err, ScannerError::InvalidInput("aws_account_id")));
     // Path traversal attempt — would be devastating if it leaked into a
     // path segment.
-    let err = rt
-        .block_on(scanner::run_scan("../etc/passwd"))
-        .unwrap_err();
+    let err = rt.block_on(scanner::run_scan("../etc/passwd")).unwrap_err();
     assert!(matches!(err, ScannerError::InvalidInput("aws_account_id")));
 }
 
@@ -266,9 +263,7 @@ fn run_scan_rejects_unknown_account() {
         .enable_all()
         .build()
         .unwrap();
-    let err = rt
-        .block_on(scanner::run_scan("999988887777"))
-        .unwrap_err();
+    let err = rt.block_on(scanner::run_scan("999988887777")).unwrap_err();
     assert!(matches!(
         err,
         ScannerError::Accounts(cloudsaw_lib::accounts::AccountsError::NotFound)
@@ -289,9 +284,7 @@ fn run_scan_rejects_account_without_provisioned_role() {
         .enable_all()
         .build()
         .unwrap();
-    let err = rt
-        .block_on(scanner::run_scan("111122223333"))
-        .unwrap_err();
+    let err = rt.block_on(scanner::run_scan("111122223333")).unwrap_err();
     assert!(matches!(err, ScannerError::RoleNotProvisioned));
 }
 
@@ -305,9 +298,7 @@ fn run_scan_rejects_when_binary_not_bundled() {
         .enable_all()
         .build()
         .unwrap();
-    let err = rt
-        .block_on(scanner::run_scan("111122223333"))
-        .unwrap_err();
+    let err = rt.block_on(scanner::run_scan("111122223333")).unwrap_err();
     assert!(matches!(err, ScannerError::NotBundled));
 }
 
@@ -327,9 +318,7 @@ fn run_scan_rejects_when_binary_integrity_fails() {
         .enable_all()
         .build()
         .unwrap();
-    let err = rt
-        .block_on(scanner::run_scan("111122223333"))
-        .unwrap_err();
+    let err = rt.block_on(scanner::run_scan("111122223333")).unwrap_err();
     assert!(matches!(err, ScannerError::IntegrityFailed));
     // No row should have been claimed.
     assert!(!scan_storage::account_has_in_flight("111122223333").unwrap());
@@ -381,10 +370,7 @@ fn run_scan_persists_under_scans_dir_with_user_only_permissions() {
     let raw = final_record.raw_output_path.unwrap();
 
     // The output path must live under <data_root>/scans/<scan_id>/.
-    let expected_prefix = sb
-        .data_dir()
-        .join("scans")
-        .join(&initial.scan_id);
+    let expected_prefix = sb.data_dir().join("scans").join(&initial.scan_id);
     assert!(
         std::path::Path::new(&raw).starts_with(&expected_prefix),
         "raw path {raw} must live under {}",
@@ -431,12 +417,8 @@ fn second_concurrent_scan_for_same_account_is_rejected() {
     // After marking the first as canceled, a fresh claim succeeds.
     scan_storage::record_canceled(scan_id).unwrap();
     assert!(!scan_storage::account_has_in_flight("111122223333").unwrap());
-    scan_storage::try_claim_account(
-        "third-scan-id-cccc",
-        "111122223333",
-        "cloudsaw-scan-third",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("third-scan-id-cccc", "111122223333", "cloudsaw-scan-third")
+        .unwrap();
 }
 
 // ============================================================================
@@ -478,21 +460,13 @@ fn reap_stale_on_boot_marks_in_flight_rows_failed() {
     let _sb = Sandbox::new("reap-stale");
     seed_provisioned_account("111122223333", "qa-dev");
 
-    scan_storage::try_claim_account(
-        "stale-scan-aaa",
-        "111122223333",
-        "cloudsaw-scan-stale-1",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("stale-scan-aaa", "111122223333", "cloudsaw-scan-stale-1")
+        .unwrap();
     scan_storage::update_status("stale-scan-aaa", ScanStatus::Scanning).unwrap();
 
     seed_provisioned_account("444455556666", "qa-prod");
-    scan_storage::try_claim_account(
-        "stale-scan-bbb",
-        "444455556666",
-        "cloudsaw-scan-stale-2",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("stale-scan-bbb", "444455556666", "cloudsaw-scan-stale-2")
+        .unwrap();
 
     let reaped = scanner::reap_stale_on_boot().unwrap();
     assert_eq!(reaped, 2);
@@ -514,12 +488,7 @@ fn reap_stale_leaves_terminal_rows_untouched() {
     let _sb = Sandbox::new("reap-leaves-terminal");
     seed_provisioned_account("111122223333", "qa-dev");
 
-    scan_storage::try_claim_account(
-        "already-complete",
-        "111122223333",
-        "cloudsaw-scan-x",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("already-complete", "111122223333", "cloudsaw-scan-x").unwrap();
     scan_storage::record_complete("already-complete", None, false).unwrap();
 
     let before = scanner::scan_status("already-complete").unwrap();

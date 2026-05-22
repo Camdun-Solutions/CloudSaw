@@ -11,9 +11,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use super::error::SchedulerError;
-use super::types::{
-    LastRunOutcome, Schedule, ScheduleCadence, ScheduleEvent, ScheduleEventKind,
-};
+use super::types::{LastRunOutcome, Schedule, ScheduleCadence, ScheduleEvent, ScheduleEventKind};
 use crate::db::paths::app_data_dir;
 
 fn db_path() -> Result<std::path::PathBuf, SchedulerError> {
@@ -261,9 +259,7 @@ pub fn list_enabled() -> Result<Vec<Schedule>, SchedulerError> {
     Ok(out)
 }
 
-fn row_to_schedule(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<Result<Schedule, SchedulerError>> {
+fn row_to_schedule(row: &rusqlite::Row<'_>) -> rusqlite::Result<Result<Schedule, SchedulerError>> {
     let aws_account_id: String = row.get(0)?;
     let cadence_kind: String = row.get(1)?;
     let cadence_value: i64 = row.get(2)?;
@@ -336,11 +332,7 @@ fn parse_required_ts(s: String) -> rusqlite::Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(&s)
         .map(|dt| dt.with_timezone(&Utc))
         .map_err(|e| {
-            rusqlite::Error::FromSqlConversionFailure(
-                0,
-                rusqlite::types::Type::Text,
-                Box::new(e),
-            )
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
         })
 }
 

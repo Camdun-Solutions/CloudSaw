@@ -100,9 +100,7 @@ pub fn spawn_scoutsuite(
 /// Cancellation: when `handle.is_canceled()` is true, the child is killed
 /// (the cancel path may already have done so) and we still wait for the
 /// process to be reaped — Linux/macOS leak a zombie if we don't.
-pub fn wait_for_child(
-    handle: Arc<ScanHandle>,
-) -> Result<SpawnOutcome, ScannerError> {
+pub fn wait_for_child(handle: Arc<ScanHandle>) -> Result<SpawnOutcome, ScannerError> {
     let mut child = handle
         .take_child()
         .ok_or(ScannerError::Internal("handle_missing_child"))?;

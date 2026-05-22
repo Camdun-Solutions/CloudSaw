@@ -12,14 +12,10 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::Utc;
-use cloudsaw_lib::accounts::{
-    storage as accounts_storage, types::AccountRecord, Environment,
-};
+use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::ai::{
-    self,
-    client::{Transport},
-    AiError, AiRequestPreview, AiSuggestion, BusinessContext, EnvironmentType, Provider,
-    RiskTolerance, TeamSize,
+    self, client::Transport, AiError, AiRequestPreview, AiSuggestion, BusinessContext,
+    EnvironmentType, Provider, RiskTolerance, TeamSize,
 };
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::eventlog::{self, EventLogFilter};
@@ -97,8 +93,7 @@ fn seed_finding(
     )
     .unwrap();
 
-    let finding_id =
-        cloudsaw_lib::findings::parser::finding_id_for(aws_id, rule_key);
+    let finding_id = cloudsaw_lib::findings::parser::finding_id_for(aws_id, rule_key);
     conn.execute(
         "INSERT INTO findings (
             finding_id, aws_account_id, rule_key, raw_type, service,
@@ -109,7 +104,13 @@ fn seed_finding(
          ) VALUES (?1, ?2, ?3, 'rule', ?4, 'high',
                    'Bucket public access on 111122223333.', NULL, NULL,
                    NULL, 12, 3, 'open', ?5, ?5, 'scan-1', 'scan-1', NULL, NULL)",
-        params![finding_id, aws_id, rule_key, service, Utc::now().to_rfc3339()],
+        params![
+            finding_id,
+            aws_id,
+            rule_key,
+            service,
+            Utc::now().to_rfc3339()
+        ],
     )
     .unwrap();
     conn.execute(
@@ -175,11 +176,7 @@ impl FakeAi {
 }
 
 impl Transport for FakeAi {
-    fn send(
-        &self,
-        preview: &AiRequestPreview,
-        _token: &str,
-    ) -> Result<AiSuggestion, AiError> {
+    fn send(&self, preview: &AiRequestPreview, _token: &str) -> Result<AiSuggestion, AiError> {
         let mut g = self.inner.lock().unwrap();
         g.last_request = Some(CapturedAiRequest {
             provider: preview.provider,
@@ -251,11 +248,14 @@ fn happy_with_connected_key_prepare_returns_preview_and_send_returns_suggestion(
     assert!(preview.user_message.contains("Rule key"));
     assert!(preview.user_message.contains("fintech"));
 
-    let fake = FakeAi::ok("Block public access at the account level and on this [REDACTED-BUCKET-NAME].");
+    let fake =
+        FakeAi::ok("Block public access at the account level and on this [REDACTED-BUCKET-NAME].");
     let token = Zeroizing::new("sk-ant-aaaaaaaaaaaaaaaa".to_string());
     let suggestion = ai::client::send_with(&fake, &preview, &token).unwrap();
     assert!(matches!(suggestion.provider, Provider::Anthropic));
-    assert!(suggestion.suggestion_markdown.contains("[REDACTED-BUCKET-NAME]"));
+    assert!(suggestion
+        .suggestion_markdown
+        .contains("[REDACTED-BUCKET-NAME]"));
 
     let req = fake.last().expect("transport saw a request");
     // The bytes that hit the wire equal the bytes the user reviewed.
@@ -267,8 +267,13 @@ fn happy_with_connected_key_prepare_returns_preview_and_send_returns_suggestion(
 fn happy_business_context_is_reflected_in_built_request() {
     let s = Sandbox::new("happy-ctx");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Openai)).unwrap();
     ai::set_provider_key(Provider::Openai, "sk-bbbbbbbbbbbbbbbbbbbb".into()).unwrap();
     ai::set_business_context(BusinessContext {
@@ -294,8 +299,13 @@ fn happy_business_context_is_reflected_in_built_request() {
 fn error_no_provider_no_request_attempted() {
     let s = Sandbox::new("err-no-provider");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     // No provider chosen; no key.
     let err = ai::prepare_request(&finding_id).unwrap_err();
     assert!(matches!(err, AiError::NoProvider));
@@ -305,8 +315,13 @@ fn error_no_provider_no_request_attempted() {
 fn error_no_provider_key_no_request_attempted() {
     let s = Sandbox::new("err-no-key");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     // Provider set, no key.
     let err = ai::prepare_request(&finding_id).unwrap_err();
@@ -317,8 +332,13 @@ fn error_no_provider_key_no_request_attempted() {
 fn error_invalid_key_yields_actionable_code_no_retry_loop() {
     let s = Sandbox::new("err-invalid");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
 
@@ -345,8 +365,13 @@ fn error_rate_limit_and_network_have_distinct_codes() {
 fn error_cancel_at_preview_modal_sends_nothing() {
     let s = Sandbox::new("cancel");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
 
@@ -363,8 +388,13 @@ fn error_cancel_at_preview_modal_sends_nothing() {
 fn error_identifying_context_field_is_flagged_and_visible_in_preview() {
     let s = Sandbox::new("identifying");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
     ai::set_business_context(BusinessContext {
@@ -390,8 +420,13 @@ fn error_identifying_context_field_is_flagged_and_visible_in_preview() {
 fn responsiveness_prepare_request_returns_promptly() {
     let s = Sandbox::new("perf-prepare");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
 
@@ -411,8 +446,13 @@ fn responsiveness_prepare_request_returns_promptly() {
 fn state_no_key_then_key_connected_then_ai_request_is_available() {
     let s = Sandbox::new("state-key");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
 
     // Dormant: no provider, no key.
     let settings = ai::get_settings().unwrap();
@@ -444,8 +484,13 @@ fn state_no_key_then_key_connected_then_ai_request_is_available() {
 fn state_button_clicked_then_preview_shown_then_send_or_cancel_branch() {
     let s = Sandbox::new("state-flow");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
 
@@ -472,8 +517,13 @@ fn state_button_clicked_then_preview_shown_then_send_or_cancel_branch() {
 fn security_with_no_key_no_ai_code_path_makes_a_network_call() {
     let s = Sandbox::new("no-key-no-call");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     // Provider not chosen — prepare_request errors WITHOUT touching the
     // network (prepare is a pure build that reads from SQLite + keychain).
     let err = ai::prepare_request(&finding_id).unwrap_err();
@@ -517,13 +567,14 @@ fn security_key_lives_only_in_keychain_registry_includes_both_providers() {
     let conn = Connection::open(s.db_path()).unwrap();
     let mut stmt = conn.prepare("SELECT key, value FROM settings").unwrap();
     let rows = stmt
-        .query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        })
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
         .unwrap();
     for row in rows.flatten() {
         let (k, v) = row;
-        assert!(!v.contains("sk-ant-"), "anthropic key leaked into setting {k}");
+        assert!(
+            !v.contains("sk-ant-"),
+            "anthropic key leaked into setting {k}"
+        );
         assert!(
             !v.starts_with("sk-") || k.starts_with("ai_context"),
             "openai-shaped key leaked into setting {k} (value {v})",
@@ -533,18 +584,27 @@ fn security_key_lives_only_in_keychain_registry_includes_both_providers() {
     // The keychain registry must include BOTH provider rows so the
     // panic wipe sweeps each.
     let snap = keychain::registry_snapshot();
-    assert!(snap.iter().any(|(s, a)| *s == keychain::LLM_KEY_SERVICE
-        && *a == keychain::LLM_KEY_ACCOUNT_ANTHROPIC));
-    assert!(snap.iter().any(|(s, a)| *s == keychain::LLM_KEY_SERVICE
-        && *a == keychain::LLM_KEY_ACCOUNT_OPENAI));
+    assert!(
+        snap.iter()
+            .any(|(s, a)| *s == keychain::LLM_KEY_SERVICE
+                && *a == keychain::LLM_KEY_ACCOUNT_ANTHROPIC)
+    );
+    assert!(snap
+        .iter()
+        .any(|(s, a)| *s == keychain::LLM_KEY_SERVICE && *a == keychain::LLM_KEY_ACCOUNT_OPENAI));
 }
 
 #[test]
 fn security_every_ai_call_is_preceded_by_preview_and_uses_the_same_bytes() {
     let s = Sandbox::new("preview-eq");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
 
@@ -610,23 +670,28 @@ fn security_no_real_value_to_placeholder_map_exists_anywhere() {
     // The model's reply with placeholders intact must NOT trigger any
     // post-processing swap-back. The client returns the suggestion
     // markdown verbatim.
-    let fake = FakeAi::ok(
-        "Block public access on [REDACTED-BUCKET-NAME] at the account level.",
-    );
+    let fake = FakeAi::ok("Block public access on [REDACTED-BUCKET-NAME] at the account level.");
     let token = Zeroizing::new("sk-ant-aaaaaaaaaaaaaaaa".to_string());
     let suggestion = ai::client::send_with(&fake, &preview, &token).unwrap();
     assert!(suggestion
         .suggestion_markdown
         .contains("[REDACTED-BUCKET-NAME]"));
-    assert!(!suggestion.suggestion_markdown.contains("very-secret-bucket-name"));
+    assert!(!suggestion
+        .suggestion_markdown
+        .contains("very-secret-bucket-name"));
 }
 
 #[test]
 fn security_ai_request_content_is_not_written_to_eventlog() {
     let s = Sandbox::new("no-content-log");
     seed_account("111122223333");
-    let finding_id =
-        seed_finding(&s, "111122223333", "s3-public-bucket", "s3", "arn:aws:s3:::b");
+    let finding_id = seed_finding(
+        &s,
+        "111122223333",
+        "s3-public-bucket",
+        "s3",
+        "arn:aws:s3:::b",
+    );
     ai::set_provider(Some(Provider::Anthropic)).unwrap();
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
 
@@ -638,16 +703,14 @@ fn security_ai_request_content_is_not_written_to_eventlog() {
     let fake = FakeAi::ok("a long suggestion full of identifiable details");
     let token = Zeroizing::new("sk-ant-aaaaaaaaaaaaaaaa".to_string());
     let _ = ai::client::send_with(&fake, &preview, &token).unwrap();
-    eventlog::record_event(
-        cloudsaw_lib::eventlog::EventInput::new(
-            cloudsaw_lib::eventlog::EventKind::SettingsChanged,
-            format!(
-                "AI suggestion received from {} (model {}).",
-                preview.provider.as_str(),
-                preview.model,
-            ),
+    eventlog::record_event(cloudsaw_lib::eventlog::EventInput::new(
+        cloudsaw_lib::eventlog::EventKind::SettingsChanged,
+        format!(
+            "AI suggestion received from {} (model {}).",
+            preview.provider.as_str(),
+            preview.model,
         ),
-    );
+    ));
     let entries = eventlog::list_events(EventLogFilter::default()).unwrap();
     for e in entries {
         // Event log must NOT contain the user message body or the

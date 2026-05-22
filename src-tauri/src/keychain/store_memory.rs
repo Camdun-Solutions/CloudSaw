@@ -30,7 +30,10 @@ impl InMemoryStore {
     /// runs against an empty store. The `install_in_memory_for_tests`
     /// helper invokes it automatically.
     pub fn clear(&self) {
-        self.inner.write().unwrap_or_else(|p| p.into_inner()).clear();
+        self.inner
+            .write()
+            .unwrap_or_else(|p| p.into_inner())
+            .clear();
     }
 
     /// Count of entries currently held. Convenience for QA assertions
@@ -47,25 +50,35 @@ impl InMemoryStore {
 
 impl CredentialStore for InMemoryStore {
     fn get(&self, service: &str, account: &str) -> Result<Option<String>, KeychainError> {
-        let guard = self.inner.read().map_err(|p| {
-            KeychainError::Backend(format!("in-memory store poisoned: {p}"))
-        })?;
-        Ok(guard.get(&(service.to_string(), account.to_string())).cloned())
+        let guard = self
+            .inner
+            .read()
+            .map_err(|p| KeychainError::Backend(format!("in-memory store poisoned: {p}")))?;
+        Ok(guard
+            .get(&(service.to_string(), account.to_string()))
+            .cloned())
     }
 
     fn set(&self, service: &str, account: &str, secret: &str) -> Result<(), KeychainError> {
-        let mut guard = self.inner.write().map_err(|p| {
-            KeychainError::Backend(format!("in-memory store poisoned: {p}"))
-        })?;
-        guard.insert((service.to_string(), account.to_string()), secret.to_string());
+        let mut guard = self
+            .inner
+            .write()
+            .map_err(|p| KeychainError::Backend(format!("in-memory store poisoned: {p}")))?;
+        guard.insert(
+            (service.to_string(), account.to_string()),
+            secret.to_string(),
+        );
         Ok(())
     }
 
     fn delete(&self, service: &str, account: &str) -> Result<bool, KeychainError> {
-        let mut guard = self.inner.write().map_err(|p| {
-            KeychainError::Backend(format!("in-memory store poisoned: {p}"))
-        })?;
-        Ok(guard.remove(&(service.to_string(), account.to_string())).is_some())
+        let mut guard = self
+            .inner
+            .write()
+            .map_err(|p| KeychainError::Backend(format!("in-memory store poisoned: {p}")))?;
+        Ok(guard
+            .remove(&(service.to_string(), account.to_string()))
+            .is_some())
     }
 }
 
@@ -83,7 +96,10 @@ mod tests {
     fn set_then_get_round_trips() {
         let s = InMemoryStore::new();
         s.set("svc", "acct", "secret-value").unwrap();
-        assert_eq!(s.get("svc", "acct").unwrap().as_deref(), Some("secret-value"));
+        assert_eq!(
+            s.get("svc", "acct").unwrap().as_deref(),
+            Some("secret-value")
+        );
     }
 
     #[test]

@@ -37,9 +37,8 @@ pub mod types;
 
 pub use error::KnowledgebaseError;
 pub use types::{
-    ArticleSummary, ControlMapping, ControlReference, Framework, KnowledgeArticle,
-    KnowledgeSource, RefreshApplyResult, RefreshCheckResult, RefreshSettings,
-    RefreshSettingsUpdate,
+    ArticleSummary, ControlMapping, ControlReference, Framework, KnowledgeArticle, KnowledgeSource,
+    RefreshApplyResult, RefreshCheckResult, RefreshSettings, RefreshSettingsUpdate,
 };
 
 use crate::errors::AppError;

@@ -259,9 +259,7 @@ fn security_wizard_row_holds_only_step_flags_and_language() {
     // the column set is exactly what we expect.
     let s = Sandbox::new("schema");
     let conn = Connection::open(s.db_path()).unwrap();
-    let mut stmt = conn
-        .prepare("PRAGMA table_info(onboarding_state)")
-        .unwrap();
+    let mut stmt = conn.prepare("PRAGMA table_info(onboarding_state)").unwrap();
     let cols: Vec<String> = stmt
         .query_map([], |r| r.get::<_, String>(1))
         .unwrap()
@@ -284,12 +282,24 @@ fn security_wizard_row_holds_only_step_flags_and_language() {
     for col in &expected {
         assert!(cols.contains(&col.to_string()), "missing column: {col}");
     }
-    assert_eq!(cols.len(), expected.len(), "unexpected extra columns: {cols:?}");
+    assert_eq!(
+        cols.len(),
+        expected.len(),
+        "unexpected extra columns: {cols:?}"
+    );
     // No "password_hash", "api_key", "token", "aws_account_id", or
     // "profile_name" column may appear — the row holds NO credentials
     // and NO account-identifying data.
-    for forbidden in ["password_hash", "api_key", "token", "aws_account_id", "profile_name", "secret"] {
-        assert!(!cols.iter().any(|c| c == forbidden),
+    for forbidden in [
+        "password_hash",
+        "api_key",
+        "token",
+        "aws_account_id",
+        "profile_name",
+        "secret",
+    ] {
+        assert!(
+            !cols.iter().any(|c| c == forbidden),
             "wizard row must not contain a `{forbidden}` column",
         );
     }

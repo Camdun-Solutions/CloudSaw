@@ -46,7 +46,7 @@ pub fn validate_profile_name(profile: &str) -> Result<(), AccountsError> {
 }
 
 pub fn validate_environment(env: &str) -> Result<(), AccountsError> {
-    if ALLOWED_ENVIRONMENTS.iter().any(|e| *e == env) {
+    if ALLOWED_ENVIRONMENTS.contains(&env) {
         Ok(())
     } else {
         Err(AccountsError::InvalidInput("environment"))

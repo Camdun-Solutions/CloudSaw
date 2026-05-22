@@ -33,12 +33,13 @@ impl Provider {
 
 /// Discrete environment type the user attests to. Drives prompt tuning
 /// (e.g. "production" raises severity of cross-cutting findings).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EnvironmentType {
     Production,
     DevTest,
     Mixed,
+    #[default]
     Unspecified,
 }
 
@@ -62,12 +63,13 @@ impl EnvironmentType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RiskTolerance {
     Low,
     Medium,
     High,
+    #[default]
     Unspecified,
 }
 
@@ -91,13 +93,14 @@ impl RiskTolerance {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TeamSize {
     Solo,
     Small,
     Medium,
     Large,
+    #[default]
     Unspecified,
 }
 
@@ -135,22 +138,6 @@ pub struct BusinessContext {
     pub compliance: Vec<String>,
     pub risk_tolerance: RiskTolerance,
     pub team_size: TeamSize,
-}
-
-impl Default for EnvironmentType {
-    fn default() -> Self {
-        EnvironmentType::Unspecified
-    }
-}
-impl Default for RiskTolerance {
-    fn default() -> Self {
-        RiskTolerance::Unspecified
-    }
-}
-impl Default for TeamSize {
-    fn default() -> Self {
-        TeamSize::Unspecified
-    }
 }
 
 /// Whether a context field looks identifying — surfaced to the UI so

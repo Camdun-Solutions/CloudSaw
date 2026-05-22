@@ -26,7 +26,11 @@ fn open() -> Result<Connection, EventLogError> {
 
 /// Insert one row. Caller has already validated user-supplied strings and
 /// stripped any secret-bearing fields.
-pub fn insert(event_id: &str, occurred_at: DateTime<Utc>, input: &EventInput) -> Result<(), EventLogError> {
+pub fn insert(
+    event_id: &str,
+    occurred_at: DateTime<Utc>,
+    input: &EventInput,
+) -> Result<(), EventLogError> {
     let conn = open()?;
     conn.execute(
         "INSERT INTO event_log (
@@ -222,7 +226,7 @@ pub fn purge_older_than(cutoff: DateTime<Utc>) -> Result<usize, EventLogError> {
         "DELETE FROM event_log WHERE occurred_at < ?1",
         params![cutoff.to_rfc3339()],
     )?;
-    Ok(affected as usize)
+    Ok(affected)
 }
 
 /// Total row count. Used by the QA contract's responsiveness check.
@@ -237,13 +241,14 @@ pub fn count() -> Result<i64, EventLogError> {
 pub fn wipe_all() -> Result<(), EventLogError> {
     let conn = open()?;
     conn.execute("DELETE FROM event_log", [])?;
-    conn.execute("UPDATE event_log_view SET cleared_at = NULL WHERE id = 1", [])?;
+    conn.execute(
+        "UPDATE event_log_view SET cleared_at = NULL WHERE id = 1",
+        [],
+    )?;
     Ok(())
 }
 
-fn row_to_entry(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<Result<EventLogEntry, EventLogError>> {
+fn row_to_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<Result<EventLogEntry, EventLogError>> {
     let event_id: String = row.get(0)?;
     let occurred_at_raw: String = row.get(1)?;
     let kind_raw: String = row.get(2)?;
@@ -256,20 +261,22 @@ fn row_to_entry(
 
     let occurred_at = DateTime::parse_from_rfc3339(&occurred_at_raw)
         .map_err(|e| {
-            rusqlite::Error::FromSqlConversionFailure(
-                0,
-                rusqlite::types::Type::Text,
-                Box::new(e),
-            )
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
         })?
         .with_timezone(&Utc);
 
     let kind = match EventKind::from_storage(&kind_raw) {
         Some(k) => k,
-        None => return Ok(Err(EventLogError::Db(format!("bad kind in row: {kind_raw}")))),
+        None => {
+            return Ok(Err(EventLogError::Db(format!(
+                "bad kind in row: {kind_raw}"
+            ))))
+        }
     };
 
-    let masked = aws_account_id.as_deref().map(crate::accounts::mask_for_logs);
+    let masked = aws_account_id
+        .as_deref()
+        .map(crate::accounts::mask_for_logs);
 
     Ok(Ok(EventLogEntry {
         event_id,

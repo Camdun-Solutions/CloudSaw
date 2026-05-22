@@ -144,7 +144,10 @@ fn render_scans_table(s: &mut String, content: &ReportContent) {
 
 fn render_scan_row(s: &mut String, scan: &ScanSummary) {
     s.push_str("<tr><td>");
-    push_text(s, &scan.started_at.to_rfc3339_opts(SecondsFormat::Secs, true));
+    push_text(
+        s,
+        &scan.started_at.to_rfc3339_opts(SecondsFormat::Secs, true),
+    );
     s.push_str("</td><td>");
     push_text(s, &scan.account.label);
     s.push_str(" <span class=\"account-id\">");
@@ -225,9 +228,15 @@ fn render_finding(s: &mut String, f: &FindingRow) {
     s.push_str(" / flagged ");
     s.push_str(&f.flagged_items.to_string());
     s.push_str(" · first seen ");
-    push_text(s, &f.first_seen_at.to_rfc3339_opts(SecondsFormat::Secs, true));
+    push_text(
+        s,
+        &f.first_seen_at.to_rfc3339_opts(SecondsFormat::Secs, true),
+    );
     s.push_str(" · last seen ");
-    push_text(s, &f.last_seen_at.to_rfc3339_opts(SecondsFormat::Secs, true));
+    push_text(
+        s,
+        &f.last_seen_at.to_rfc3339_opts(SecondsFormat::Secs, true),
+    );
     s.push_str("</p>");
 
     if !f.remediation.trim().is_empty() {
@@ -356,9 +365,7 @@ fn push_attr(out: &mut String, input: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reports::model::{
-        AccountRef, ReportHeader, SeverityCounts,
-    };
+    use crate::reports::model::{AccountRef, ReportHeader, SeverityCounts};
     use chrono::Utc;
 
     fn empty_content() -> ReportContent {

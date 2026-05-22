@@ -110,9 +110,7 @@ pub fn set_business_context(ctx: BusinessContext) -> Result<(), AiError> {
 
 /// Build the preview the UI MUST show before any send. The returned
 /// value is the EXACT payload that would be transmitted.
-pub fn prepare_request(
-    finding_id: &str,
-) -> Result<AiRequestPreview, AiError> {
+pub fn prepare_request(finding_id: &str) -> Result<AiRequestPreview, AiError> {
     let provider = context::read_provider()?.ok_or(AiError::NoProvider)?;
     if !key::has(provider)? {
         return Err(AiError::NoProviderKey);
@@ -149,7 +147,10 @@ mod tests {
     fn provider_round_trips_through_storage_form() {
         assert_eq!(Provider::Anthropic.as_str(), "anthropic");
         assert_eq!(Provider::Openai.as_str(), "openai");
-        assert_eq!(Provider::from_storage("anthropic"), Some(Provider::Anthropic));
+        assert_eq!(
+            Provider::from_storage("anthropic"),
+            Some(Provider::Anthropic)
+        );
         assert_eq!(Provider::from_storage("openai"), Some(Provider::Openai));
         assert_eq!(Provider::from_storage(""), None);
         assert_eq!(Provider::from_storage("garbage"), None);

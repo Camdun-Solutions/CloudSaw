@@ -27,7 +27,7 @@ pub fn stage_self_delete() -> io::Result<()> {
     let exe = std::env::current_exe()?;
     let app_dir = exe
         .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no parent dir for exe"))?
+        .ok_or_else(|| io::Error::other("no parent dir for exe"))?
         .to_path_buf();
 
     #[cfg(target_os = "windows")]
@@ -93,9 +93,7 @@ fn stage_macos_helper(exe: &std::path::Path, app_dir: &std::path::Path) -> io::R
     // that runs once at the next login.
     let home = std::env::var_os("HOME")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "HOME not set"))?;
-    let agents = PathBuf::from(home)
-        .join("Library")
-        .join("LaunchAgents");
+    let agents = PathBuf::from(home).join("Library").join("LaunchAgents");
     std::fs::create_dir_all(&agents)?;
     let plist_path = agents.join("com.cloudsaw.uninstall.plist");
     let script_path = agents.join("cloudsaw-uninstall.sh");

@@ -15,12 +15,14 @@
 
 use std::io::BufWriter;
 
-use printpdf::{BuiltinFont, IndirectFontRef, Mm, PdfDocument, PdfDocumentReference, PdfLayerIndex};
+use printpdf::{
+    BuiltinFont, IndirectFontRef, Mm, PdfDocument, PdfDocumentReference, PdfLayerIndex,
+};
 
 use super::error::ReportsError;
 use super::model::{AccountIdDisclosure, FindingRow, ReportContent, ReportKind};
 
-const PAGE_WIDTH_MM: f32 = 210.0;  // A4
+const PAGE_WIDTH_MM: f32 = 210.0; // A4
 const PAGE_HEIGHT_MM: f32 = 297.0;
 const MARGIN_MM: f32 = 18.0;
 const LINE_HEIGHT_MM: f32 = 5.5;
@@ -188,9 +190,8 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
     let mut buf = BufWriter::new(Vec::<u8>::new());
     doc.save(&mut buf)
         .map_err(|e| ReportsError::PdfRender(e.to_string()))?;
-    Ok(buf
-        .into_inner()
-        .map_err(|e| ReportsError::PdfRender(format!("bufwriter: {e}")))?)
+    buf.into_inner()
+        .map_err(|e| ReportsError::PdfRender(format!("bufwriter: {e}")))
 }
 
 fn write_finding(
@@ -287,7 +288,10 @@ fn write_meta(
     content: &ReportContent,
 ) {
     let lines = vec![
-        format!("Generated at:    {}", content.header.generated_at.to_rfc3339()),
+        format!(
+            "Generated at:    {}",
+            content.header.generated_at.to_rfc3339()
+        ),
         format!("CloudSaw version: {}", content.header.cloudsaw_version),
         format!(
             "Disclosure:      {}",
@@ -347,10 +351,9 @@ fn write_text_wrapped(
 }
 
 fn split_at_chars(s: &str, n: usize) -> (&str, &str) {
-    let mut idx = 0;
     let mut count = 0;
     for (i, c) in s.char_indices() {
-        idx = i + c.len_utf8();
+        let idx = i + c.len_utf8();
         count += 1;
         if count >= n {
             return (&s[..idx], &s[idx..]);
@@ -362,11 +365,7 @@ fn split_at_chars(s: &str, n: usize) -> (&str, &str) {
 fn ensure_room(doc: &PdfDocumentReference, cur: &mut PdfCursor, needed_mm: f32) {
     if cur.y_offset_mm + needed_mm > PAGE_HEIGHT_MM - MARGIN_MM {
         // Add a new page.
-        let (new_page, new_layer) = doc.add_page(
-            Mm(PAGE_WIDTH_MM),
-            Mm(PAGE_HEIGHT_MM),
-            "page",
-        );
+        let (new_page, new_layer) = doc.add_page(Mm(PAGE_WIDTH_MM), Mm(PAGE_HEIGHT_MM), "page");
         cur.page_idx = new_page;
         cur.layer_idx = new_layer;
         cur.y_offset_mm = MARGIN_MM;

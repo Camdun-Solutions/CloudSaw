@@ -26,8 +26,8 @@
 use super::context;
 use super::error::AiError;
 use super::types::{
-    AiRequestPreview, BusinessContext, EnvironmentType, FindingDigest, Provider,
-    RiskTolerance, TeamSize,
+    AiRequestPreview, BusinessContext, EnvironmentType, FindingDigest, Provider, RiskTolerance,
+    TeamSize,
 };
 use crate::findings;
 
@@ -176,18 +176,18 @@ fn render_user_message(
     s.push_str("## Finding (category-level only)\n\n");
     s.push_str(&format!("- Rule key: `{}`\n", digest.rule_key));
     s.push_str(&format!("- Service category: `{}`\n", digest.service));
-    s.push_str(&format!("- Resource category: `{}`\n", digest.resource_category));
+    s.push_str(&format!(
+        "- Resource category: `{}`\n",
+        digest.resource_category
+    ));
     s.push_str(&format!("- Severity: `{}`\n", digest.severity));
     s.push_str(&format!(
         "- Resources of this type: checked {} / flagged {}\n",
         digest.checked_items, digest.flagged_items
     ));
-    s.push_str("\n");
+    s.push('\n');
     s.push_str("## Business context (user-supplied, structured)\n\n");
-    s.push_str(&format!(
-        "- Industry: {}\n",
-        none_if_empty(&ctx.industry)
-    ));
+    s.push_str(&format!("- Industry: {}\n", none_if_empty(&ctx.industry)));
     s.push_str(&format!(
         "- Environment type: {}\n",
         env_label(ctx.environment_type)
@@ -204,16 +204,13 @@ fn render_user_message(
         "- Risk tolerance: {}\n",
         risk_label(ctx.risk_tolerance)
     ));
-    s.push_str(&format!(
-        "- Team size: {}\n",
-        team_label(ctx.team_size)
-    ));
-    s.push_str("\n");
+    s.push_str(&format!("- Team size: {}\n", team_label(ctx.team_size)));
+    s.push('\n');
     s.push_str("## Placeholders you may see and MUST keep as-is\n\n");
     for ph in placeholders {
         s.push_str(&format!("- `{ph}`\n"));
     }
-    s.push_str("\n");
+    s.push('\n');
     s.push_str(
         "Please suggest concrete remediation steps. Keep any placeholder \
          tokens unchanged in your response.",
@@ -273,10 +270,7 @@ mod tests {
     fn placeholders_for_bucket_use_bucket_token() {
         assert_eq!(placeholders_for("bucket"), vec![PLACEHOLDER_BUCKET]);
         assert_eq!(placeholders_for("role"), vec![PLACEHOLDER_ROLE]);
-        assert_eq!(
-            placeholders_for("instance"),
-            vec![PLACEHOLDER_RESOURCE]
-        );
+        assert_eq!(placeholders_for("instance"), vec![PLACEHOLDER_RESOURCE]);
     }
 
     #[test]

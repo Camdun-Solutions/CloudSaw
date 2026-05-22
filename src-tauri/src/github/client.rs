@@ -155,10 +155,7 @@ pub fn browser_fallback_url(
     labels: &[String],
 ) -> String {
     let labels_joined = labels.join(",");
-    let mut url = format!(
-        "https://github.com/{}/{}/issues/new",
-        repo.owner, repo.name,
-    );
+    let mut url = format!("https://github.com/{}/{}/issues/new", repo.owner, repo.name,);
     url.push_str(&format!(
         "?title={}&body={}",
         url_encode(title),

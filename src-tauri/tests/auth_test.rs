@@ -310,9 +310,10 @@ fn regex_like_secret(s: &str) -> bool {
         return false;
     }
     for window in chars.windows(40) {
-        if window.iter().all(|c| {
-            c.is_ascii_alphanumeric() || *c == '+' || *c == '/' || *c == '='
-        }) {
+        if window
+            .iter()
+            .all(|c| c.is_ascii_alphanumeric() || *c == '+' || *c == '/' || *c == '=')
+        {
             return true;
         }
     }

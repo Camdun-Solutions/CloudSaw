@@ -30,8 +30,8 @@ mod validation;
 
 pub use error::AccountsError;
 pub use types::{
-    Account, AccountsDisplaySettings, AddAccountInput, Environment, RemovalImpact,
-    ScanOutcome, UpdateAccountInput,
+    Account, AccountsDisplaySettings, AddAccountInput, Environment, RemovalImpact, ScanOutcome,
+    UpdateAccountInput,
 };
 
 use crate::auth;

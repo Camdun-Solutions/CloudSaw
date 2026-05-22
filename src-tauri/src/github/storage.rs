@@ -170,7 +170,8 @@ fn is_valid_segment(s: &str) -> bool {
     }
     // GitHub usernames/orgs: alphanumeric or hyphen, can't start/end with hyphen.
     // Repo names: alphanumeric, hyphen, underscore, period.
-    s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+    s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
         && !s.starts_with('-')
         && !s.ends_with('-')
 }
@@ -179,9 +180,7 @@ fn is_valid_finding_id(id: &str) -> bool {
     id.len() == 64 && id.chars().all(|c| c.is_ascii_hexdigit())
 }
 
-fn row_to_ticket(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<Result<FindingTicket, GithubError>> {
+fn row_to_ticket(row: &rusqlite::Row<'_>) -> rusqlite::Result<Result<FindingTicket, GithubError>> {
     let finding_id: String = row.get(0)?;
     let aws_account_id: String = row.get(1)?;
     let repo_owner: String = row.get(2)?;

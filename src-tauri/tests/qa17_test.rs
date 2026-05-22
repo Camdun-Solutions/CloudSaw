@@ -25,9 +25,8 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cloudsaw_lib::keychain::{
-    self, CredentialStore, InMemoryStore, KeyringStore, GITHUB_PAT_ACCOUNT,
-    GITHUB_PAT_SERVICE, LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_OPENAI,
-    LLM_KEY_SERVICE,
+    self, CredentialStore, InMemoryStore, KeyringStore, GITHUB_PAT_ACCOUNT, GITHUB_PAT_SERVICE,
+    LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_OPENAI, LLM_KEY_SERVICE,
 };
 
 fn env_lock() -> &'static Mutex<()> {
@@ -101,9 +100,15 @@ fn happy_free_function_shims_delegate_to_installed_in_memory_store() {
     // Set via the free function; the in-memory store handle observes
     // the same value.
     keychain::set("svc", "acct", "via-shim").unwrap();
-    assert_eq!(handle.get("svc", "acct").unwrap().as_deref(), Some("via-shim"));
+    assert_eq!(
+        handle.get("svc", "acct").unwrap().as_deref(),
+        Some("via-shim")
+    );
     // Get via the free function.
-    assert_eq!(keychain::get("svc", "acct").unwrap().as_deref(), Some("via-shim"));
+    assert_eq!(
+        keychain::get("svc", "acct").unwrap().as_deref(),
+        Some("via-shim")
+    );
     // Delete via the free function.
     assert!(matches!(keychain::delete("svc", "acct"), Ok(true)));
     assert!(matches!(keychain::get("svc", "acct"), Ok(None)));
@@ -127,8 +132,7 @@ fn happy_github_pat_module_round_trips_through_the_installed_store() {
     let _g = env_lock().lock().unwrap_or_else(|p| p.into_inner());
     let _ = keychain::install_in_memory_for_tests();
     let probe = "ghp_aaaaaaaaaaaaaaaaaaaaa";
-    cloudsaw_lib::github::pat::set(zeroize::Zeroizing::new(probe.to_string()))
-        .unwrap();
+    cloudsaw_lib::github::pat::set(zeroize::Zeroizing::new(probe.to_string())).unwrap();
     let got = cloudsaw_lib::github::pat::get().unwrap();
     assert_eq!(got.as_deref().map(|z| z.as_str()), Some(probe));
     cloudsaw_lib::github::pat::clear().unwrap();

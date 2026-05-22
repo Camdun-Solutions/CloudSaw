@@ -11,7 +11,9 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{Duration as ChronoDuration, Utc};
-use cloudsaw_lib::accounts::{self, storage as accounts_storage, types::AccountRecord, Environment};
+use cloudsaw_lib::accounts::{
+    self, storage as accounts_storage, types::AccountRecord, Environment,
+};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::scheduler::{
     self, runner, storage as sched_storage, LastRunOutcome, ScheduleCadence, ScheduleEventKind,
@@ -142,10 +144,7 @@ fn set_schedule_rejects_unknown_account() {
         enabled: true,
     };
     let err = scheduler::set_schedule(input).unwrap_err();
-    assert!(matches!(
-        err,
-        scheduler::SchedulerError::AccountNotFound
-    ));
+    assert!(matches!(err, scheduler::SchedulerError::AccountNotFound));
 }
 
 /// State transition: no schedule → schedule set. Clearing a schedule
@@ -256,9 +255,7 @@ fn events_record_lifecycle_transitions() {
     })
     .unwrap();
     let events = scheduler::recent_events("111122223333", 10).unwrap();
-    assert!(events
-        .iter()
-        .any(|e| e.kind == ScheduleEventKind::Disabled));
+    assert!(events.iter().any(|e| e.kind == ScheduleEventKind::Disabled));
 }
 
 /// Runner: ticks for an account whose scanner role is NOT provisioned
@@ -292,8 +289,7 @@ fn runner_skips_when_role_not_provisioned() {
     assert!(
         matches!(
             outcome,
-            LastRunOutcome::SkippedRoleNotProvisioned
-                | LastRunOutcome::SkippedScannerUnavailable
+            LastRunOutcome::SkippedRoleNotProvisioned | LastRunOutcome::SkippedScannerUnavailable
         ),
         "expected a skip outcome, got {outcome:?}"
     );

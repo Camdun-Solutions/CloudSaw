@@ -19,17 +19,13 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cloudsaw_lib::accounts::{
-    storage as accounts_storage, types::AccountRecord, Environment,
-};
+use cloudsaw_lib::accounts::{storage as accounts_storage, types::AccountRecord, Environment};
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::scanner::{
-    self, binary, handles, storage as scan_storage, sts, types::ScanStatus,
-    ScannerError, ScoutSuiteAvailability,
+    self, binary, handles, storage as scan_storage, sts, types::ScanStatus, ScannerError,
+    ScoutSuiteAvailability,
 };
-use cloudsaw_lib::terraform::{
-    storage as tf_storage, types::PolicyVariant,
-};
+use cloudsaw_lib::terraform::{storage as tf_storage, types::PolicyVariant};
 
 fn env_lock() -> &'static Mutex<()> {
     static L: OnceLock<Mutex<()>> = OnceLock::new();
@@ -142,7 +138,10 @@ fn wait_for_terminal(scan_id: &str, deadline: Duration) -> cloudsaw_lib::scanner
     let mut latest = scanner::scan_status(scan_id).unwrap();
     while !latest.status.is_terminal() {
         if start.elapsed() > deadline {
-            panic!("scan {scan_id} stuck in {:?} after {deadline:?}", latest.status);
+            panic!(
+                "scan {scan_id} stuck in {:?} after {deadline:?}",
+                latest.status
+            );
         }
         std::thread::sleep(Duration::from_millis(50));
         latest = scanner::scan_status(scan_id).unwrap();
@@ -258,18 +257,11 @@ fn qa_error_assume_role_failure_fails_early_without_spawning() {
 fn qa_error_second_concurrent_scan_rejected() {
     let _sb = Sandbox::new("err-concurrent");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account(
-        "in-flight-scan",
-        "111122223333",
-        "cloudsaw-scan-inflight",
-    )
-    .unwrap();
-    let err = scan_storage::try_claim_account(
-        "second-scan",
-        "111122223333",
-        "cloudsaw-scan-second",
-    )
-    .unwrap_err();
+    scan_storage::try_claim_account("in-flight-scan", "111122223333", "cloudsaw-scan-inflight")
+        .unwrap();
+    let err =
+        scan_storage::try_claim_account("second-scan", "111122223333", "cloudsaw-scan-second")
+            .unwrap_err();
     assert!(matches!(err, ScannerError::AlreadyRunning));
 }
 
@@ -279,8 +271,7 @@ fn qa_error_second_concurrent_scan_rejected() {
 fn qa_error_machine_sleep_marks_scan_process_lost_on_resume() {
     let _sb = Sandbox::new("err-stale");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account("stale-scan", "111122223333", "cloudsaw-scan-stale")
-        .unwrap();
+    scan_storage::try_claim_account("stale-scan", "111122223333", "cloudsaw-scan-stale").unwrap();
     scan_storage::update_status("stale-scan", ScanStatus::Scanning).unwrap();
 
     // Simulate the next process bootstrap.
@@ -288,10 +279,7 @@ fn qa_error_machine_sleep_marks_scan_process_lost_on_resume() {
     assert_eq!(reaped, 1);
     let record = scanner::scan_status("stale-scan").unwrap();
     assert_eq!(record.status, ScanStatus::Failed);
-    assert_eq!(
-        record.failure_code.as_deref(),
-        Some("scanner_process_lost")
-    );
+    assert_eq!(record.failure_code.as_deref(), Some("scanner_process_lost"));
 }
 
 /// QA Error State: role missing permissions → `complete_with_warnings` with
@@ -302,12 +290,8 @@ fn qa_error_machine_sleep_marks_scan_process_lost_on_resume() {
 fn qa_error_partial_permissions_yield_complete_with_warnings() {
     let _sb = Sandbox::new("err-partial");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account(
-        "partial-scan",
-        "111122223333",
-        "cloudsaw-scan-partial",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("partial-scan", "111122223333", "cloudsaw-scan-partial")
+        .unwrap();
     scan_storage::record_complete(
         "partial-scan",
         Some(("missing_permissions", Some("access_denied"))),
@@ -328,15 +312,13 @@ fn qa_error_partial_permissions_yield_complete_with_warnings() {
 fn qa_error_truncated_output_flagged_in_scan_record() {
     let _sb = Sandbox::new("err-truncated");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account(
-        "trunc-scan",
-        "111122223333",
-        "cloudsaw-scan-trunc",
-    )
-    .unwrap();
+    scan_storage::try_claim_account("trunc-scan", "111122223333", "cloudsaw-scan-trunc").unwrap();
     scan_storage::record_complete("trunc-scan", None, true).unwrap();
     let record = scanner::scan_status("trunc-scan").unwrap();
-    assert!(record.truncated, "truncated flag must round-trip through storage");
+    assert!(
+        record.truncated,
+        "truncated flag must round-trip through storage"
+    );
 }
 
 // ============================================================================
@@ -351,8 +333,7 @@ fn qa_error_truncated_output_flagged_in_scan_record() {
 fn qa_responsiveness_scan_status_returns_promptly() {
     let _sb = Sandbox::new("resp-status");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account("resp-scan", "111122223333", "cloudsaw-scan-resp")
-        .unwrap();
+    scan_storage::try_claim_account("resp-scan", "111122223333", "cloudsaw-scan-resp").unwrap();
     let start = Instant::now();
     let _ = scanner::scan_status("resp-scan").unwrap();
     let elapsed = start.elapsed();
@@ -398,8 +379,7 @@ fn qa_state_transition_pending_to_complete_walks_each_state() {
 fn qa_state_transition_scanning_to_canceled() {
     let _sb = Sandbox::new("state-cancel");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account("cancel-me", "111122223333", "cloudsaw-scan-cancel")
-        .unwrap();
+    scan_storage::try_claim_account("cancel-me", "111122223333", "cloudsaw-scan-cancel").unwrap();
     scan_storage::update_status("cancel-me", ScanStatus::Scanning).unwrap();
 
     let canceled = scanner::cancel_scan("cancel-me").unwrap();
@@ -411,16 +391,12 @@ fn qa_state_transition_scanning_to_canceled() {
 fn qa_state_transition_scanning_to_failed_on_process_loss() {
     let _sb = Sandbox::new("state-process-loss");
     seed_provisioned_account("111122223333", "qa-dev");
-    scan_storage::try_claim_account("lost-scan", "111122223333", "cloudsaw-scan-lost")
-        .unwrap();
+    scan_storage::try_claim_account("lost-scan", "111122223333", "cloudsaw-scan-lost").unwrap();
     scan_storage::update_status("lost-scan", ScanStatus::Scanning).unwrap();
     scanner::reap_stale_on_boot().unwrap();
     let record = scanner::scan_status("lost-scan").unwrap();
     assert_eq!(record.status, ScanStatus::Failed);
-    assert_eq!(
-        record.failure_code.as_deref(),
-        Some("scanner_process_lost")
-    );
+    assert_eq!(record.failure_code.as_deref(), Some("scanner_process_lost"));
 }
 
 // ============================================================================
@@ -433,10 +409,8 @@ fn qa_state_transition_scanning_to_failed_on_process_loss() {
 /// and never caches the returned credentials.
 #[test]
 fn qa_security_assume_role_is_fresh_per_scan_no_cache() {
-    let src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("mod.rs"),
-    )
-    .unwrap();
+    let src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("mod.rs")).unwrap();
     assert!(
         src.contains("sts::assume_scanner_role"),
         "execute_scan_inner must call assume_scanner_role per scan"
@@ -444,17 +418,16 @@ fn qa_security_assume_role_is_fresh_per_scan_no_cache() {
     // No static / lazy_static / OnceLock for credentials anywhere in the
     // scanner module.
     let storage_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("storage.rs"),
+        manifest_dir()
+            .join("src")
+            .join("scanner")
+            .join("storage.rs"),
     )
     .unwrap();
-    let sts_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("sts.rs"),
-    )
-    .unwrap();
-    let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("runner.rs"),
-    )
-    .unwrap();
+    let sts_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("sts.rs")).unwrap();
+    let runner_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("runner.rs")).unwrap();
     let lower = |s: &str| s.to_ascii_lowercase();
     for module_src in [&src, &storage_src, &sts_src, &runner_src] {
         let lower = lower(module_src);
@@ -488,10 +461,8 @@ fn qa_security_assume_role_session_duration_is_bounded() {
 /// before constructing the Command — we check the source structurally.
 #[test]
 fn qa_security_run_path_invokes_locate_and_verify() {
-    let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("runner.rs"),
-    )
-    .unwrap();
+    let runner_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("runner.rs")).unwrap();
     let spawn_block = runner_src
         .split("pub fn spawn_scoutsuite")
         .nth(1)
@@ -507,10 +478,8 @@ fn qa_security_run_path_invokes_locate_and_verify() {
 /// no shell anywhere in the runner.
 #[test]
 fn qa_security_runner_source_has_no_shell_invocation() {
-    let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("runner.rs"),
-    )
-    .unwrap();
+    let runner_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("runner.rs")).unwrap();
     let code_only: String = runner_src
         .lines()
         .map(|l| match l.find("//") {
@@ -550,10 +519,8 @@ fn qa_security_runner_source_has_no_shell_invocation() {
 /// We verify the structural property by reading the source.
 #[test]
 fn qa_security_credentials_go_only_to_child_environment() {
-    let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("runner.rs"),
-    )
-    .unwrap();
+    let runner_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("runner.rs")).unwrap();
     // Credentials are set via `cmd.env(...)` on the Command — which writes
     // to the per-Command env map, not the parent process.
     assert!(
@@ -582,10 +549,8 @@ fn qa_security_credentials_go_only_to_child_environment() {
 
     // Parent-side check: the orchestrator does NOT call env::set_var for
     // AWS_* either.
-    let mod_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("mod.rs"),
-    )
-    .unwrap();
+    let mod_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("mod.rs")).unwrap();
     let mod_code_only: String = mod_src
         .lines()
         .filter(|l| !l.trim_start().starts_with("//"))
@@ -604,14 +569,10 @@ fn qa_security_credentials_go_only_to_child_environment() {
 /// appears in the runner or orchestrator.
 #[test]
 fn qa_security_credentials_never_written_to_disk() {
-    let runner_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("runner.rs"),
-    )
-    .unwrap();
-    let mod_src = fs::read_to_string(
-        manifest_dir().join("src").join("scanner").join("mod.rs"),
-    )
-    .unwrap();
+    let runner_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("runner.rs")).unwrap();
+    let mod_src =
+        fs::read_to_string(manifest_dir().join("src").join("scanner").join("mod.rs")).unwrap();
     for src in [&runner_src, &mod_src] {
         for forbidden in [
             "fs::write(&creds",
@@ -725,10 +686,8 @@ fn qa_security_role_session_name_identifies_scan_and_fits_aws_limit() {
 /// would let the frontend retrieve credentials or skip the role gate.
 #[test]
 fn qa_security_no_credential_returning_ipc_commands() {
-    let ipc_src = fs::read_to_string(
-        manifest_dir().join("src").join("ipc").join("mod.rs"),
-    )
-    .unwrap();
+    let ipc_src =
+        fs::read_to_string(manifest_dir().join("src").join("ipc").join("mod.rs")).unwrap();
     for forbidden in [
         "scanner_get_credentials",
         "scanner_assume_role",

@@ -18,9 +18,8 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::knowledgebase::{
-    self,
-    refresh::Fetcher,
-    registry, storage, KnowledgebaseError, KnowledgeSource, RefreshSettingsUpdate,
+    self, refresh::Fetcher, registry, storage, KnowledgeSource, KnowledgebaseError,
+    RefreshSettingsUpdate,
 };
 
 fn env_lock() -> &'static Mutex<()> {
@@ -94,7 +93,9 @@ impl Fetcher for ScriptedFetcher {
         match &self.payload {
             Ok(b) => Ok(b.clone()),
             Err(e) => match e {
-                KnowledgebaseError::RefreshUnreachable => Err(KnowledgebaseError::RefreshUnreachable),
+                KnowledgebaseError::RefreshUnreachable => {
+                    Err(KnowledgebaseError::RefreshUnreachable)
+                }
                 KnowledgebaseError::RefreshInvalidContent => {
                     Err(KnowledgebaseError::RefreshInvalidContent)
                 }
@@ -107,7 +108,10 @@ impl Fetcher for ScriptedFetcher {
 fn fixture_bundle(version: &str, articles: &[(&str, &str)]) -> Vec<u8> {
     let mut articles_map = serde_json::Map::new();
     for (id, body) in articles {
-        articles_map.insert((*id).to_string(), serde_json::Value::String((*body).to_string()));
+        articles_map.insert(
+            (*id).to_string(),
+            serde_json::Value::String((*body).to_string()),
+        );
     }
     let v = serde_json::json!({
         "version": version,
@@ -141,8 +145,14 @@ fn qa_happy_get_article_populates_known_finding() {
     let article = knowledgebase::get_article("iam-user-no-mfa").unwrap();
     assert!(article.matched);
     assert_eq!(article.source, KnowledgeSource::Bundled);
-    assert!(!article.description.is_empty(), "description must be populated");
-    assert!(!article.remediation.is_empty(), "remediation must be populated");
+    assert!(
+        !article.description.is_empty(),
+        "description must be populated"
+    );
+    assert!(
+        !article.remediation.is_empty(),
+        "remediation must be populated"
+    );
     assert!(article.title.to_lowercase().contains("mfa"));
 }
 
@@ -171,7 +181,10 @@ fn qa_happy_get_control_mappings_returns_all_four_frameworks() {
     assert!(m.frameworks.contains_key("hipaa"));
     assert!(m.frameworks.contains_key("nist"));
     for (_, controls) in m.frameworks.iter() {
-        assert!(!controls.is_empty(), "every mapped framework should list controls");
+        assert!(
+            !controls.is_empty(),
+            "every mapped framework should list controls"
+        );
         for c in controls {
             assert!(!c.control_id.is_empty());
             assert!(!c.title.is_empty());
@@ -219,7 +232,10 @@ fn qa_happy_remote_refresh_replaces_content_when_applied() {
     // A finding from the bundled set is now NOT available — the remote
     // bundle is the authoritative source while active.
     let bundled_lookup = knowledgebase::get_article("iam-user-no-mfa").unwrap();
-    assert!(!bundled_lookup.matched, "remote bundle replaces bundled set");
+    assert!(
+        !bundled_lookup.matched,
+        "remote bundle replaces bundled set"
+    );
 
     // ... but disabling reverts to bundled.
     knowledgebase::set_refresh_settings(RefreshSettingsUpdate {
@@ -241,8 +257,14 @@ fn qa_error_uncovered_finding_returns_default_with_matched_false() {
     let _sb = Sandbox::new("error-uncovered");
     let a = knowledgebase::get_article("ec2-eldritch-horror-finding-not-real").unwrap();
     assert!(!a.matched);
-    assert!(!a.description.is_empty(), "default article still renders something");
-    assert!(!a.remediation.is_empty(), "default article still gives a hint");
+    assert!(
+        !a.description.is_empty(),
+        "default article still renders something"
+    );
+    assert!(
+        !a.remediation.is_empty(),
+        "default article still gives a hint"
+    );
 }
 
 #[test]
@@ -262,8 +284,7 @@ fn qa_error_article_missing_sections_loads_with_empty_strings() {
     })
     .unwrap();
 
-    let partial_body =
-        "## Description\nA partial article.\n\n## Remediation\nFix.";
+    let partial_body = "## Description\nA partial article.\n\n## Remediation\nFix.";
     let body = fixture_bundle("partial-1", &[("partial-finding", partial_body)]);
     let fetcher = ScriptedFetcher::ok(body);
     knowledgebase::apply_kb_update_with_fetcher(&fetcher).unwrap();
@@ -288,8 +309,12 @@ fn qa_error_article_with_unexpected_h2_lands_in_unmatched_sections() {
     })
     .unwrap();
 
-    let body_with_extra_section = "## Description\nd\n\n## Compliance Mapping\nSOC 2 CC6.1.\n\n## Remediation\nr";
-    let body = fixture_bundle("extra-1", &[("extra-section-finding", body_with_extra_section)]);
+    let body_with_extra_section =
+        "## Description\nd\n\n## Compliance Mapping\nSOC 2 CC6.1.\n\n## Remediation\nr";
+    let body = fixture_bundle(
+        "extra-1",
+        &[("extra-section-finding", body_with_extra_section)],
+    );
     let fetcher = ScriptedFetcher::ok(body);
     knowledgebase::apply_kb_update_with_fetcher(&fetcher).unwrap();
 
@@ -298,7 +323,9 @@ fn qa_error_article_with_unexpected_h2_lands_in_unmatched_sections() {
     assert_eq!(a.description, "d");
     assert_eq!(a.remediation, "r");
     assert_eq!(
-        a.unmatched_sections.get("Compliance Mapping").map(String::as_str),
+        a.unmatched_sections
+            .get("Compliance Mapping")
+            .map(String::as_str),
         Some("SOC 2 CC6.1."),
         "unknown H2 surfaces in unmatched_sections"
     );
@@ -454,7 +481,10 @@ fn qa_state_bundled_to_remote_to_failure_to_revert() {
         repo_url: None,
     })
     .unwrap();
-    let body = fixture_bundle("v-state-1", &[("state-article", "# State\n\n## Description\nstate")]);
+    let body = fixture_bundle(
+        "v-state-1",
+        &[("state-article", "# State\n\n## Description\nstate")],
+    );
     let result = knowledgebase::apply_kb_update_with_fetcher(&ScriptedFetcher::ok(body)).unwrap();
     assert!(result.applied);
     let a1 = knowledgebase::get_article("state-article").unwrap();
@@ -462,8 +492,8 @@ fn qa_state_bundled_to_remote_to_failure_to_revert() {
     assert_eq!(a1.source, KnowledgeSource::Remote);
 
     // 3) Failing refresh leaves remote-cached set intact.
-    let err = knowledgebase::apply_kb_update_with_fetcher(&ScriptedFetcher::unreachable())
-        .unwrap_err();
+    let err =
+        knowledgebase::apply_kb_update_with_fetcher(&ScriptedFetcher::unreachable()).unwrap_err();
     assert!(matches!(err, KnowledgebaseError::RefreshUnreachable));
     let a2 = knowledgebase::get_article("state-article").unwrap();
     assert!(a2.matched);
@@ -492,7 +522,10 @@ fn qa_state_new_framework_appears_via_data_only() {
     .unwrap();
     // The fixture bundle defines a new framework (pcidss). The contract
     // says new frameworks land via data, no code change.
-    let body = fixture_bundle("v-fw", &[("remote-only-finding", "# t\n\n## Description\nx")]);
+    let body = fixture_bundle(
+        "v-fw",
+        &[("remote-only-finding", "# t\n\n## Description\nx")],
+    );
     knowledgebase::apply_kb_update_with_fetcher(&ScriptedFetcher::ok(body)).unwrap();
 
     let frameworks = knowledgebase::list_frameworks().unwrap();
@@ -517,7 +550,10 @@ fn qa_security_refresh_defaults_off() {
     let _sb = Sandbox::new("security-default-off");
     let settings = knowledgebase::get_refresh_settings().unwrap();
     assert!(!settings.enabled, "remote refresh MUST be off by default");
-    assert!(!settings.remote_active, "remote source MUST be inactive by default");
+    assert!(
+        !settings.remote_active,
+        "remote source MUST be inactive by default"
+    );
 }
 
 #[test]
@@ -526,7 +562,10 @@ fn qa_security_apply_refuses_when_disabled() {
     let fetcher = ScriptedFetcher::ok(fixture_bundle("1", &[("x", "# y")]));
     let err = knowledgebase::apply_kb_update_with_fetcher(&fetcher).unwrap_err();
     assert!(matches!(err, KnowledgebaseError::RefreshDisabled));
-    assert!(fetcher.requested_urls().is_empty(), "must not fetch when disabled");
+    assert!(
+        fetcher.requested_urls().is_empty(),
+        "must not fetch when disabled"
+    );
 }
 
 #[test]

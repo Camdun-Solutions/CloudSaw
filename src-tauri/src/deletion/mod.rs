@@ -121,7 +121,10 @@ pub fn hard_delete_scan(
     //    count plus affected paths, NEVER the content.
     let mut event = EventInput::new(
         EventKind::ScanDeleted,
-        format!("Hard-deleted scan {scan_id} ({} findings).", impact.findings_removed),
+        format!(
+            "Hard-deleted scan {scan_id} ({} findings).",
+            impact.findings_removed
+        ),
     )
     .with_scan_id(scan_id)
     .with_item_count(impact.findings_removed as i64);

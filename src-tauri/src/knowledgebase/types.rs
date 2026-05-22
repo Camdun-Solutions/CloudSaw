@@ -75,11 +75,10 @@ impl KnowledgeArticle {
                     .to_string(),
             risk: String::new(),
             detection_logic: String::new(),
-            remediation:
-                "Review the resources listed for this finding, consult the relevant AWS \
+            remediation: "Review the resources listed for this finding, consult the relevant AWS \
                  service documentation, and apply least-privilege changes to bring the \
                  configuration in line with your security baseline."
-                    .to_string(),
+                .to_string(),
             terraform_fix: String::new(),
             aws_cli_fix: String::new(),
             false_positives: String::new(),

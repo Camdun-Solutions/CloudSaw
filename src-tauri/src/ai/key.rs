@@ -11,9 +11,7 @@ use zeroize::Zeroizing;
 
 use super::error::AiError;
 use super::types::Provider;
-use crate::keychain::{
-    self, LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_OPENAI, LLM_KEY_SERVICE,
-};
+use crate::keychain::{self, LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_OPENAI, LLM_KEY_SERVICE};
 
 fn account_for(provider: Provider) -> &'static str {
     match provider {
@@ -35,8 +33,7 @@ pub fn set(provider: Provider, value: Zeroizing<String>) -> Result<(), AiError> 
     if !looks_like_key(provider, trimmed) {
         return Err(AiError::InvalidInput("ai_api_key"));
     }
-    keychain::set(LLM_KEY_SERVICE, account_for(provider), trimmed)
-        .map_err(|_| AiError::Network)
+    keychain::set(LLM_KEY_SERVICE, account_for(provider), trimmed).map_err(|_| AiError::Network)
 }
 
 pub fn clear(provider: Provider) -> Result<(), AiError> {

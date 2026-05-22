@@ -36,10 +36,7 @@ pub fn write_export(
     content: &ReportContent,
     format_label: &str,
 ) -> Result<ExportOutcome, ReportsError> {
-    if output_path.is_empty()
-        || output_path.ends_with('/')
-        || output_path.ends_with('\\')
-    {
+    if output_path.is_empty() || output_path.ends_with('/') || output_path.ends_with('\\') {
         return Err(ReportsError::InvalidInput("output_path"));
     }
     let target = PathBuf::from(output_path);
@@ -75,7 +72,7 @@ pub fn write_export(
     let bytes_written = bytes.len() as u64;
 
     // Auto-export copy.
-    let s = settings::read().unwrap_or_else(|_| settings::ReportSettings {
+    let s = settings::read().unwrap_or(settings::ReportSettings {
         auto_export_enabled: false,
         auto_export_folder: None,
         mask_account_ids_default: true,

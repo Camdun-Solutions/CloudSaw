@@ -155,7 +155,9 @@ mod tests {
         let body = "## Description\nd\n\n## Compliance Mapping\nSOC 2 CC6.1.\n\n## Remediation\nr";
         let a = parse_article("x", KnowledgeSource::Bundled, body);
         assert_eq!(
-            a.unmatched_sections.get("Compliance Mapping").map(String::as_str),
+            a.unmatched_sections
+                .get("Compliance Mapping")
+                .map(String::as_str),
             Some("SOC 2 CC6.1.")
         );
         assert_eq!(a.description, "d");

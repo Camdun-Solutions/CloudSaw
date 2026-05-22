@@ -40,9 +40,7 @@ pub mod pdf;
 pub mod settings;
 
 pub use error::ReportsError;
-pub use model::{
-    AccountIdDisclosure, ExportOutcome, ReportContent, ReportKind,
-};
+pub use model::{AccountIdDisclosure, ExportOutcome, ReportContent, ReportKind};
 pub use settings::ReportSettings;
 
 use chrono::{DateTime, Utc};
