@@ -72,7 +72,7 @@ pub fn write_export(
     let bytes_written = bytes.len() as u64;
 
     // Auto-export copy.
-    let s = settings::read().unwrap_or_else(|_| settings::ReportSettings {
+    let s = settings::read().unwrap_or(settings::ReportSettings {
         auto_export_enabled: false,
         auto_export_folder: None,
         mask_account_ids_default: true,

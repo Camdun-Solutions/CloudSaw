@@ -185,7 +185,7 @@ fn render_user_message(
         "- Resources of this type: checked {} / flagged {}\n",
         digest.checked_items, digest.flagged_items
     ));
-    s.push_str("\n");
+    s.push('\n');
     s.push_str("## Business context (user-supplied, structured)\n\n");
     s.push_str(&format!("- Industry: {}\n", none_if_empty(&ctx.industry)));
     s.push_str(&format!(
@@ -205,12 +205,12 @@ fn render_user_message(
         risk_label(ctx.risk_tolerance)
     ));
     s.push_str(&format!("- Team size: {}\n", team_label(ctx.team_size)));
-    s.push_str("\n");
+    s.push('\n');
     s.push_str("## Placeholders you may see and MUST keep as-is\n\n");
     for ph in placeholders {
         s.push_str(&format!("- `{ph}`\n"));
     }
-    s.push_str("\n");
+    s.push('\n');
     s.push_str(
         "Please suggest concrete remediation steps. Keep any placeholder \
          tokens unchanged in your response.",

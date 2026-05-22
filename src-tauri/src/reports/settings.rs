@@ -72,7 +72,7 @@ pub fn read() -> Result<ReportSettings, ReportsError> {
         } else {
             Some(folder_raw)
         },
-        mask_account_ids_default: !(mask_raw == "0"),
+        mask_account_ids_default: (mask_raw != "0"),
     })
 }
 

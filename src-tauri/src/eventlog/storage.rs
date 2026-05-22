@@ -226,7 +226,7 @@ pub fn purge_older_than(cutoff: DateTime<Utc>) -> Result<usize, EventLogError> {
         "DELETE FROM event_log WHERE occurred_at < ?1",
         params![cutoff.to_rfc3339()],
     )?;
-    Ok(affected as usize)
+    Ok(affected)
 }
 
 /// Total row count. Used by the QA contract's responsiveness check.

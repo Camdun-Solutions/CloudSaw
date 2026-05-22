@@ -283,7 +283,7 @@ pub fn prepare_finding_ticket(
             let masked = redact::redact_line(&r.resource_path);
             body.push_str(&format!("- `{masked}`\n"));
         }
-        body.push_str("\n");
+        body.push('\n');
     }
     body.push_str("---\n\nFiled from CloudSaw. Account IDs are masked; ARNs are truncated.\n");
 

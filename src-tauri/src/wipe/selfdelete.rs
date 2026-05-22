@@ -27,7 +27,7 @@ pub fn stage_self_delete() -> io::Result<()> {
     let exe = std::env::current_exe()?;
     let app_dir = exe
         .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no parent dir for exe"))?
+        .ok_or_else(|| io::Error::other("no parent dir for exe"))?
         .to_path_buf();
 
     #[cfg(target_os = "windows")]

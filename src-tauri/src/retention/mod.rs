@@ -176,20 +176,16 @@ fn purge_scan_output(cutoff: chrono::DateTime<Utc>) -> Result<(usize, usize), Re
     for (scan_id, raw_path) in candidates {
         if let Some(p) = raw_path.as_deref() {
             let path = std::path::Path::new(p);
-            if path.is_file() {
-                if std::fs::remove_file(path).is_ok() {
-                    raw_files_removed += 1;
-                }
+            if path.is_file() && std::fs::remove_file(path).is_ok() {
+                raw_files_removed += 1;
             }
         }
         // Remove the per-scan directory if it exists and is empty enough
         // for a recursive remove. We always know the canonical path
         // (`scans/{scan-id}/`) so the unlink never escapes that subtree.
         let dir = scans_root.join(&scan_id);
-        if dir.is_dir() {
-            if std::fs::remove_dir_all(&dir).is_ok() {
-                scan_dirs_removed += 1;
-            }
+        if dir.is_dir() && std::fs::remove_dir_all(&dir).is_ok() {
+            scan_dirs_removed += 1;
         }
         // Clear `raw_output_path` so a subsequent re-parse surfaces a
         // stable "raw output missing" error instead of a dangling path.

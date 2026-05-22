@@ -190,9 +190,8 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
     let mut buf = BufWriter::new(Vec::<u8>::new());
     doc.save(&mut buf)
         .map_err(|e| ReportsError::PdfRender(e.to_string()))?;
-    Ok(buf
-        .into_inner()
-        .map_err(|e| ReportsError::PdfRender(format!("bufwriter: {e}")))?)
+    buf.into_inner()
+        .map_err(|e| ReportsError::PdfRender(format!("bufwriter: {e}")))
 }
 
 fn write_finding(
@@ -352,10 +351,9 @@ fn write_text_wrapped(
 }
 
 fn split_at_chars(s: &str, n: usize) -> (&str, &str) {
-    let mut idx = 0;
     let mut count = 0;
     for (i, c) in s.char_indices() {
-        idx = i + c.len_utf8();
+        let idx = i + c.len_utf8();
         count += 1;
         if count >= n {
             return (&s[..idx], &s[idx..]);

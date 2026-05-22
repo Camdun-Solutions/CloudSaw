@@ -227,7 +227,7 @@ pub fn build_custom(
             .cmp(&severity_rank(b.severity))
             .then(b.last_seen_at.cmp(&a.last_seen_at))
     });
-    scan_summaries.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    scan_summaries.sort_by_key(|b| std::cmp::Reverse(b.started_at));
 
     let per_service: Vec<PerServiceTotals> = service_index
         .into_iter()

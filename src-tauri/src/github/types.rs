@@ -94,7 +94,7 @@ impl DiagnosticBundle {
             "- **Generated at:** {}\n",
             self.generated_at.to_rfc3339()
         ));
-        s.push_str("\n");
+        s.push('\n');
         if let Some(notes) = &self.notes {
             if !notes.trim().is_empty() {
                 s.push_str("## What you were doing\n\n");
