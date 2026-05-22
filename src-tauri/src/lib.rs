@@ -44,6 +44,16 @@ pub fn run() {
         // Native save / open file dialog plugin used by the Contract 15
         // report exporter to source output paths.
         .plugin(tauri_plugin_dialog::init())
+        // Tauri auto-updater (Contract 16). Configured in
+        // `tauri.conf.json` with the production manifest URL and the
+        // maintainer-provided Ed25519 public key. The plugin verifies
+        // the signature of every fetched update before applying; an
+        // unsigned or mis-signed update is rejected (Contract 16
+        // §Constraints + §Security Check). The plugin is registered
+        // unconditionally — the application UI is what decides whether
+        // to PROMPT the user (notify-only); applying happens only on
+        // explicit IPC.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(session)
         .invoke_handler(tauri::generate_handler![
             ipc::app_version,

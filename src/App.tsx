@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ErrorBoundary, ErrorReportDialog } from "@/components";
+import { ErrorBoundary, ErrorReportDialog, UpdateBanner } from "@/components";
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
@@ -136,8 +136,14 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary
-      fallback={({ errorMessage, clear }) => (
+    <>
+      {/* Auto-updater banner (Contract 16C). Renders only when a
+        verified update is available. The component is dynamic-import
+        gated so the browser preview (no Tauri runtime) doesn't crash
+        on the plugin import. */}
+      <UpdateBanner />
+      <ErrorBoundary
+        fallback={({ errorMessage, clear }) => (
         <>
           <main className="min-h-full bg-saw-grey-50 flex items-center justify-center px-6 py-12">
             <div className="max-w-md text-center">
@@ -204,7 +210,8 @@ export default function App() {
           setRoute("settings");
         }}
       />
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </>
   );
 }
 

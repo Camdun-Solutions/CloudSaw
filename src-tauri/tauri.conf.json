@@ -40,12 +40,24 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "createUpdaterArtifacts": true,
     "resources": {
       "tf-modules/scanner-role/versions.tf": "tf-modules/scanner-role/versions.tf",
       "tf-modules/scanner-role/variables.tf": "tf-modules/scanner-role/variables.tf",
       "tf-modules/scanner-role/main.tf": "tf-modules/scanner-role/main.tf",
       "tf-modules/scanner-role/outputs.tf": "tf-modules/scanner-role/outputs.tf",
       "tf-modules/scanner-role/README.md": "tf-modules/scanner-role/README.md"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Camdun-Solutions/CloudSaw/releases/latest/download/latest.json"
+      ],
+      "pubkey": "<MAINTAINER-FILLS-IN-AT-RELEASE-TIME>",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

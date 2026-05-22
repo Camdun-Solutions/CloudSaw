@@ -1,12 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability set for the main window. Grants the IPC core surface plus the Tauri dialog plugin used by the Contract 15 report exporter.",
+  "description": "Default capability set for the main window. Grants the IPC core surface plus the Tauri plugins used by Contracts 15 (dialog: native save/open) and 16 (updater: signed update check + explicit-apply). The updater plugin is registered globally so the IPC can check for updates; applying an update still requires the explicit `download-and-install` call gated by an in-app user action (notify-only — Contract 16 §Constraints).",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:default",
     "dialog:allow-save",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }
