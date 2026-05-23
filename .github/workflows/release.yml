@@ -115,12 +115,16 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Tauri-updater signing — Contract 16 §Constraints: these
-          # secrets are NOT used in CI. They are intentionally left
-          # unset here so that any signed-update artifact emitted by
-          # this workflow goes unsigned and the maintainer signs
-          # `latest.json` locally and attaches it (approach #1 in
-          # docs/release-signing.md).
+          # Tauri updater signing — CI-side signing posture (approach #2
+          # in docs/release-signing.md). The Ed25519 private key is held
+          # as a GitHub Actions encrypted repository secret and decrypted
+          # into THIS step's process environment only for the duration of
+          # `tauri build`. The secret is never committed, never echoed,
+          # and the env mapping is scoped to this single step (not the
+          # whole job) to keep exposure minimum. A future hardening step
+          # is OIDC-gated retrieval from an external vault (approach #3).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --bundles ${{ matrix.platform.bundles }}
 
       - name: compute sha-256 checksums

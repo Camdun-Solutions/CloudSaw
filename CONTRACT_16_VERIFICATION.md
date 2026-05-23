@@ -59,10 +59,15 @@ security pipeline, the locale population pass, and the
   not verify is rejected by the plugin BEFORE the banner is rendered.
 - Key custody documented in
   [`docs/release-signing.md`](docs/release-signing.md): the private
-  key lives ONLY in the maintainer's password manager + offline
-  backup. The release workflow uses **approach #1** (local signing) —
-  the workflow comment in `release.yml` explicitly states
-  "these secrets are NOT used in CI."
+  key is held as a GitHub Actions encrypted repository secret
+  (`TAURI_SIGNING_PRIVATE_KEY`, paired with
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`). The release workflow uses
+  **approach #2** (CI-side signing via encrypted Actions secrets) —
+  the workflow's `tauri build` step maps both secrets into its own
+  `env:` block via `${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}` so the
+  value is never committed and never visible in workflow logs. The
+  QA test `security_release_workflow_loads_updater_private_key_from_secrets_only`
+  enforces that the env mapping is the only path to the key.
 
 **Dependabot security pipeline (16D)**
 
@@ -153,7 +158,7 @@ security pipeline, the locale population pass, and the
 |---|---|---|
 | The updater is notify-only; it never silently applies updates. | `UpdateBanner.downloadAndInstall` runs only inside the `onClick` of the "Install update" button. There is no `useEffect` or other side-effect path that calls it. The plugin's API mirrors the same shape. | ✅ |
 | The updater verifies the Ed25519 signature before applying; an unsigned or wrongly-signed update is rejected. | `tauri-plugin-updater`'s `check()` and `download()` calls perform Ed25519 verification against the configured `pubkey`. The plugin's source-level invariant is well-documented upstream. Operator-driven: substitute a wrongly-signed `latest.json` in a test endpoint and confirm the banner stays hidden / shows the error. | ✅ + 🧑 |
-| The Ed25519 updater private key is absent from the repo and from plaintext CI secrets; a secured custody approach is used. | `security_repo_does_not_contain_a_committed_updater_private_key` walks the repo (excluding `vendor/`, `node_modules/`, `target/`, the QA test file) and asserts no `BEGIN ED25519 PRIVATE KEY` / `untrusted comment: rsa encrypted secret key` / `untrusted comment: minisign encrypted secret key` substring is present. `security_release_workflow_does_not_load_updater_private_key_in_ci` confirms `release.yml` explicitly states the secret is NOT used in CI. `docs/release-signing.md` documents approach #1 (local signing) as the chosen custody pattern. | ✅ |
+| The Ed25519 updater private key is absent from the repo and held only as a GitHub Actions encrypted secret; a secured custody approach is used. | `security_repo_does_not_contain_a_committed_updater_private_key` walks the repo (excluding `vendor/`, `node_modules/`, `target/`, the QA test file) and asserts no `BEGIN ED25519 PRIVATE KEY` / `untrusted comment: rsa encrypted secret key` / `untrusted comment: minisign encrypted secret key` substring is present. `security_release_workflow_loads_updater_private_key_from_secrets_only` confirms `release.yml` sources `TAURI_SIGNING_PRIVATE_KEY` (and its password) only through the `${{ secrets.* }}` reference — never as a pasted literal — and that the workflow comment references approach #2 by name. `docs/release-signing.md` documents approach #2 (CI-side signing via encrypted Actions secrets) as the chosen custody pattern. | ✅ |
 | All GitHub Actions are pinned to full commit SHAs. | `security_release_workflow_pins_actions_to_full_commit_shas` enforces 40-hex-char SHA pinning on every `uses:` in `release.yml`. The pre-existing CI workflow (`ci.yml`) was already SHA-pinned per Contract 01. | ✅ |
 | Every release publishes SHA-256 checksums, SLSA build-provenance attestations, and CycloneDX SBOMs. | `security_release_workflow_publishes_checksums_sboms_and_attestations` verifies the workflow includes every required step. | ✅ |
 | The Dependabot security pipeline does not auto-merge or auto-release; a human approval gate is enforced. | `security_dependabot_security_workflow_does_not_auto_merge_or_auto_release` confirms the workflow contains no merge calls. The fast-track action only adds labels + a comment. Human approval is enforced by the master-branch protection. | ✅ |
