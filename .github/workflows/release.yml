@@ -159,10 +159,28 @@ jobs:
       - name: generate cyclonedx sboms
         if: matrix.platform.name == 'linux'
         run: |
+          set -euo pipefail
+          # `cargo cyclonedx` 0.5+ changed its default output path (the
+          # SBOM can land in src-tauri/, src-tauri/target/cyclonedx/<crate>/,
+          # or elsewhere depending on version). `find` it after the tool
+          # runs so a future cargo-cyclonedx release doesn't break this
+          # step silently.
           cargo cyclonedx --manifest-path src-tauri/Cargo.toml \
             --format json --override-filename cloudsaw-rust-sbom
-          mv src-tauri/cloudsaw-rust-sbom.cdx.json out/cloudsaw-rust-sbom.cdx.json
+          SBOM=$(find src-tauri -type f \
+            \( -name "cloudsaw-rust-sbom*.cdx.json" \
+               -o -name "cloudsaw-rust-sbom*.json" \) -print -quit)
+          if [ -z "${SBOM:-}" ]; then
+            echo "::error::cargo cyclonedx produced no SBOM under src-tauri/"
+            echo "Files that look SBOM-shaped:"
+            find src-tauri \( -name "*.cdx.json" -o -path "*cyclonedx*" \) -print || true
+            exit 1
+          fi
+          echo "Found Rust SBOM at: $SBOM"
+          mv "$SBOM" out/cloudsaw-rust-sbom.cdx.json
           npx @cyclonedx/cyclonedx-npm --output-file out/cloudsaw-npm-sbom.cdx.json
+          test -s out/cloudsaw-rust-sbom.cdx.json
+          test -s out/cloudsaw-npm-sbom.cdx.json
         continue-on-error: false
 
       - name: attest build provenance # using actions/attest per v4 release notes deprecating attest-build-provenance
