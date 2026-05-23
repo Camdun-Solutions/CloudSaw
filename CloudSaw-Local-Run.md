@@ -241,7 +241,10 @@ the browser console (DEV builds only — stripped in release).
   that produces signed/notarized macOS DMGs and GPG-signed Linux
   artifacts.
 * **Real auto-updater verification.** The dev build still calls
-  the update endpoint, but the `tauri.conf.json` `pubkey` is a
-  documented placeholder until the maintainer rotates in a real
-  one. Updates with the placeholder pubkey are REJECTED — the
-  documented safe default.
+  the update endpoint and verifies the Ed25519 signature on
+  `latest.json` against the configured `tauri.conf.json` `pubkey`
+  (minisign `1A6CC676BC0CFA2E`). A dev build will only accept an
+  update whose signature was produced by the matching private key,
+  which lives offline in the maintainer's custody — so locally
+  running `tauri build` and publishing an unsigned `latest.json`
+  will (correctly) be rejected.

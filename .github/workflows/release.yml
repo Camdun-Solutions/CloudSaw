@@ -47,7 +47,14 @@ jobs:
   build:
     name: build (${{ matrix.platform.name }})
     runs-on: ${{ matrix.platform.runner }}
-    timeout-minutes: 90
+    # 150 min ceiling — `tauri build` on macOS shells out to
+    # `xcrun notarytool submit --wait`, which polls Apple until they
+    # respond. Apple's queue normally settles in 5–15 min, but spikes
+    # to 30–60 min have been observed; the job timeout has to be
+    # higher than the worst-case wait or the runner kills the build
+    # mid-notarize and the platform job goes red with no signed
+    # artifact. Linux/Windows builds finish in well under this limit.
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

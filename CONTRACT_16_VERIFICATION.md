@@ -45,8 +45,9 @@ security pipeline, the locale population pass, and the
 - Updater config in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json):
   - `plugins.updater.endpoints` — single HTTPS URL pointing at the
     GitHub Releases `latest.json` artifact.
-  - `plugins.updater.pubkey` — placeholder string. The maintainer
-    rotates a real key per `docs/release-signing.md`.
+  - `plugins.updater.pubkey` — base64-encoded minisign public key
+    `1A6CC676BC0CFA2E` (Ed25519 verifier). Rotation procedure lives
+    in `docs/release-signing.md`.
   - `bundle.createUpdaterArtifacts: true` so `tauri build` emits
     the signed update files.
 - UI: [`src/components/UpdateBanner.tsx`](src/components/UpdateBanner.tsx)
@@ -234,6 +235,26 @@ shipping `2026.MM.0`:
    chosen locale.
 7. **Local-run doc.** Follow `CloudSaw-Local-Run.md` end-to-end on
    each platform; confirm the dev build runs.
+8. **Verify publishing.** After the draft Release is created by the
+   workflow, confirm the maintainer's manual publish step lands the
+   release in its expected final state on GitHub Releases:
+   - Release is flipped from "Draft" to "Published" (visible to
+     unauthenticated viewers).
+   - All expected assets are attached: macOS `.dmg` + `.app`, Linux
+     `.AppImage` + `.deb` + detached `.asc` signature, Windows
+     `.exe`, per-platform `SHA256SUMS-*.txt`, combined
+     `SHA256SUMS.txt`, Rust + npm CycloneDX SBOMs, SLSA
+     attestation bundle.
+   - Release tag matches the pushed CalVer tag exactly
+     (`YYYY.MM.PATCH`).
+   - Release body documents per-platform signing status honestly
+     (macOS signed/notarized, Linux GPG-signed, Windows unsigned)
+     and links to `docs/release-signing.md`.
+   - `latest.json` for the updater endpoint resolves to the new
+     version (curl the configured endpoint; confirm `version`
+     field matches the tag).
+   - A fresh install from each platform's asset launches and
+     reports the new version in About / Settings.
 
 ---
 
