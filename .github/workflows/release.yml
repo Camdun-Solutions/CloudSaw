@@ -18,10 +18,14 @@
 #              §Constraints document the absence; the website /
 #              install guide carries the disclaimer.
 #
-# The Ed25519 updater key is NOT loaded into CI. The maintainer
-# signs the `latest.json` manifest locally with the key from their
-# password manager and attaches it to the release alongside the
-# binaries. Approach #1 from docs/release-signing.md.
+# The Ed25519 updater key IS loaded into CI as the
+# TAURI_SIGNING_PRIVATE_KEY repository secret (paired with
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD). The `tauri build` step below
+# maps both into its own env: block; the values are decrypted into
+# the runner's process environment only for that step's duration.
+# Approach #2 from docs/release-signing.md. Approach #1 (local
+# signing) is documented as the alternative; approach #3 (OIDC-gated
+# vault) is the future hardening target.
 #
 # Every Action is pinned to a full commit SHA — Contract 16
 # §Constraints. The trailing comment is informational; updates
@@ -115,14 +119,16 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Tauri updater signing — CI-side signing posture (approach #2
+          # in docs/release-signing.md). The Ed25519 private key is held
+          # as a GitHub Actions encrypted repository secret and decrypted
+          # into THIS step's process environment only for the duration of
+          # `tauri build`. The secret is never committed, never echoed,
+          # and the env mapping is scoped to this single step (not the
+          # whole job) to keep exposure minimum. A future hardening step
+          # is OIDC-gated retrieval from an external vault (approach #3).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Tauri-updater signing (private key/private key password) — Contract 16 §Constraints: these
-          # secrets are OPTIONALLY used in CI. They can be intentionally left
-          # unset here so that any signed-update artifact emitted by
-          # this workflow goes unsigned and the maintainer signs
-          # `latest.json` locally and attaches it (per approach #1 in
-          # docs/release-signing.md).
         run: npx tauri build --bundles ${{ matrix.platform.bundles }}
 
       - name: compute sha-256 checksums
