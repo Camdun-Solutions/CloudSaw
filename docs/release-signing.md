@@ -66,21 +66,45 @@ provisioned by the maintainer through the repo settings**:
 - `TAURI_SIGNING_PRIVATE_KEY` — the contents of the private-key file.
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — the password.
 
-Contract 16 §Constraints requires that these are NOT plaintext CI
-secrets. Two acceptable patterns:
+The private key must never be committed, never written to a workflow
+log, and never persisted to a runner's filesystem. Three custody
+patterns satisfy that bar with increasing levels of hardening:
 
 1. **Local signing** — sign on the maintainer's workstation, attach
    the signed `latest.json` + binaries to the GitHub Release
    manually. The CI workflow builds the unsigned artifacts; the
-   maintainer signs locally and attaches the signature.
-2. **OIDC-gated** — store the secrets in a third-party secret store
-   (HashiCorp Vault, AWS KMS) and have CI authenticate via OpenID
-   Connect, never as a static long-lived token. The secret is
-   retrieved at run time and never written to a workflow log.
+   maintainer signs locally and attaches the signature. The private
+   key never enters CI.
+2. **GitHub Actions encrypted secrets** — store the private key as
+   the `TAURI_SIGNING_PRIVATE_KEY` repository secret (paired with
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`). The release workflow maps
+   both into the `tauri build` step's process environment for the
+   duration of that step only; CI emits signed updater artifacts
+   directly. Secrets are encrypted at rest in GitHub's secret store
+   and scrubbed from workflow logs by GitHub Actions' built-in
+   masking.
+3. **OIDC-gated external vault** — store the secrets in a third-
+   party secret store (HashiCorp Vault, AWS KMS) and have CI
+   authenticate via OpenID Connect, never as a static long-lived
+   token. The secret is retrieved at run time and never written to
+   a workflow log.
 
-For Phase 1 we use approach #1 (local signing). The workflow
-publishes the unsigned binaries + checksums + SBOMs; the maintainer
-signs and uploads `latest.json` separately.
+**Phase 1 (current): approach #2.** The release workflow at
+`.github/workflows/release.yml` maps the two secrets into the
+`tauri build` step's `env:` block, so signed `latest.json` +
+updater artifacts come straight out of CI. The QA test
+`security_release_workflow_loads_updater_private_key_from_secrets_only`
+asserts the env block can only reach the key via the encrypted
+secret reference (i.e. no inline literal). The trade-off vs
+approach #3 is that the secret is decrypted into the runner's
+process environment for the duration of `tauri build`; we mitigate
+by (a) scoping the env mapping to that single step (not the whole
+job), (b) restricting the workflow to tag-triggered runs, and (c)
+not accepting `pull_request` triggers on this workflow so untrusted
+code never runs in the same job.
+
+A future hardening pass moves the secrets to approach #3 (OIDC-gated
+external vault) and drops the long-lived repo-stored secret entirely.
 
 ### Key rotation
 
@@ -112,7 +136,7 @@ command.
 | Private key | Maintainer's password manager + offline backup. | **No.** |
 
 Signing happens locally on the maintainer's workstation (same custody
-pattern as approach #1 above) — `gpg --detach-sign --armor
+pattern as approach #1 above for the Tauri updater key) — `gpg --detach-sign --armor
 cloudsaw_*_amd64.AppImage`. The resulting `.asc` files are attached
 to the GitHub Release alongside the artifacts and the SHA-256
 checksums.
@@ -141,9 +165,16 @@ and the team ID (`APPLE_TEAM_ID` secret).
 
 Contract 16 §Security Check + §Acceptance Criteria require:
 
-- The Ed25519 updater **private** key is absent from this repo and
-  from plaintext CI secrets. The repo grep below should return zero
-  matches: `git grep -n "BEGIN PRIVATE KEY\|tauri-signature"`.
+- The Ed25519 updater **private** key is absent from this repo
+  (never committed as a literal, even in encrypted form). It lives
+  only inside GitHub's encrypted secret store as
+  `TAURI_SIGNING_PRIVATE_KEY`. The repo grep below should return
+  zero matches: `git grep -n "BEGIN PRIVATE KEY\|tauri-signature"`.
+  The release workflow MUST source the key through the
+  `${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}` reference — never as a
+  pasted literal. The QA test
+  `security_release_workflow_loads_updater_private_key_from_secrets_only`
+  enforces both halves.
 - The updater plugin verifies the signature before applying. The
   plugin source-level invariant is enforced by `tauri-plugin-updater`
   itself; the QA report references the upstream verification path.

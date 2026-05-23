@@ -230,25 +230,38 @@ fn happy_release_workflow_documents_signing_status_per_platform() {
 }
 
 #[test]
-fn security_release_workflow_does_not_load_updater_private_key_in_ci() {
-    // Approach #1 in docs/release-signing.md: the maintainer signs
-    // `latest.json` locally. The workflow MUST NOT reference the
-    // updater-signing secrets — that would put the private key into
-    // a plaintext CI environment.
+fn security_release_workflow_loads_updater_private_key_from_secrets_only() {
+    // Approach #2 in docs/release-signing.md: the Ed25519 updater
+    // private key is held as a GitHub Actions encrypted repository
+    // secret and mapped into the `tauri build` step's environment.
+    // This assertion enforces three invariants on `release.yml`:
+    //   1. The workflow reaches the private key via the
+    //      `${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}` reference —
+    //      never as a literal value (which would mean the key was
+    //      pasted into the workflow file itself).
+    //   2. The same applies to the matching password.
+    //   3. A documenting comment references approach #2 by name so a
+    //      future maintainer reading the env block can find the
+    //      policy rationale in docs/release-signing.md.
+    // The repo-wide check
+    // `security_repo_does_not_contain_a_committed_updater_private_key`
+    // covers the no-committed-key half of the policy.
     let yml = read_file(".github/workflows/release.yml");
-    let env_block = yml; // search the whole file
     for needle in [
-        "TAURI_SIGNING_PRIVATE_KEY:", // the variable used by tauri's CLI
+        "TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}",
+        "TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}",
     ] {
-        // We tolerate the documented mention of the variable, but
-        // NOT an env-assignment that pulls a real secret in. The
-        // workflow includes a comment that explicitly says it does
-        // not set the secret; assert that comment exists.
-        let _ = needle;
+        assert!(
+            yml.contains(needle),
+            "release.yml must contain `{needle}` so the private key is sourced only from an encrypted repo secret (approach #2 in docs/release-signing.md)",
+        );
     }
+    // Tripwire: if someone changes the comment to remove the policy
+    // reference, this fires and they have to consciously update both
+    // the workflow AND the docs.
     assert!(
-        env_block.contains("NOT used in CI"),
-        "release.yml must document that the updater private key is not loaded in CI",
+        yml.contains("approach #2"),
+        "release.yml must reference `approach #2` (CI-side signing per docs/release-signing.md) in a documenting comment",
     );
 }
 
