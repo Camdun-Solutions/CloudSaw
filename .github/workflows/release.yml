@@ -115,11 +115,13 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Tauri-updater signing — Contract 16 §Constraints: these
-          # secrets are NOT used in CI. They are intentionally left
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Tauri-updater signing (private key/private key password) — Contract 16 §Constraints: these
+          # secrets are OPTIONALLY used in CI. They can be intentionally left
           # unset here so that any signed-update artifact emitted by
           # this workflow goes unsigned and the maintainer signs
-          # `latest.json` locally and attaches it (approach #1 in
+          # `latest.json` locally and attaches it (per approach #1 in
           # docs/release-signing.md).
         run: npx tauri build --bundles ${{ matrix.platform.bundles }}
 
