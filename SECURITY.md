@@ -12,9 +12,17 @@ Email **security@cloud-saw.com** with:
   - reproduction steps if you have them, and
   - any proof-of-concept code or screenshots.
 
-If you would like to encrypt your report, request the project's PGP public
-key in your initial email; we will respond with it. (Once the key is
-published, its fingerprint will replace this paragraph.)
+If you would like to encrypt your report, use the maintainer PGP key:
+
+  - **Long key ID:** `D932 48B2 4ADA 9EA4`
+  - **Full fingerprint:** `7CBC 9415 96B1 C393 6593 8A5E D932 48B2 4ADA 9EA4`
+
+The ASCII-armored public key is published on `cloud-saw.com` and mirrored
+to `keys.openpgp.org`. **Always verify the fingerprint above matches the
+one printed by `gpg --fingerprint D93248B24ADA9EA4` before encrypting** —
+that is the out-of-band check that protects against a substituted key
+on the keyserver. The same fingerprint is used to verify the detached
+`.asc` signatures on Linux `.AppImage` / `.deb` release artifacts.
 
 Please **do not** open a public GitHub issue for security reports.
 

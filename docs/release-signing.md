@@ -26,11 +26,13 @@ the user is informed; the running app is never replaced silently.
 | Private key (signer) | Maintainer's password manager + offline backup (encrypted USB + paper recovery code). Never on a build machine. | **No.** |
 | Private-key password | Same password manager entry as the key itself. | **No.** |
 
-The placeholder string `<MAINTAINER-FILLS-IN-AT-RELEASE-TIME>` is
-shipped in `tauri.conf.json` until the maintainer generates a real
-keypair (see below). Until then, the updater plugin will REJECT
-every fetched update because no signature can verify against a
-non-key — which is the safe default.
+The current verifier key is the minisign public key with the short
+identifier `1A6CC676BC0CFA2E` (the value in `tauri.conf.json` is the
+base64-encoded form of the `.pub` file, which `tauri-plugin-updater`
+decodes at runtime). If you ever see `<MAINTAINER-FILLS-IN-AT-RELEASE-TIME>`
+back in this field, the placeholder has been re-introduced — the
+updater will REJECT every fetched update in that state, which is the
+safe default. The setup procedure below produced the current key.
 
 ### Generating the keypair (one-time setup, then rotation)
 
@@ -105,7 +107,7 @@ command.
 
 | Component | Storage | Repo? |
 |---|---|---|
-| Public key fingerprint | `SECURITY.md` + `cloud-saw.com` | **Yes.** |
+| Public key fingerprint | `SECURITY.md` + `cloud-saw.com`. Current fingerprint: `7CBC 9415 96B1 C393 6593 8A5E D932 48B2 4ADA 9EA4` (long key ID `D932 48B2 4ADA 9EA4`). | **Yes.** |
 | Public key (ASCII-armored) | `cloud-saw.com/cloudsaw.asc`, mirrored to `keys.openpgp.org`. | Published. |
 | Private key | Maintainer's password manager + offline backup. | **No.** |
 
