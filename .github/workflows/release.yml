@@ -112,6 +112,63 @@ jobs:
           rm -f /tmp/cert.p12
           echo "CLOUDSAW_MACOS_SIGNED=1" >> $GITHUB_ENV
 
+      # Preflight notarization credentials BEFORE the 5+ minute build.
+      # Apple's notary service can hang for a long time (60+ min observed)
+      # when it gets bad creds — by calling `notarytool history` first
+      # we get a definitive 200/401 in ~10 seconds and surface the
+      # specific misconfiguration with a clear error message. The
+      # `timeout 60s` guarantees this step itself cannot hang.
+      - name: verify apple notarization credentials
+        if: matrix.platform.name == 'macos'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -eu
+          fail=0
+          if [ -z "${APPLE_ID:-}" ]; then
+            echo "::error::APPLE_ID secret is empty — add the Apple ID email to repository secrets"
+            fail=1
+          fi
+          if [ -z "${APPLE_PASSWORD:-}" ]; then
+            echo "::error::APPLE_PASSWORD secret is empty — add an app-specific password from appleid.apple.com"
+            fail=1
+          fi
+          if [ -z "${APPLE_TEAM_ID:-}" ]; then
+            echo "::error::APPLE_TEAM_ID secret is empty — add the 10-char Team ID from developer.apple.com (Membership)"
+            fail=1
+          elif [ "${#APPLE_TEAM_ID}" -lt 3 ]; then
+            echo "::error::APPLE_TEAM_ID is shorter than 3 chars (got length ${#APPLE_TEAM_ID}) — notarytool requires the full 10-char ID"
+            fail=1
+          fi
+          if [ "$fail" -eq 1 ]; then
+            exit 1
+          fi
+          # Soft check: app-specific passwords are xxxx-xxxx-xxxx-xxxx
+          # (19 chars w/ hyphens). Don't hard-fail in case Apple ever
+          # changes the format, but warn loudly.
+          if ! printf '%s' "$APPLE_PASSWORD" \
+              | grep -Eq '^[a-z]{4}-[a-z]{4}-[a-z]{4}-[a-z]{4}$'; then
+            echo "::warning::APPLE_PASSWORD does not match the xxxx-xxxx-xxxx-xxxx app-specific password format (length ${#APPLE_PASSWORD}). If notarization fails with 'Invalid credentials', regenerate the password at https://appleid.apple.com → Sign-In and Security → App-Specific Passwords."
+          fi
+          echo "Calling \`xcrun notarytool history\` to verify credentials live against Apple's notary service..."
+          if ! timeout 60s xcrun notarytool history \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" > /tmp/notarytool-history.log 2>&1; then
+            echo "::error::Apple's notary service rejected the supplied credentials. Common causes:"
+            echo "::error::  1. APPLE_PASSWORD is the regular Apple ID password, not an app-specific password from appleid.apple.com."
+            echo "::error::  2. APPLE_ID does not match the account that generated the app-specific password."
+            echo "::error::  3. APPLE_ID is not a member of the team identified by APPLE_TEAM_ID, or lacks the Admin/Account Holder role required for notarization."
+            echo "::error::  4. The check itself timed out (60s) — this usually still indicates a credential problem, not a network issue."
+            echo "::group::notarytool output"
+            cat /tmp/notarytool-history.log || true
+            echo "::endgroup::"
+            exit 1
+          fi
+          echo "Apple notary credentials verified. Proceeding to tauri build."
+
       - name: tauri build
         env:
           # macOS signing identity (e.g. "Developer ID Application: Acme (TEAMID)").
