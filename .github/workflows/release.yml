@@ -120,6 +120,13 @@ jobs:
       # `timeout 60s` guarantees this step itself cannot hang.
       - name: verify apple notarization credentials
         if: matrix.platform.name == 'macos'
+        # Step-level cap. `xcrun notarytool history` normally returns
+        # in under 5 seconds; if Apple's API stalls we get a hard fail
+        # at 2 minutes instead of letting the build job's 150 min
+        # ceiling absorb it. Step-level timeout is portable across
+        # runners (no GNU `timeout` binary required — macOS doesn't
+        # ship coreutils).
+        timeout-minutes: 2
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -153,7 +160,7 @@ jobs:
             echo "::warning::APPLE_PASSWORD does not match the xxxx-xxxx-xxxx-xxxx app-specific password format (length ${#APPLE_PASSWORD}). If notarization fails with 'Invalid credentials', regenerate the password at https://appleid.apple.com → Sign-In and Security → App-Specific Passwords."
           fi
           echo "Calling \`xcrun notarytool history\` to verify credentials live against Apple's notary service..."
-          if ! timeout 60s xcrun notarytool history \
+          if ! xcrun notarytool history \
               --apple-id "$APPLE_ID" \
               --password "$APPLE_PASSWORD" \
               --team-id "$APPLE_TEAM_ID" > /tmp/notarytool-history.log 2>&1; then
@@ -161,7 +168,7 @@ jobs:
             echo "::error::  1. APPLE_PASSWORD is the regular Apple ID password, not an app-specific password from appleid.apple.com."
             echo "::error::  2. APPLE_ID does not match the account that generated the app-specific password."
             echo "::error::  3. APPLE_ID is not a member of the team identified by APPLE_TEAM_ID, or lacks the Admin/Account Holder role required for notarization."
-            echo "::error::  4. The check itself timed out (60s) — this usually still indicates a credential problem, not a network issue."
+            echo "::error::  4. notarytool returned a non-zero exit code for another reason — see the captured stdout/stderr below."
             echo "::group::notarytool output"
             cat /tmp/notarytool-history.log || true
             echo "::endgroup::"
