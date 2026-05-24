@@ -105,6 +105,18 @@ jobs:
           security create-keychain -p actions build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p actions build.keychain
+          # Extend the lock-when-idle timeout to 6 hours (default is 5
+          # min). `tauri build` on macOS takes ~4-5 min just to compile,
+          # then signs the inner binary, then signs the .app wrapper,
+          # then submits to notarytool. If the keychain auto-locks
+          # between sign operations, the next codesign call blocks on a
+          # passphrase prompt that never comes (no UI on the runner)
+          # and the job hangs until the job-level timeout fires. 21600s
+          # comfortably exceeds the 150-min build job ceiling. The
+          # belt-and-suspenders re-unlock step below also defends
+          # against an unexpected lock between this step and `tauri
+          # build`.
+          security set-keychain-settings -lut 21600 build.keychain
           security import /tmp/cert.p12 -k build.keychain \
             -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
@@ -175,6 +187,17 @@ jobs:
             exit 1
           fi
           echo "Apple notary credentials verified. Proceeding to tauri build."
+
+      # Belt-and-suspenders re-unlock immediately before `tauri build`.
+      # The keychain *should* still be unlocked from the import step
+      # above, but several minutes of compile time pass before any
+      # codesign call fires, and an extra `unlock-keychain` here costs
+      # nothing while removing any chance of a stale-lock hang.
+      - name: re-unlock build.keychain before tauri build
+        if: matrix.platform.name == 'macos'
+        run: |
+          security unlock-keychain -p actions build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
 
       - name: tauri build
         env:
