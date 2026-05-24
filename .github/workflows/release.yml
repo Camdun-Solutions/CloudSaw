@@ -105,6 +105,22 @@ jobs:
           security create-keychain -p actions build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p actions build.keychain
+          # Extend the lock-when-idle timeout to 2 hours (default is 5
+          # min). `tauri build` on macOS takes ~4-5 min just to compile,
+          # then signs the inner binary, then signs the .app wrapper,
+          # then submits to notarytool. If the keychain auto-locks
+          # between sign operations, the next codesign call blocks on a
+          # passphrase prompt that never comes (no UI on the runner)
+          # and the job hangs until the job-level timeout fires.
+          #
+          # 7200s (2h) comfortably covers any realistic build duration
+          # (~20 min in practice) without keeping the cert keychain
+          # available longer than the job needs. The explicit re-lock
+          # step after `tauri build` below releases it as soon as
+          # signing+notarization are done — we don't want the keychain
+          # unlocked during SBOM generation, checksumming, or artifact
+          # upload.
+          security set-keychain-settings -lut 7200 build.keychain
           security import /tmp/cert.p12 -k build.keychain \
             -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
@@ -176,6 +192,17 @@ jobs:
           fi
           echo "Apple notary credentials verified. Proceeding to tauri build."
 
+      # Belt-and-suspenders re-unlock immediately before `tauri build`.
+      # The keychain *should* still be unlocked from the import step
+      # above, but several minutes of compile time pass before any
+      # codesign call fires, and an extra `unlock-keychain` here costs
+      # nothing while removing any chance of a stale-lock hang.
+      - name: re-unlock build.keychain before tauri build
+        if: matrix.platform.name == 'macos'
+        run: |
+          security unlock-keychain -p actions build.keychain
+          security set-keychain-settings -lut 7200 build.keychain
+
       - name: tauri build
         env:
           # macOS signing identity (e.g. "Developer ID Application: Acme (TEAMID)").
@@ -194,6 +221,18 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --bundles ${{ matrix.platform.bundles }}
+
+      # Re-lock the cert keychain as soon as `tauri build` (which
+      # includes signing + notarization) finishes. The remaining steps
+      # — SBOM generation, checksum computation, attestation, artifact
+      # upload — do NOT need the Apple signing key. Locking here keeps
+      # the cert unavailable for the rest of the job, even if a later
+      # step were to execute attacker-controlled code. `if: always()`
+      # ensures we lock even if `tauri build` failed.
+      - name: lock build.keychain after tauri build
+        if: ${{ always() && matrix.platform.name == 'macos' }}
+        run: |
+          security lock-keychain build.keychain || true
 
       - name: compute sha-256 checksums
         shell: bash
