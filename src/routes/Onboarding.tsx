@@ -26,12 +26,18 @@ import { useIpcError } from "@/hooks/useIpcError";
 import {
   ipc,
   type Account,
+  type AiProvider,
+  type AiSettings,
+  type BusinessContext,
   type Environment,
+  type EnvironmentType,
   type OnboardingState,
   type OnboardingStep,
   type ProfileInfo,
   type ProvisioningStatus,
+  type RiskTolerance,
   type ScanRecord,
+  type TeamSize,
 } from "@/lib/ipc";
 import { type Locale, LOCALES } from "@/lib/i18n";
 import { useLock } from "@/stores/lock";
@@ -103,6 +109,17 @@ export default function Onboarding({ onCompleted }: Props) {
     }
   }
 
+  // Skip moves to the next step WITHOUT marking the current step
+  // completed — the user can come back via Settings to finish it.
+  async function skip(from: OnboardingStep) {
+    try {
+      await ipc.onboardingSetCurrentStep(nextStep(from));
+      await reload();
+    } catch (e) {
+      setTopErr(formatError(e));
+    }
+  }
+
   async function goBack(from: OnboardingStep) {
     try {
       await ipc.onboardingSetCurrentStep(prevStep(from));
@@ -157,26 +174,34 @@ export default function Onboarding({ onCompleted }: Props) {
         ) : null}
 
         {step === "language" ? (
-          <LanguageStep state={state} onContinue={() => advance("language")} />
+          <LanguageStep
+            state={state}
+            onContinue={() => advance("language")}
+            onSkip={() => void skip("language")}
+          />
         ) : step === "master_password" ? (
           <PasswordStep
             onBack={() => goBack(step)}
             onContinue={() => advance("master_password")}
+            onSkip={() => void skip("master_password")}
           />
         ) : step === "aws_account" ? (
           <AwsAccountStep
             onBack={() => goBack(step)}
             onContinue={() => advance("aws_account")}
+            onSkip={() => void skip("aws_account")}
           />
         ) : step === "terraform" ? (
           <TerraformStep
             onBack={() => goBack(step)}
             onContinue={() => advance("terraform")}
+            onSkip={() => void skip("terraform")}
           />
         ) : step === "business_context" ? (
           <BusinessContextStep
             onBack={() => goBack(step)}
             onContinue={() => advance("business_context")}
+            onSkip={() => void skip("business_context")}
           />
         ) : step === "first_scan" ? (
           <FirstScanStep
@@ -184,6 +209,7 @@ export default function Onboarding({ onCompleted }: Props) {
             onContinue={() => {
               void advance("first_scan");
             }}
+            onSkip={() => void skip("first_scan")}
             onFinish={() => void finish()}
           />
         ) : (
@@ -318,9 +344,11 @@ function ManualToggle({
 function LanguageStep({
   state,
   onContinue,
+  onSkip,
 }: {
   state: OnboardingState;
   onContinue: () => void;
+  onSkip: () => void;
 }) {
   const t = useT();
   const { locale, setLocale } = useLocale();
@@ -374,6 +402,13 @@ function LanguageStep({
       ) : null}
       <div className="mt-4 flex justify-end gap-2">
         <Button
+          variant="ghost"
+          onClick={onSkip}
+          data-testid="onboarding-language-skip"
+        >
+          {t("onboarding.nav.skip")}
+        </Button>
+        <Button
           variant="primary"
           onClick={onContinue}
           disabled={saving}
@@ -393,9 +428,11 @@ const MIN_PASSWORD_LEN = 8;
 function PasswordStep({
   onBack,
   onContinue,
+  onSkip,
 }: {
   onBack: () => void;
   onContinue: () => void;
+  onSkip: () => void;
 }) {
   const t = useT();
   const formatError = useIpcError();
@@ -505,14 +542,23 @@ function PasswordStep({
         <Button variant="ghost" onClick={onBack} data-testid="onboarding-password-back">
           {t("onboarding.nav.back")}
         </Button>
-        <Button
-          variant="primary"
-          onClick={onContinue}
-          disabled={!alreadySet}
-          data-testid="onboarding-password-next"
-        >
-          {t("onboarding.nav.next")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={onSkip}
+            data-testid="onboarding-password-skip"
+          >
+            {t("onboarding.nav.skip")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={onContinue}
+            disabled={!alreadySet}
+            data-testid="onboarding-password-next"
+          >
+            {t("onboarding.nav.next")}
+          </Button>
+        </div>
       </div>
     </StepCard>
   );
@@ -523,9 +569,11 @@ function PasswordStep({
 function AwsAccountStep({
   onBack,
   onContinue,
+  onSkip,
 }: {
   onBack: () => void;
   onContinue: () => void;
+  onSkip: () => void;
 }) {
   const t = useT();
   const formatError = useIpcError();
@@ -702,14 +750,23 @@ function AwsAccountStep({
         <Button variant="ghost" onClick={onBack} data-testid="onboarding-account-back">
           {t("onboarding.nav.back")}
         </Button>
-        <Button
-          variant="primary"
-          onClick={onContinue}
-          disabled={!hasAccount}
-          data-testid="onboarding-account-continue"
-        >
-          {t("onboarding.nav.next")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={onSkip}
+            data-testid="onboarding-account-skip"
+          >
+            {t("onboarding.nav.skip")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={onContinue}
+            disabled={!hasAccount}
+            data-testid="onboarding-account-continue"
+          >
+            {t("onboarding.nav.next")}
+          </Button>
+        </div>
       </div>
     </StepCard>
   );
@@ -720,9 +777,11 @@ function AwsAccountStep({
 function TerraformStep({
   onBack,
   onContinue,
+  onSkip,
 }: {
   onBack: () => void;
   onContinue: () => void;
+  onSkip: () => void;
 }) {
   const t = useT();
   const formatError = useIpcError();
@@ -821,14 +880,23 @@ function TerraformStep({
         <Button variant="ghost" onClick={onBack} data-testid="onboarding-terraform-back">
           {t("onboarding.nav.back")}
         </Button>
-        <Button
-          variant="primary"
-          onClick={onContinue}
-          disabled={!provisioned}
-          data-testid="onboarding-terraform-continue"
-        >
-          {t("onboarding.nav.next")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={onSkip}
+            data-testid="onboarding-terraform-skip"
+          >
+            {t("onboarding.nav.skip")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={onContinue}
+            disabled={!provisioned}
+            data-testid="onboarding-terraform-continue"
+          >
+            {t("onboarding.nav.next")}
+          </Button>
+        </div>
       </div>
     </StepCard>
   );
@@ -839,40 +907,319 @@ function TerraformStep({
 function BusinessContextStep({
   onBack,
   onContinue,
+  onSkip,
 }: {
   onBack: () => void;
   onContinue: () => void;
+  onSkip: () => void;
 }) {
   const t = useT();
+  const formatError = useIpcError();
+  const [settings, setSettings] = useState<AiSettings | null>(null);
+  const [provider, setProvider] = useState<AiProvider | "">("");
+  const [keyInput, setKeyInput] = useState("");
+  const [context, setContext] = useState<BusinessContext | null>(null);
+  const [complianceInput, setComplianceInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const s = await ipc.aiGetSettings();
+      setSettings(s);
+      setProvider(s.provider ?? "");
+      setContext(s.context);
+      setComplianceInput(s.context.compliance.join(", "));
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }, [formatError]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  async function saveAndContinue() {
+    if (!context) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      // Persist provider selection (or clear it).
+      await ipc.aiSetProvider(provider === "" ? null : provider);
+      // If a fresh key was typed, hand it to the OS keychain. Never
+      // store the in-memory string anywhere else — drop it as soon
+      // as the IPC returns.
+      if (provider !== "" && keyInput.trim().length > 0) {
+        await ipc.aiSetProviderKey(provider, keyInput.trim());
+        setKeyInput("");
+      }
+      const compliance = complianceInput
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      await ipc.aiSetBusinessContext({ ...context, compliance });
+      onContinue();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clearKey() {
+    if (provider === "") return;
+    setErr(null);
+    try {
+      await ipc.aiClearProviderKey(provider);
+      await reload();
+    } catch (e) {
+      setErr(formatError(e));
+    }
+  }
+
+  const envOptions: { value: EnvironmentType; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.env.unspecified") },
+    { value: "production", label: t("ai.context.env.production") },
+    { value: "dev_test", label: t("ai.context.env.dev_test") },
+    { value: "mixed", label: t("ai.context.env.mixed") },
+  ];
+  const riskOptions: { value: RiskTolerance; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.risk.unspecified") },
+    { value: "low", label: t("ai.context.risk.low") },
+    { value: "medium", label: t("ai.context.risk.medium") },
+    { value: "high", label: t("ai.context.risk.high") },
+  ];
+  const teamOptions: { value: TeamSize; label: string }[] = [
+    { value: "unspecified", label: t("ai.context.team.unspecified") },
+    { value: "solo", label: t("ai.context.team.solo") },
+    { value: "small", label: t("ai.context.team.small") },
+    { value: "medium", label: t("ai.context.team.medium") },
+    { value: "large", label: t("ai.context.team.large") },
+  ];
+
+  if (!settings || !context) {
+    return (
+      <StepCard
+        testId="onboarding-step-context"
+        title={t("onboarding.step.context.title")}
+        body={t("onboarding.step.context.body")}
+      >
+        <p className="text-small text-saw-grey-600">{t("common.loading")}</p>
+      </StepCard>
+    );
+  }
+
   return (
     <StepCard
       testId="onboarding-step-context"
       title={t("onboarding.step.context.title")}
       body={t("onboarding.step.context.body")}
     >
-      <p className="text-small text-saw-grey-600">
-        {t("ai.section_subtitle")}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          onClick={onContinue}
-          data-testid="onboarding-context-skip"
-        >
-          {t("onboarding.step.context.skip_cta")}
-        </Button>
-        <Button
-          variant="primary"
-          onClick={onContinue}
-          data-testid="onboarding-context-continue"
-        >
-          {t("onboarding.step.context.continue_cta")}
-        </Button>
+      <div className="rounded-card border border-saw-red/30 bg-saw-red/5 p-3 text-small">
+        <div className="font-medium text-saw-red">{t("ai.disclosure.title")}</div>
+        <div className="mt-1 text-saw-grey-800">{t("ai.disclosure.body")}</div>
       </div>
-      <div className="mt-5 flex justify-start">
+
+      <div className="mt-4 flex flex-col gap-4">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.provider.label")}</span>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as AiProvider | "")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="onboarding-ai-provider"
+          >
+            <option value="">{t("ai.provider.none")}</option>
+            <option value="anthropic">{t("ai.provider.anthropic")}</option>
+            <option value="openai">{t("ai.provider.openai")}</option>
+          </select>
+        </label>
+
+        {provider !== "" ? (
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+            <span>{t("ai.key.label")}</span>
+            <input
+              type="password"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder={
+                provider === "anthropic"
+                  ? t("ai.key.placeholder_anthropic")
+                  : t("ai.key.placeholder_openai")
+              }
+              autoComplete="off"
+              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+              data-testid="onboarding-ai-key"
+            />
+            <span className="text-xs text-saw-grey-500">{t("ai.key.hint")}</span>
+            <p
+              className="text-small text-saw-grey-700"
+              data-testid="onboarding-ai-key-status"
+            >
+              {settings.key_connected
+                ? t("ai.key.connected")
+                : t("ai.key.not_connected")}
+            </p>
+            {settings.key_connected ? (
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void clearKey()}
+                  data-testid="onboarding-ai-key-clear"
+                >
+                  {t("ai.key.clear")}
+                </Button>
+              </div>
+            ) : null}
+          </label>
+        ) : null}
+
+        <hr className="border-saw-grey-100" />
+
+        <div>
+          <div className="font-medium text-saw-grey-900">
+            {t("ai.context.title")}
+          </div>
+          <div className="mt-1 text-small text-saw-grey-600">
+            {t("ai.context.subtitle")}
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.industry")}</span>
+          <input
+            type="text"
+            value={context.industry}
+            onChange={(e) => setContext({ ...context, industry: e.target.value })}
+            placeholder={t("ai.context.industry_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="onboarding-ctx-industry"
+          />
+          {settings.flags.industry_identifying ? (
+            <span
+              className="text-xs text-saw-red"
+              data-testid="onboarding-ctx-industry-warn"
+            >
+              {t("ai.context.industry_warn")}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.environment")}</span>
+          <select
+            value={context.environment_type}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                environment_type: e.target.value as EnvironmentType,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="onboarding-ctx-env"
+          >
+            {envOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.compliance")}</span>
+          <input
+            type="text"
+            value={complianceInput}
+            onChange={(e) => setComplianceInput(e.target.value)}
+            placeholder={t("ai.context.compliance_placeholder")}
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            data-testid="onboarding-ctx-compliance"
+          />
+          {settings.flags.compliance_identifying ? (
+            <span
+              className="text-xs text-saw-red"
+              data-testid="onboarding-ctx-compliance-warn"
+            >
+              {t("ai.context.compliance_warn")}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.risk")}</span>
+          <select
+            value={context.risk_tolerance}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                risk_tolerance: e.target.value as RiskTolerance,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="onboarding-ctx-risk"
+          >
+            {riskOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <span>{t("ai.context.team")}</span>
+          <select
+            value={context.team_size}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                team_size: e.target.value as TeamSize,
+              })
+            }
+            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            data-testid="onboarding-ctx-team"
+          >
+            {teamOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {err ? (
+        <p role="alert" className="mt-3 text-small text-saw-red">
+          {err}
+        </p>
+      ) : null}
+
+      <div className="mt-5 flex items-center justify-between">
         <Button variant="ghost" onClick={onBack} data-testid="onboarding-context-back">
           {t("onboarding.nav.back")}
         </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={onSkip}
+            disabled={saving}
+            data-testid="onboarding-context-skip"
+          >
+            {t("onboarding.nav.skip")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void saveAndContinue()}
+            disabled={saving}
+            data-testid="onboarding-context-continue"
+          >
+            {saving
+              ? t("ai.key.saving")
+              : t("onboarding.step.context.continue_cta")}
+          </Button>
+        </div>
       </div>
     </StepCard>
   );
@@ -883,10 +1230,12 @@ function BusinessContextStep({
 function FirstScanStep({
   onBack,
   onContinue,
+  onSkip,
   onFinish,
 }: {
   onBack: () => void;
   onContinue: () => void;
+  onSkip: () => void;
   onFinish: () => void;
 }) {
   const t = useT();
@@ -976,27 +1325,36 @@ function FirstScanStep({
         <Button variant="ghost" onClick={onBack} data-testid="onboarding-scan-back">
           {t("onboarding.nav.back")}
         </Button>
-        {hasTerminalScan ? (
+        <div className="flex items-center gap-2">
           <Button
-            variant="primary"
-            onClick={() => {
-              onContinue();
-              onFinish();
-            }}
-            data-testid="onboarding-scan-finish"
+            variant="ghost"
+            onClick={onSkip}
+            data-testid="onboarding-scan-skip"
           >
-            {t("onboarding.step.scan.completed_cta")}
+            {t("onboarding.nav.skip")}
           </Button>
-        ) : (
-          <Button
-            variant="primary"
-            onClick={onContinue}
-            disabled={!hasTerminalScan}
-            data-testid="onboarding-scan-continue"
-          >
-            {t("onboarding.nav.next")}
-          </Button>
-        )}
+          {hasTerminalScan ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                onContinue();
+                onFinish();
+              }}
+              data-testid="onboarding-scan-finish"
+            >
+              {t("onboarding.step.scan.completed_cta")}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={onContinue}
+              disabled={!hasTerminalScan}
+              data-testid="onboarding-scan-continue"
+            >
+              {t("onboarding.nav.next")}
+            </Button>
+          )}
+        </div>
       </div>
     </StepCard>
   );
