@@ -262,6 +262,7 @@ export default function Settings({
       <OnboardingSection onRerun={onRerunOnboarding} />
       <ReportSection onOpenCustomReport={onOpenCustomReport} />
       <RetentionSection />
+      <UpdatesSection />
       <GithubSection />
       <AiSection />
       <PanicSection />
@@ -276,6 +277,201 @@ export default function Settings({
       />
     </main>
   );
+}
+
+// --- Updates section ----------------------------------------------------
+//
+// Two pieces of state the user controls:
+//   1. Whether CloudSaw auto-checks on launch (persisted via
+//      `updatePrefs` in localStorage; default ON). The UpdateBanner
+//      reads the same flag and skips its on-mount check when off.
+//   2. A manual "Check for updates" button that runs the same
+//      `check()` from the Tauri updater plugin regardless of the
+//      auto-check toggle, surfacing the available version + a link
+//      to the GitHub release notes.
+
+type UpdateCheckResult =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "up_to_date"; at: string }
+  | { kind: "available"; version: string; at: string }
+  | { kind: "error"; message: string; at: string };
+
+function UpdatesSection() {
+  const t = useT();
+  const [autoCheck, setAutoCheck] = useState<boolean>(true);
+  const [installedVersion, setInstalledVersion] = useState<string | null>(null);
+  const [result, setResult] = useState<UpdateCheckResult>({ kind: "idle" });
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/updatePrefs").then(({ getAutoCheckEnabled }) => {
+      if (cancelled) return;
+      setAutoCheck(getAutoCheckEnabled());
+    });
+    void import("@tauri-apps/api/app")
+      .then(({ getVersion }) => getVersion())
+      .then((v) => {
+        if (cancelled) return;
+        setInstalledVersion(v);
+      })
+      .catch(() => {
+        // In a non-Tauri context (e.g. the browser dev preview) the
+        // import will reject. Leaving installedVersion null causes the
+        // line to render an em-dash placeholder.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function persistAutoCheck(next: boolean) {
+    setAutoCheck(next);
+    const { setAutoCheckEnabled } = await import("@/lib/updatePrefs");
+    setAutoCheckEnabled(next);
+  }
+
+  async function manualCheck() {
+    setResult({ kind: "checking" });
+    const at = new Date().toISOString();
+    try {
+      const { check: doCheck } = await import("@tauri-apps/plugin-updater");
+      const update = await doCheck();
+      if (!update) {
+        setResult({ kind: "up_to_date", at });
+        return;
+      }
+      setResult({ kind: "available", version: update.version, at });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Update check failed.";
+      setResult({ kind: "error", message: msg, at });
+    }
+  }
+
+  const lastCheckedLabel =
+    result.kind === "idle" || result.kind === "checking"
+      ? t("settings.updates.never_checked")
+      : formatTimestamp(result.at);
+
+  return (
+    <section
+      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-updates"
+      aria-labelledby="settings-updates-title"
+    >
+      <h2
+        id="settings-updates-title"
+        className="text-h3 font-semibold text-saw-grey-900"
+      >
+        {t("settings.section.updates_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("settings.section.updates_subtitle")}
+      </p>
+
+      <div className="mt-4">
+        <Switch
+          checked={autoCheck}
+          onChange={(next) => void persistAutoCheck(next)}
+          label={t("settings.updates.auto_toggle_label")}
+          description={t("settings.updates.auto_toggle_description")}
+        />
+      </div>
+
+      <hr className="my-4 border-saw-grey-100" />
+
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-small">
+        <dt className="text-saw-grey-500">
+          {t("settings.updates.installed_version_label")}
+        </dt>
+        <dd
+          className="font-mono text-saw-grey-900"
+          data-testid="settings-updates-installed-version"
+        >
+          {installedVersion ?? "—"}
+        </dd>
+        <dt className="text-saw-grey-500">
+          {t("settings.updates.last_checked_label")}
+        </dt>
+        <dd className="text-saw-grey-900" data-testid="settings-updates-last-checked">
+          {lastCheckedLabel}
+        </dd>
+      </dl>
+
+      <div className="mt-4">
+        <Button
+          variant="secondary"
+          onClick={() => void manualCheck()}
+          disabled={result.kind === "checking"}
+          data-testid="settings-updates-check"
+        >
+          {result.kind === "checking"
+            ? t("settings.updates.checking")
+            : t("settings.updates.check_cta")}
+        </Button>
+      </div>
+
+      {result.kind === "up_to_date" ? (
+        <p
+          role="status"
+          className="mt-4 rounded-card bg-saw-grey-50 px-3 py-2 text-small text-saw-grey-800"
+          data-testid="settings-updates-result-up-to-date"
+        >
+          {t("settings.updates.up_to_date")}
+        </p>
+      ) : null}
+
+      {result.kind === "available" ? (
+        <div
+          role="status"
+          className="mt-4 rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-3 text-small text-saw-grey-800"
+          data-testid="settings-updates-result-available"
+        >
+          <p className="font-semibold text-saw-grey-900">
+            {t("settings.updates.available_title")}
+          </p>
+          <p className="mt-1">
+            {t("settings.updates.available_body").replace(
+              "{version}",
+              result.version,
+            )}
+          </p>
+          <p className="mt-2">
+            <a
+              href={`https://github.com/Camdun-Solutions/CloudSaw/releases/tag/${encodeURIComponent(result.version)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2"
+              data-testid="settings-updates-release-notes-link"
+            >
+              {t("settings.updates.release_notes_link")}
+            </a>
+          </p>
+        </div>
+      ) : null}
+
+      {result.kind === "error" ? (
+        <div
+          role="alert"
+          className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 px-3 py-3 text-small text-saw-grey-900"
+          data-testid="settings-updates-result-error"
+        >
+          <p className="font-semibold text-saw-red">
+            {t("settings.updates.check_failed_title")}
+          </p>
+          <p className="mt-1 text-saw-grey-800">
+            {t("settings.updates.check_failed_body")}
+          </p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
 }
 
 // --- Contract 11 sections -----------------------------------------------

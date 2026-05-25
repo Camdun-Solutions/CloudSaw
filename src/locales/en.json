@@ -797,5 +797,21 @@
   "updater.install_cta": "Install update",
   "updater.installing": "Installing…",
   "updater.installed": "Installed — restart to finish",
-  "updater.check_failed": "Update check failed"
+  "updater.check_failed": "Update check failed",
+
+  "settings.section.updates_title": "Updates",
+  "settings.section.updates_subtitle": "Choose whether CloudSaw checks for new releases on launch and how it tells you about them.",
+  "settings.updates.auto_toggle_label": "Notify me about updates automatically",
+  "settings.updates.auto_toggle_description": "On launch, CloudSaw asks the release server whether a newer version exists. If you turn this off, the update banner stays hidden until you use the button below.",
+  "settings.updates.installed_version_label": "Installed version",
+  "settings.updates.check_cta": "Check for updates",
+  "settings.updates.checking": "Checking…",
+  "settings.updates.up_to_date": "You're on the latest version.",
+  "settings.updates.available_title": "Update available",
+  "settings.updates.available_body": "Version {version} is available. Review the release notes before you install.",
+  "settings.updates.release_notes_link": "Release notes",
+  "settings.updates.last_checked_label": "Last checked",
+  "settings.updates.never_checked": "Never (this session)",
+  "settings.updates.check_failed_title": "Could not check for updates",
+  "settings.updates.check_failed_body": "The release server didn't answer. Confirm this device is online and try again."
 }

@@ -240,10 +240,16 @@ jobs:
         run: |
           set -e
           mkdir -p out
+          # NOTE: `*.tar.gz` is the macOS updater bundle (CloudSaw.app.tar.gz)
+          # — without it, the .sig is published but the artifact it signs is
+          # missing and the auto-updater can't pull the macOS payload. See
+          # the "stage updater artifacts" step in the publish job for how
+          # latest.json is constructed from these files.
           find src-tauri/target/release/bundle -type f \
             \( -name "*.dmg" -o -name "*.app" -o -name "*.deb" \
                -o -name "*.AppImage" -o -name "*.exe" \
                -o -name "*.msi" -o -name "*.nsis.zip" \
+               -o -name "*.tar.gz" \
                -o -name "*.sig" \) -print0 | while IFS= read -r -d '' f; do
             cp "$f" out/
           done
@@ -306,6 +312,34 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # The build job already validated the artifact contents; this step
+      # makes sure the GIT TAG matches `tauri.conf.json` so the binaries
+      # the build matrix produced (whose filenames are derived from
+      # tauri.conf's version) line up with the tag the release is
+      # published under. A drift here is what caused 2026.05.7 to ship
+      # binaries named `_2026.5.0_` — we fail loud here rather than
+      # silently publishing mismatched artifacts.
+      - name: validate tag matches tauri.conf.json version
+        run: |
+          set -eu
+          tag="${GITHUB_REF_NAME}"
+          conf_version=$(node -e \
+            "console.log(require('./src-tauri/tauri.conf.json').version)")
+          if [ "$tag" != "$conf_version" ]; then
+            echo "::error::Tag '$tag' does not match src-tauri/tauri.conf.json version '$conf_version'. Bump the conf file in a PR, merge, then re-tag."
+            exit 1
+          fi
+          # Reject zero-padded months/patches early — semver tolerates
+          # leading zeros but tooling around it (and humans reading the
+          # release page) does not.
+          if printf '%s' "$tag" \
+              | grep -Eq '^[0-9]{4}\.0[0-9]+\.|^[0-9]{4}\.[0-9]+\.0[0-9]+$'; then
+            echo "::error::Tag '$tag' uses zero-padded month or patch. Use YYYY.M.PATCH without leading zeros (e.g. 2026.5.8, not 2026.05.8 or 2026.5.08)."
+            exit 1
+          fi
+          echo "Tag $tag matches tauri.conf.json. Proceeding."
+
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts/
@@ -322,6 +356,91 @@ jobs:
           cat SHA256SUMS-linux.txt SHA256SUMS-macos.txt SHA256SUMS-windows.txt \
             > SHA256SUMS.txt
           ls -lah
+
+      # Build the Tauri updater manifest from the per-platform .sig
+      # files. Without latest.json, an installed CloudSaw never learns
+      # a new version exists (the updater plugin fetches THIS file from
+      # the URL configured in tauri.conf.json#plugins.updater.endpoints).
+      #
+      # The .sig files are minisign signatures produced by `tauri build`
+      # using the TAURI_SIGNING_PRIVATE_KEY secret. We base64-decode
+      # them inline so the installed client can verify against the
+      # public key baked into tauri.conf.json.
+      - name: generate latest.json
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd release
+
+          version="$TAG"
+          pub_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # Glob each platform's signed artifact + .sig. The filename
+          # patterns must match what `tauri build` actually emitted; we
+          # use shell globs (not hardcoded names) so a future Tauri
+          # version that bumps a name suffix doesn't break this step
+          # silently.
+          read_sig() {
+            local file="$1"
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing signature file: $file"
+              return 1
+            fi
+            # The .sig file is already a minisign signature — Tauri
+            # consumes it verbatim, not base64-wrapped a second time.
+            cat "$file"
+          }
+
+          macos_sig_file="$(ls CloudSaw.app.tar.gz.sig 2>/dev/null || true)"
+          macos_archive="$(ls CloudSaw.app.tar.gz 2>/dev/null || true)"
+          linux_sig_file="$(ls CloudSaw_*_amd64.AppImage.sig 2>/dev/null || true)"
+          linux_archive="$(ls CloudSaw_*_amd64.AppImage 2>/dev/null || true)"
+          windows_sig_file="$(ls CloudSaw_*_x64-setup.exe.sig 2>/dev/null || true)"
+          windows_archive="$(ls CloudSaw_*_x64-setup.exe 2>/dev/null || true)"
+
+          # Fail loud if any platform's pair is incomplete — partial
+          # latest.json files cause cryptic update failures rather than
+          # a clean "no update" outcome.
+          for pair in \
+            "macos:$macos_archive:$macos_sig_file" \
+            "linux:$linux_archive:$linux_sig_file" \
+            "windows:$windows_archive:$windows_sig_file"; do
+            IFS=':' read -r platform archive sig <<< "$pair"
+            if [ -z "$archive" ] || [ -z "$sig" ]; then
+              echo "::error::${platform} updater pair incomplete — archive='$archive' sig='$sig'. Did the matrix job upload both artifacts?"
+              exit 1
+            fi
+          done
+
+          macos_sig="$(read_sig "$macos_sig_file")"
+          linux_sig="$(read_sig "$linux_sig_file")"
+          windows_sig="$(read_sig "$windows_sig_file")"
+
+          base_url="https://github.com/Camdun-Solutions/CloudSaw/releases/download/${version}"
+
+          jq -n \
+            --arg version "$version" \
+            --arg pub_date "$pub_date" \
+            --arg macos_url "${base_url}/${macos_archive}" \
+            --arg macos_sig "$macos_sig" \
+            --arg linux_url "${base_url}/${linux_archive}" \
+            --arg linux_sig "$linux_sig" \
+            --arg windows_url "${base_url}/${windows_archive}" \
+            --arg windows_sig "$windows_sig" \
+            '{
+              version: $version,
+              notes: "See the release page for the full changelog.",
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64": { signature: $macos_sig, url: $macos_url },
+                "darwin-x86_64":  { signature: $macos_sig, url: $macos_url },
+                "linux-x86_64":   { signature: $linux_sig, url: $linux_url },
+                "windows-x86_64": { signature: $windows_sig, url: $windows_url }
+              }
+            }' > latest.json
+          echo "Generated latest.json:"
+          cat latest.json
       - name: publish github release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
@@ -341,9 +460,12 @@ jobs:
 
             **Auto-updater**
 
-            The maintainer signs `latest.json` LOCALLY with the Ed25519
-            updater key and attaches it to this release. Installed apps
-            verify the signature before applying.
+            `latest.json` (the manifest the Tauri updater plugin reads)
+            is generated by the publish job using the per-platform
+            `.sig` files the build job produced with the
+            `TAURI_SIGNING_PRIVATE_KEY` secret. Installed apps verify
+            each platform's signature against the public key baked
+            into `tauri.conf.json` before applying.
 
             **Supply-chain artifacts**
 
