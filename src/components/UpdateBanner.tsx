@@ -14,10 +14,16 @@
 // underlying plugin before this component ever sees it (the
 // `check()` call returns null or errors with a verification
 // failure code). The banner stays hidden in that case.
+//
+// The user can silence the auto-check via Settings → Updates. When
+// that preference is off this component still mounts (so a flip back
+// to ON takes effect on next launch) but skips the on-mount check
+// and renders nothing.
 
 import { useEffect, useState } from "react";
 
 import { useT } from "@/hooks/useT";
+import { getAutoCheckEnabled } from "@/lib/updatePrefs";
 
 type UpdateState =
   | { kind: "idle" }
@@ -33,6 +39,14 @@ export default function UpdateBanner() {
   const [state, setState] = useState<UpdateState>({ kind: "idle" });
 
   useEffect(() => {
+    if (!getAutoCheckEnabled()) {
+      // Auto-check silenced via Settings → Updates. The component still
+      // renders nothing; the Settings page's manual "Check for updates"
+      // button is the only path that surfaces a new version while the
+      // preference is off.
+      setState({ kind: "none" });
+      return;
+    }
     let cancelled = false;
     const check = async () => {
       setState({ kind: "checking" });
