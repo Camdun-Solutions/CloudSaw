@@ -670,7 +670,7 @@
   "onboarding.step.account.add_cta": "Ajouter un compte",
   "onboarding.step.account.no_cli_title": "AWS CLI not detected",
   "onboarding.step.account.no_cli_body": "CloudSaw didn't find an AWS profile. Install the AWS CLI and run `aws configure` (or `aws configure sso`) to create one, then return here.",
-  "onboarding.step.account.no_cli_windows": "Windows install: download the MSI from https://aws.amazon.com/cli/.",
+  "onboarding.step.account.no_cli_windows": "Windows install: download the MSI from ",
   "onboarding.step.account.no_cli_macos": "macOS install: `brew install awscli` or download the official package.",
   "onboarding.step.account.no_cli_linux": "Linux install: `pip3 install --user awscli` or your distro's package manager.",
   "onboarding.step.account.added": "Account added — click Continuer.",

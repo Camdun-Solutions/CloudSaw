@@ -651,7 +651,19 @@ function AwsAccountStep({
             {t("onboarding.step.account.no_cli_body")}
           </p>
           <ul className="mt-2 list-disc pl-5 text-xs text-saw-grey-700">
-            <li>{t("onboarding.step.account.no_cli_windows")}</li>
+            <li>
+              {t("onboarding.step.account.no_cli_windows")}
+              <a
+                href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2"
+                data-testid="onboarding-account-cli-link"
+              >
+                Amazon CLI
+              </a>
+              .
+            </li>
             <li>{t("onboarding.step.account.no_cli_macos")}</li>
             <li>{t("onboarding.step.account.no_cli_linux")}</li>
           </ul>
