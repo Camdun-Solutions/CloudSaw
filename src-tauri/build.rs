@@ -70,9 +70,7 @@ fn warn_oversized_kb_articles() {
 /// scoutsuite` step:
 ///   {"binary": "scoutsuite", "triple": "<target-triple>", "sha256": "<hex>"}
 fn generate_scoutsuite_pin() {
-    let pinned_path = Path::new("vendor")
-        .join("scoutsuite")
-        .join("pinned.json");
+    let pinned_path = Path::new("vendor").join("scoutsuite").join("pinned.json");
     println!("cargo:rerun-if-changed={}", pinned_path.display());
 
     let out_dir = match std::env::var_os("OUT_DIR") {
@@ -82,9 +80,9 @@ fn generate_scoutsuite_pin() {
     let out_file = out_dir.join("scoutsuite_pin.rs");
 
     let body = match read_scoutsuite_pin(&pinned_path) {
-        Ok(Some(sha)) => format!(
-            "pub const PLATFORM_PINNED_SHA256: Option<&str> = Some(\"{sha}\");\n",
-        ),
+        Ok(Some(sha)) => {
+            format!("pub const PLATFORM_PINNED_SHA256: Option<&str> = Some(\"{sha}\");\n",)
+        }
         Ok(None) => {
             // No pinned.json — typical dev build. `availability()` will
             // return `Missing` because `verify_sha256()` short-circuits
@@ -103,10 +101,7 @@ fn generate_scoutsuite_pin() {
     };
 
     if let Err(e) = std::fs::write(&out_file, body) {
-        panic!(
-            "failed to write {}: {e}",
-            out_file.display(),
-        );
+        panic!("failed to write {}: {e}", out_file.display(),);
     }
 }
 
@@ -175,8 +170,8 @@ fn read_scoutsuite_pin(path: &Path) -> Result<Option<String>, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("read failed: {e}")),
     };
-    let parsed: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|e| format!("JSON parse: {e}"))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|e| format!("JSON parse: {e}"))?;
     let triple = parsed
         .get("triple")
         .and_then(|v| v.as_str())
@@ -190,8 +185,7 @@ fn read_scoutsuite_pin(path: &Path) -> Result<Option<String>, String> {
     // pinned.json was produced for a different platform — the runtime
     // integrity check would fail unhelpfully later; failing here points
     // straight at the CI mis-step.
-    let target = std::env::var("TARGET")
-        .map_err(|e| format!("cargo did not set TARGET: {e}"))?;
+    let target = std::env::var("TARGET").map_err(|e| format!("cargo did not set TARGET: {e}"))?;
     if triple != target {
         return Err(format!(
             "pinned.json triple `{triple}` does not match cargo target `{target}` \
@@ -200,9 +194,7 @@ fn read_scoutsuite_pin(path: &Path) -> Result<Option<String>, String> {
     }
 
     if sha.len() != 64 || !sha.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(format!(
-            "sha256 `{sha}` is not a 64-char hex digest"
-        ));
+        return Err(format!("sha256 `{sha}` is not a 64-char hex digest"));
     }
     Ok(Some(sha.to_ascii_lowercase()))
 }
