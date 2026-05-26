@@ -79,6 +79,74 @@ jobs:
         with:
           workspaces: "src-tauri -> target"
 
+      # Phase 1 — ScoutSuite bundling.
+      #
+      # Tauri 2 requires a `vendor/scoutsuite/<triple>/scoutsuite[.exe]`
+      # at the time `tauri build` evaluates `bundle.resources`. We
+      # produce it here by freezing the vendored ScoutSuite source with
+      # PyInstaller, then writing `vendor/scoutsuite/pinned.json` so
+      # `src-tauri/build.rs::generate_scoutsuite_pin()` bakes the SHA
+      # into `src/scanner/binary.rs::PLATFORM_PINNED_SHA256` at compile
+      # time. Without this step the installed app falls through to the
+      # "binary not bundled" UX path (still functional dev experience,
+      # but unusable as a security scanner).
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: stage bundled scoutsuite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd vendor/scoutsuite
+          # Pinned PyInstaller + ScoutSuite's own runtime deps. The two
+          # requirements files are tracked in-repo so the version surface
+          # is reviewable in PRs.
+          python -m pip install --upgrade pip
+          pip install -r pyinstaller-requirements.txt -r requirements.txt
+          pyinstaller cloudsaw.spec --distpath dist --workpath build --clean --noconfirm
+
+          # Resolve the Rust target triple this matrix job builds for —
+          # MUST match `src-tauri/build.rs::generate_scoutsuite_pin()`'s
+          # validation (which reads cargo's TARGET env var).
+          case "${{ matrix.platform.name }}" in
+            linux)   TRIPLE="x86_64-unknown-linux-gnu" ;;
+            macos)   TRIPLE="aarch64-apple-darwin"    ;;
+            windows) TRIPLE="x86_64-pc-windows-msvc"  ;;
+            *)       echo "::error::unknown platform '${{ matrix.platform.name }}'"; exit 1 ;;
+          esac
+
+          case "${{ matrix.platform.name }}" in
+            windows) BIN_NAME="scoutsuite.exe" ;;
+            *)       BIN_NAME="scoutsuite"     ;;
+          esac
+
+          # Stage the binary into the path `tauri.conf.json#bundle.resources`
+          # globs against. The `_dev_placeholder` written by `build.rs` (a
+          # 0-byte stub for local dev) gets overwritten by this copy.
+          mkdir -p "../../src-tauri/vendor/scoutsuite/$TRIPLE"
+          cp "dist/$BIN_NAME" "../../src-tauri/vendor/scoutsuite/$TRIPLE/$BIN_NAME"
+          if [ "${{ matrix.platform.name }}" != "windows" ]; then
+            chmod +x "../../src-tauri/vendor/scoutsuite/$TRIPLE/$BIN_NAME"
+          fi
+
+          # Compute SHA-256 of the staged binary and write pinned.json.
+          # NOTE: we hash the EXTRACTED binary, not the dist/ copy — they
+          # are byte-identical via `cp`, but doing this here makes the
+          # write atomic with respect to the cargo build that reads it.
+          cd ../../src-tauri/vendor/scoutsuite
+          if command -v shasum >/dev/null; then
+            SHA=$(shasum -a 256 "$TRIPLE/$BIN_NAME" | awk '{print $1}')
+          else
+            SHA=$(sha256sum "$TRIPLE/$BIN_NAME" | awk '{print $1}')
+          fi
+          cat > pinned.json <<EOF
+          {"binary": "scoutsuite", "triple": "$TRIPLE", "sha256": "$SHA"}
+          EOF
+          echo "Staged scoutsuite binary + pinned.json:"
+          cat pinned.json
+          ls -la "$TRIPLE/"
+
       - name: install linux tauri prereqs
         if: matrix.platform.name == 'linux'
         run: |
@@ -192,6 +260,40 @@ jobs:
             exit 1
           fi
           echo "Apple notary credentials verified. Proceeding to tauri build."
+
+      # macOS-only: codesign the inner ScoutSuite binary BEFORE
+      # `tauri build` runs. PyInstaller-produced Mach-O has no
+      # Developer ID signature; `notarytool submit --wait` (driven by
+      # `tauri build`) rejects the bundle if any executable inside
+      # lacks an accepted authority's signature. We sign with the same
+      # identity the outer .app uses.
+      #
+      # CRITICAL: codesign rewrites the binary's signature blob inside
+      # the Mach-O, so the on-disk SHA changes. We refresh pinned.json
+      # AFTER signing so `src-tauri/build.rs::generate_scoutsuite_pin()`
+      # — which runs inside `tauri build`'s cargo invocation — bakes the
+      # POST-signing SHA into `PLATFORM_PINNED_SHA256`. Without this
+      # refresh, the runtime `verify_sha256()` check would compare the
+      # installed (signed) binary against the pre-signing pin and fail
+      # integrity on every launch.
+      - name: codesign bundled scoutsuite (macOS)
+        if: matrix.platform.name == 'macos' && env.CLOUDSAW_MACOS_SIGNED == '1'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -eu
+          security unlock-keychain -p actions build.keychain
+          security set-keychain-settings -lut 7200 build.keychain
+          BIN=src-tauri/vendor/scoutsuite/aarch64-apple-darwin/scoutsuite
+          codesign --force --options runtime --timestamp \
+              --sign "$APPLE_SIGNING_IDENTITY" "$BIN"
+          codesign --verify --verbose "$BIN"
+          NEW_SHA=$(shasum -a 256 "$BIN" | awk '{print $1}')
+          cat > src-tauri/vendor/scoutsuite/pinned.json <<EOF
+          {"binary": "scoutsuite", "triple": "aarch64-apple-darwin", "sha256": "$NEW_SHA"}
+          EOF
+          echo "Post-codesign pinned.json:"
+          cat src-tauri/vendor/scoutsuite/pinned.json
 
       # Belt-and-suspenders re-unlock immediately before `tauri build`.
       # The keychain *should* still be unlocked from the import step

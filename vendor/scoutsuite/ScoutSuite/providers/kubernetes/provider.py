@@ -1,6 +1,7 @@
 import os
 import re
 
+from ScoutSuite._cloudsaw_paths import package_dir
 from ScoutSuite.core.ruleset import Ruleset
 from ScoutSuite.providers.base.provider import BaseProvider
 from ScoutSuite.providers.kubernetes.authentication_strategy import ClusterProvider, KubernetesCredentials
@@ -38,7 +39,7 @@ class KubernetesProvider(BaseProvider):
         result_format = kwargs.get('result_format', 'json')
 
         self.credentials: KubernetesCredentials = kwargs.get('credentials')
-        self.metadata_path = f'{os.path.split(os.path.abspath(__file__))[0]}/metadata.json'
+        self.metadata_path = f'{package_dir(__file__)}/metadata.json'
         self.environment = 'kubernetes'
         self.provider_code = 'kubernetes'
         self.result_format = result_format

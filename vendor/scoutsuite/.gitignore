@@ -1,6 +1,8 @@
-# virtualenv 
+# virtualenv
 env/
 venv/
+# Local PyInstaller iteration venvs (Layer C-prime of the bundling plan)
+.pyi-venv-*/
 
 # Compiled files
 *.py[cod]

@@ -1,6 +1,6 @@
 [package]
 name = "cloudsaw"
-version = "2026.5.8"
+version = "2026.5.9"
 description = "CloudSaw — local-first AWS security scanner"
 authors = ["CloudSaw Contributors"]
 license = "Apache-2.0"
@@ -14,6 +14,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Used by build.rs::generate_scoutsuite_pin() to parse
+# vendor/scoutsuite/pinned.json and bake the SHA into a generated
+# OUT_DIR/scoutsuite_pin.rs that src/scanner/binary.rs include!()s.
+serde_json = "1"
 
 [dependencies]
 tauri = { version = "2", features = [] }

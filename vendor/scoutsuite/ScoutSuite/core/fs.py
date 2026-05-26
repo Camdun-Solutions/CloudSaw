@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 
+from ScoutSuite._cloudsaw_paths import package_dir
 from ScoutSuite.core.console import print_exception, prompt_overwrite, print_info
 from ScoutSuite.core.conditions import pass_condition
 
@@ -34,7 +35,7 @@ def load_data(data_file, key_name=None, local_file=False):
             src_dir = os.getcwd()
             src_file = os.path.join(src_dir, data_file)
     else:
-        src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../data')
+        src_dir = os.path.join(package_dir(__file__), '../data')
         src_file = os.path.join(src_dir, data_file)
     with open(src_file) as f:
         data = json.load(f)

@@ -1,0 +1,16 @@
+# CI-generated. The release workflow's `stage bundled scoutsuite` step
+# downloads/freezes the per-platform binaries into these directories and
+# writes pinned.json with the SHA-256 build.rs reads. Local development
+# can populate these too (see `vendor/scoutsuite/docker/iterate.sh` for
+# the local-iteration path), but the artifacts are never tracked —
+# release.yml is the single source of truth.
+
+# ScoutSuite per-platform PyInstaller-frozen binaries + the SHA pin.
+scoutsuite/*/
+scoutsuite/pinned.json
+
+# Reserved for a future Terraform binary bundling pipeline (Phase 2 of
+# the plan drops Terraform entirely, so this entry is defensive). If
+# Phase 2 lands first the second block can be removed.
+terraform/*/
+terraform/pinned.json

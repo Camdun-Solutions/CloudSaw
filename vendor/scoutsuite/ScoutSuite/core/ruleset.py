@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 
+from ScoutSuite._cloudsaw_paths import package_parent
 from ScoutSuite.core.console import print_debug, print_error, prompt_yes_no, print_exception
 
 from ScoutSuite.core.rule import Rule
@@ -33,8 +34,7 @@ class Ruleset:
         rules_dir = [] if rules_dir is None else rules_dir
         ip_ranges = [] if ip_ranges is None else ip_ranges
 
-        self.rules_data_path = os.path.dirname(
-            os.path.dirname(os.path.abspath(__file__))) + '/providers/%s/rules' % cloud_provider
+        self.rules_data_path = package_parent(__file__) + '/providers/%s/rules' % cloud_provider
 
         self.environment_name = environment_name
         self.rule_type = rule_type
@@ -217,8 +217,7 @@ class TmpRuleset(Ruleset):
         tmp_ruleset_file = tempfile.TemporaryFile('w+t')
         tmp_ruleset_file.write(json.dumps(tmp_ruleset))
 
-        self.rules_data_path = os.path.dirname(
-            os.path.dirname(os.path.abspath(__file__))) + '/providers/%s/rules' % cloud_provider
+        self.rules_data_path = package_parent(__file__) + '/providers/%s/rules' % cloud_provider
 
         self.load_rules(file=tmp_ruleset_file, rule_type='findings')
 
