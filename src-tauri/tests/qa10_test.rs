@@ -23,11 +23,11 @@ use cloudsaw_lib::accounts::{
 };
 use cloudsaw_lib::db::migrations;
 use cloudsaw_lib::scanner::storage as scan_storage;
+use cloudsaw_lib::scanner_role::{storage as tf_storage, types::PolicyVariant};
 use cloudsaw_lib::scheduler::{
     self, runner, storage as sched_storage, LastRunOutcome, ScheduleCadence, ScheduleEventKind,
     SchedulerError, SetScheduleInput,
 };
-use cloudsaw_lib::terraform::{storage as tf_storage, types::PolicyVariant};
 
 fn env_lock() -> &'static Mutex<()> {
     static L: OnceLock<Mutex<()>> = OnceLock::new();

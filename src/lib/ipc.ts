@@ -124,60 +124,37 @@ export function maskAccountId(id: string): string {
   return `****${id.slice(-4)}`;
 }
 
-// --- Terraform scanner-role provisioner (Contract 05) --------------------
+// --- Scanner-role connect flow (Phase 2 — replaces Terraform Contract 05) --
 
-/** Outcome of `terraform_detect`. The bundled binary is gated behind a
- * build-pinned SHA-256, so any tampered or missing binary blocks the
- * provisioning UI before any AWS call happens. */
-export type TerraformAvailability =
-  | { status: "available"; sha256: string; version: string | null }
-  | { status: "missing" }
-  | { status: "integrity_failed" };
-
-/** Which AWS-managed scanner policy to attach. `security_audit` is the
- * least-privilege default; `read_only_access` is an explicit opt-in surfaced
- * with a warning per Contract 05 §Constraints. */
+/** Which AWS-managed scanner policy the user attached. `security_audit` is
+ * the least-privilege default surfaced in the recipes; `read_only_access`
+ * is an explicit opt-in radio with a warning carried over from Contract 05. */
 export type PolicyVariant = "security_audit" | "read_only_access";
 
-export type PlanChangeKind =
-  | "create"
-  | "update"
-  | "delete"
-  | "replace"
-  | "no_op"
-  | "read";
-
-/** One line of the plan diff. `attributes` lists the *field names* that
- * would change — values are never sent across IPC so a credential-bearing
- * attribute can't leak through this surface. */
-export type PlanChange = {
-  kind: PlanChangeKind;
-  resource_address: string;
-  resource_type: string;
-  summary: string;
-  attributes: string[];
+/** Values the UI substitutes into the four setup recipes (Console / Terraform
+ * / CloudFormation / AWS CLI). `external_id` is generated per-account and
+ * MUST be used verbatim by the user in their role's trust policy condition. */
+export type RoleRequirements = {
+  trusted_principal_arn: string;
+  external_id: string;
+  default_policy_variant: PolicyVariant;
 };
 
-/** Returned by `terraform_plan`. The `plan_token` MUST be passed back to
- * `terraform_apply` — a fresh plan supersedes any prior token for the same
- * account. */
-export type PlanResult = {
-  plan_token: string;
-  no_changes: boolean;
-  changes: PlanChange[];
-  planned_principal_arn: string;
-  policy_variant: PolicyVariant;
-  created_at: string;
-};
-
-export type ApplyResult = {
+/** Returned by `scanner_role_connect`. Same shape as the deleted
+ * `ApplyResult` so consumers don't need to change. `trust_policy_sha256` is
+ * `null` when the connecting profile lacks `iam:GetRole` (graceful-degradation
+ * path); the connect itself still succeeds because the AssumeRole dry-run is
+ * the authoritative validation. */
+export type ConnectResult = {
   role_arn: string;
   role_name: string;
   policy_variant: PolicyVariant;
-  trust_policy_sha256: string;
+  trust_policy_sha256: string | null;
 };
 
-/** Discriminated union returned by `terraform_provisioning_status`. */
+/** Discriminated union returned by `scanner_role_status`. Shape carried over
+ * from the deleted `terraform_provisioning_status` — drives the same
+ * "Connect / Re-connect / Show last error" UI affordances. */
 export type ProvisioningStatus =
   | { status: "not_provisioned" }
   | {
@@ -187,10 +164,6 @@ export type ProvisioningStatus =
       provisioned_at: string;
     }
   | { status: "failed"; last_error_code: string; attempted_at: string };
-
-export type PlanOptions = {
-  policy_variant?: PolicyVariant;
-};
 
 // --- Scanner orchestrator (Contract 06) ----------------------------------
 
@@ -786,37 +759,37 @@ export const ipc = {
     return invoke<void>("accounts_set_display_settings", { settings });
   },
 
-  // --- Terraform scanner-role provisioner ------------------------------
+  // --- Scanner-role connect flow ----------------------------------------
 
-  /** Detect whether a bundled Terraform binary is present AND passes its
-   * SHA-256 integrity check. Pure local-state — no AWS calls. */
-  terraformDetect(): Promise<TerraformAvailability> {
-    return invoke<TerraformAvailability>("terraform_detect");
+  /** Live values the "Create your role" recipes need: the caller ARN to put
+   * in the trust policy, and the per-account external_id the user MUST use
+   * in the `sts:ExternalId` condition. Calls `sts:GetCallerIdentity` on the
+   * account's profile. */
+  scannerRoleRequirements(awsAccountId: string): Promise<RoleRequirements> {
+    return invoke<RoleRequirements>("scanner_role_requirements", {
+      awsAccountId,
+    });
   },
 
-  /** Generate a plan for the given account. Each successful call mints a
-   * fresh `plan_token` and supersedes any prior plan for the same account. */
-  terraformPlan(
+  /** Validate + record an externally-provisioned scanner role. Does a dry-run
+   * `sts:AssumeRole` against the supplied ARN with the per-account external_id;
+   * persists the role on success, surfaces typed errors on failure
+   * (`scanner_role_assume_denied`, `scanner_role_not_found`, etc.). */
+  scannerRoleConnect(
     awsAccountId: string,
-    options?: PlanOptions,
-  ): Promise<PlanResult> {
-    return invoke<PlanResult>("terraform_plan", {
+    roleArn: string,
+    policyVariant: PolicyVariant,
+  ): Promise<ConnectResult> {
+    return invoke<ConnectResult>("scanner_role_connect", {
       awsAccountId,
-      options: options ?? null,
+      roleArn,
+      policyVariant,
     });
   },
 
-  /** Apply a previously confirmed plan, identified by `plan_token`. */
-  terraformApply(awsAccountId: string, planToken: string): Promise<ApplyResult> {
-    return invoke<ApplyResult>("terraform_apply", {
-      awsAccountId,
-      planToken,
-    });
-  },
-
-  /** Report the per-account provisioning state. */
-  terraformProvisioningStatus(awsAccountId: string): Promise<ProvisioningStatus> {
-    return invoke<ProvisioningStatus>("terraform_provisioning_status", {
+  /** Report the per-account scanner-role state. Pure SQLite read. */
+  scannerRoleStatus(awsAccountId: string): Promise<ProvisioningStatus> {
+    return invoke<ProvisioningStatus>("scanner_role_status", {
       awsAccountId,
     });
   },

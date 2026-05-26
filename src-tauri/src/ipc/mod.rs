@@ -35,10 +35,10 @@ use crate::onboarding::{self, OnboardingState, OnboardingStep};
 use crate::reports::{self, AccountIdDisclosure, ExportOutcome, ReportContent, ReportSettings};
 use crate::retention::{self, RetentionPeriod, RetentionRunSummary, RetentionSettings};
 use crate::scanner::{self, ScanRecord, ScoutSuiteAvailability};
-use crate::scheduler::{self, NextRunTime, Schedule, ScheduleEvent, SetScheduleInput};
-use crate::terraform::{
-    self, ApplyResult, PlanOptions, PlanResult, ProvisioningStatus, TerraformAvailability,
+use crate::scanner_role::{
+    self, ConnectResult, PolicyVariant, ProvisioningStatus, RoleRequirements,
 };
+use crate::scheduler::{self, NextRunTime, Schedule, ScheduleEvent, SetScheduleInput};
 use crate::wipe::{self, PanicWipeResult};
 
 /// Returns the running CalVer build string (e.g. "2026.5.0").
@@ -218,48 +218,43 @@ pub fn accounts_set_display_settings(settings: AccountsDisplaySettings) -> Resul
     accounts::set_display_settings(settings).map_err(AppError::from)
 }
 
-// --- Terraform scanner-role provisioner (Contract 05) --------------------
+// --- Scanner-role connect flow (Phase 2 — replaces Terraform Contract 05) --
 //
-// `terraform_detect` is synchronous and account-agnostic — it just locates
-// the bundled binary and runs the SHA-256 integrity check. `terraform_plan`
-// and `terraform_apply` are async because they shell out to the bundled
-// Terraform binary (long-running) and, for plan, hit `sts:GetCallerIdentity`
-// to resolve the trust-policy principal.
+// `scanner_role_requirements` is async: it calls `sts:GetCallerIdentity` on
+// the account's profile to surface the live caller ARN that the user's role
+// trust policy must reference. `scanner_role_connect` is async because the
+// dry-run `sts:AssumeRole` it performs is an AWS API call. `scanner_role_status`
+// is synchronous — pure SQLite read of the existing accounts row.
 //
-// Inputs are validated inside the `terraform` module: every account ID is
-// re-checked against the 12-digit grammar before it becomes a path segment,
-// and the trust-policy principal is derived from STS (never frontend-typed).
+// Inputs are validated inside the `scanner_role` module: account IDs are
+// looked up via `accounts::get` (rejects unknown IDs), role ARNs are parsed
+// and the embedded account portion checked against the configured account
+// before any AWS call, and the trust-policy principal is derived from STS
+// (never frontend-typed).
 
 #[tauri::command]
-pub fn terraform_detect() -> Result<TerraformAvailability, AppError> {
-    Ok(terraform::detect_terraform())
-}
-
-#[tauri::command]
-pub async fn terraform_plan(
+pub async fn scanner_role_requirements(
     aws_account_id: String,
-    options: Option<PlanOptions>,
-) -> Result<PlanResult, AppError> {
-    terraform::plan(&aws_account_id, options.unwrap_or_default())
+) -> Result<RoleRequirements, AppError> {
+    scanner_role::requirements(&aws_account_id)
         .await
         .map_err(AppError::from)
 }
 
 #[tauri::command]
-pub async fn terraform_apply(
+pub async fn scanner_role_connect(
     aws_account_id: String,
-    plan_token: String,
-) -> Result<ApplyResult, AppError> {
-    terraform::apply(&aws_account_id, &plan_token)
+    role_arn: String,
+    policy_variant: PolicyVariant,
+) -> Result<ConnectResult, AppError> {
+    scanner_role::connect(&aws_account_id, &role_arn, policy_variant)
         .await
         .map_err(AppError::from)
 }
 
 #[tauri::command]
-pub fn terraform_provisioning_status(
-    aws_account_id: String,
-) -> Result<ProvisioningStatus, AppError> {
-    terraform::provisioning_status(&aws_account_id).map_err(AppError::from)
+pub fn scanner_role_status(aws_account_id: String) -> Result<ProvisioningStatus, AppError> {
+    scanner_role::status(&aws_account_id).map_err(AppError::from)
 }
 
 // --- Scanner orchestrator (Contract 06) ----------------------------------

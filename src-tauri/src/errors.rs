@@ -99,36 +99,28 @@ pub enum AppError {
     #[error("aws account id mismatch")]
     AccountIdMismatch,
 
-    // Terraform scanner-role provisioner (Contract 05). Like the AWS auth
-    // domain, messages are intentionally terse — the frontend maps the
-    // `code` to localized copy and these errors must never carry raw
-    // Terraform stderr, ARNs, account IDs, or credential material.
-    #[error("terraform not bundled")]
-    TerraformNotBundled,
+    // Scanner-role connect flow (Phase 2 — replaces the deleted Terraform
+    // provisioner errors). Like the AWS auth domain, messages are
+    // intentionally terse — the frontend maps the `code` to localized
+    // copy and these errors must never carry raw AWS error text, ARNs,
+    // account IDs, or credential material.
+    #[error("scanner role assume denied")]
+    ScannerRoleAssumeDenied,
 
-    #[error("terraform integrity failed")]
-    TerraformIntegrityFailed,
+    #[error("scanner role not found")]
+    ScannerRoleNotFound,
 
-    #[error("terraform init failed")]
-    TerraformInitFailed,
+    #[error("scanner role assume failed")]
+    ScannerRoleAssumeFailed,
 
-    #[error("terraform plan failed")]
-    TerraformPlanFailed,
+    #[error("scanner role ARN belongs to a different AWS account")]
+    ScannerRoleAccountMismatch,
 
-    #[error("terraform apply failed")]
-    TerraformApplyFailed,
+    #[error("profile caller identity does not match the configured account")]
+    ScannerRoleCallerAccountMismatch,
 
-    #[error("plan token expired")]
-    TerraformPlanTokenExpired,
-
-    #[error("plan token invalid")]
-    TerraformPlanTokenInvalid,
-
-    #[error("identity unresolvable")]
-    TerraformIdentityUnresolvable,
-
-    #[error("trust policy verification failed")]
-    TerraformTrustVerificationFailed,
+    #[error("scanner role ARN is malformed")]
+    ScannerRoleInvalidArn,
 
     // Scanner orchestrator (Contract 06). Stable codes only; raw scanner
     // stderr, ARNs, account IDs, or credential material never appear in any
@@ -297,15 +289,12 @@ impl AppError {
             AppError::DuplicateAwsAccountId => "duplicate_aws_account_id",
             AppError::DuplicateLabel => "duplicate_label",
             AppError::AccountIdMismatch => "aws_account_id_mismatch",
-            AppError::TerraformNotBundled => "terraform_not_bundled",
-            AppError::TerraformIntegrityFailed => "terraform_integrity_failed",
-            AppError::TerraformInitFailed => "terraform_init_failed",
-            AppError::TerraformPlanFailed => "terraform_plan_failed",
-            AppError::TerraformApplyFailed => "terraform_apply_failed",
-            AppError::TerraformPlanTokenExpired => "terraform_plan_token_expired",
-            AppError::TerraformPlanTokenInvalid => "terraform_plan_token_invalid",
-            AppError::TerraformIdentityUnresolvable => "terraform_identity_unresolvable",
-            AppError::TerraformTrustVerificationFailed => "terraform_trust_verification_failed",
+            AppError::ScannerRoleAssumeDenied => "scanner_role_assume_denied",
+            AppError::ScannerRoleNotFound => "scanner_role_not_found",
+            AppError::ScannerRoleAssumeFailed => "scanner_role_assume_failed",
+            AppError::ScannerRoleAccountMismatch => "scanner_role_account_mismatch",
+            AppError::ScannerRoleCallerAccountMismatch => "scanner_role_caller_account_mismatch",
+            AppError::ScannerRoleInvalidArn => "scanner_role_invalid_arn",
             AppError::ScannerNotBundled => "scanner_not_bundled",
             AppError::ScannerIntegrityFailed => "scanner_integrity_failed",
             AppError::ScannerRoleNotProvisioned => "scanner_role_not_provisioned",

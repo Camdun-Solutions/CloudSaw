@@ -27,7 +27,7 @@ import {
   type RemovalImpact,
   type UpdateAccountInput,
 } from "@/lib/ipc";
-import ProvisionScannerRoleModal from "@/routes/ProvisionScannerRole";
+import ConnectScannerRoleForm from "@/components/ConnectScannerRoleForm";
 import ScanProgressModal from "@/routes/ScanProgress";
 
 type Props = {
@@ -267,14 +267,32 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
         }}
       />
 
-      <ProvisionScannerRoleModal
-        account={provisionTarget}
-        onClose={() => setProvisionTarget(null)}
-        onProvisioned={async () => {
-          // Refresh accounts so the `role_provisioned` badge updates.
-          await reload();
-        }}
-      />
+      {/* Phase 2 — "Connect scanner role" modal. Wraps the shared
+        * ConnectScannerRoleForm component so the per-account action on
+        * this page surfaces the same flow as onboarding step 4. */}
+      {provisionTarget ? (
+        <Modal
+          open={true}
+          onClose={() => setProvisionTarget(null)}
+          title={"Connect scanner role"}
+          footer={
+            <Button
+              variant="ghost"
+              onClick={() => setProvisionTarget(null)}
+              data-testid="accounts-connect-role-close"
+            >
+              Close
+            </Button>
+          }
+        >
+          <ConnectScannerRoleForm
+            awsAccountId={provisionTarget.aws_account_id}
+            onConnected={async () => {
+              await reload();
+            }}
+          />
+        </Modal>
+      ) : null}
 
       <ScanProgressModal
         account={scanTarget}

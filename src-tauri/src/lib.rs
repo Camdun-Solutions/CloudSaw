@@ -19,8 +19,8 @@ pub mod onboarding;
 pub mod reports;
 pub mod retention;
 pub mod scanner;
+pub mod scanner_role;
 pub mod scheduler;
-pub mod terraform;
 pub mod wipe;
 
 use crate::errors::AppError;
@@ -79,10 +79,9 @@ pub fn run() {
             ipc::accounts_set_active,
             ipc::accounts_get_display_settings,
             ipc::accounts_set_display_settings,
-            ipc::terraform_detect,
-            ipc::terraform_plan,
-            ipc::terraform_apply,
-            ipc::terraform_provisioning_status,
+            ipc::scanner_role_requirements,
+            ipc::scanner_role_connect,
+            ipc::scanner_role_status,
             ipc::scanner_detect,
             ipc::scanner_run_scan,
             ipc::scanner_scan_status,
