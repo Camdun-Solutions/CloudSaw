@@ -321,14 +321,12 @@ fn execute_scan_inner(
 
     // Spawn the bundled ScoutSuite binary. The integrity check happens
     // inside spawn_scoutsuite, immediately before the spawn call.
-    runner::spawn_scoutsuite(
-        handle.clone(),
-        &output_dir,
-        &raw_output_path,
-        aws_account_id,
-        &default_region(),
-        &creds,
-    )?;
+    // ScoutSuite derives the account ID from sts:GetCallerIdentity on the
+    // assumed creds and writes its result to
+    // `<output_dir>/scoutsuite-results/scoutsuite_results_aws-cloudsaw.js`
+    // — we convert that to clean JSON at `raw_output_path` after the
+    // subprocess exits via `runner::post_process_scoutsuite_output()`.
+    runner::spawn_scoutsuite(handle.clone(), &output_dir, &default_region(), &creds)?;
 
     // Drop the credential buffer ASAP — the child has its own copy now.
     drop(creds);
@@ -339,10 +337,26 @@ fn execute_scan_inner(
     // gets a chance to be flushed before the cancel is recorded).
     storage::update_status(scan_id, ScanStatus::Parsing)?;
 
+    // Always persist stderr to a sidecar log inside the scan dir, on
+    // every outcome (success / partial / failure / canceled). Best-
+    // effort: ignores write errors so a permission-issue on the log
+    // path doesn't overwrite the scan's actual result. Gives the user
+    // and us a debuggable trail when scans misbehave.
+    runner::write_stderr_sidecar(&output_dir, &outcome.stderr);
+
     if outcome.canceled || handle.is_canceled() {
         storage::record_canceled(scan_id)?;
         return Ok(());
     }
+
+    // Convert ScoutSuite's `.js`-wrapped output at
+    // `<output_dir>/scoutsuite-results/scoutsuite_results_aws-cloudsaw.js`
+    // into clean JSON at `raw_output_path`. The findings parser reads
+    // from `raw_output_path` unchanged — the `.js` → JSON transform is
+    // isolated here. If ScoutSuite never produced an output file the
+    // helper returns Ok(false) and the next block falls into the
+    // `OutputMissing` / `ProcessFailed` branch below.
+    let _ = runner::post_process_scoutsuite_output(&output_dir, &raw_output_path);
 
     // Confirm the raw output file landed. Empty/missing == hard failure.
     let category = runner::classify_exit(outcome.exit_code);

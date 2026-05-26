@@ -50,24 +50,45 @@ pub struct SpawnOutcome {
 ///
 /// The function does NOT poll the child — it returns the spawned Child via
 /// the supplied handle. Use `wait_for_child` to await the exit status.
+/// Stable basename CloudSaw passes to ScoutSuite via `--report-name`.
+/// Combined with the `aws` provider, ScoutSuite writes the result file
+/// at `<output_dir>/scoutsuite-results/scoutsuite_results_aws-<name>.js`
+/// — see `post_process_scoutsuite_output()` for the path it constructs
+/// AFTER the subprocess exits to convert that .js file into the clean
+/// JSON CloudSaw's findings parser expects.
+pub const SCOUTSUITE_REPORT_NAME: &str = "cloudsaw";
+
 pub fn spawn_scoutsuite(
     handle: Arc<ScanHandle>,
     output_dir: &Path,
-    raw_output_path: &Path,
-    aws_account_id: &str,
     region: &str,
     creds: &AssumedCredentials,
 ) -> Result<(), ScannerError> {
     // Integrity check before EVERY execution.
     let (binary_path, _sha) = binary::locate_and_verify()?;
 
+    // ScoutSuite CLI shape (see vendor/scoutsuite/ScoutSuite/core/cli_parser.py):
+    //   scoutsuite aws [--profile <p>|--access-keys ...] --report-dir <d>
+    //                  --report-name <n> --regions <r> --no-browser
+    //
+    // We pass `aws` as the required positional, the report dir + name (so
+    // post_process_scoutsuite_output() knows where the .js file will be),
+    // `--regions` to scope the scan, and `--no-browser` so ScoutSuite
+    // doesn't try to launch the report viewer.
+    //
+    // We deliberately do NOT pass `--access-keys` or `--profile`. With
+    // no auth flag, ScoutSuite's AWS strategy falls through to
+    // `boto3.Session()` which picks up the AWS_* env vars set below.
+    // That keeps the assumed STS credentials off the argv (and out of
+    // the OS process table) — CLAUDE.md §4.3.
     let mut cmd = Command::new(&binary_path);
-    cmd.arg("--account-id")
-        .arg(aws_account_id)
+    cmd.arg("aws")
         .arg("--report-dir")
         .arg(output_dir)
-        .arg("--output")
-        .arg(raw_output_path)
+        .arg("--report-name")
+        .arg(SCOUTSUITE_REPORT_NAME)
+        .arg("--regions")
+        .arg(region)
         .arg("--no-browser");
     cmd.current_dir(output_dir);
 
@@ -220,6 +241,87 @@ pub fn scan_output_dir(scan_id: &str) -> Result<PathBuf, ScannerError> {
     Ok(root.join("scans").join(scan_id))
 }
 
+/// Path ScoutSuite actually writes the results file to, given the
+/// `--report-dir` and `--report-name` flags `spawn_scoutsuite()` passes.
+/// Constructed per ScoutSuite's `get_filename()` in
+/// `vendor/scoutsuite/ScoutSuite/output/utils.py`:
+///   `<report-dir>/scoutsuite-results/scoutsuite_results_<provider>-<name>.js`
+///
+/// The `.js` extension is not a typo — ScoutSuite emits the JSON inside
+/// a `scoutsuite_results = { ... }` JavaScript variable so the HTML
+/// report viewer can `<script src="...">` it without a CORS workaround.
+/// CloudSaw's findings parser expects pure JSON, so we strip the prefix
+/// in `post_process_scoutsuite_output()`.
+pub fn scoutsuite_results_path(output_dir: &Path) -> PathBuf {
+    output_dir.join("scoutsuite-results").join(format!(
+        "scoutsuite_results_aws-{name}.js",
+        name = SCOUTSUITE_REPORT_NAME,
+    ))
+}
+
+/// Convert ScoutSuite's `.js`-wrapped output into the clean JSON
+/// CloudSaw's findings parser reads from `raw_output_path`.
+///
+/// Reads the file at `scoutsuite_results_path(output_dir)`, strips the
+/// `scoutsuite_results =` first line (and any trailing semicolon/
+/// whitespace), and writes the JSON body to `raw_output_path` with
+/// user-only permissions.
+///
+/// Returns `Ok(false)` when ScoutSuite produced no output file (e.g. it
+/// exited before reaching the encoder); the caller maps that to
+/// `OutputMissing`. Returns `Ok(true)` on a successful conversion.
+/// Returns `Err(ScanIo(...))` on I/O failure during the conversion
+/// itself (rare — the file was just written by ScoutSuite).
+pub fn post_process_scoutsuite_output(
+    output_dir: &Path,
+    raw_output_path: &Path,
+) -> Result<bool, ScannerError> {
+    let source = scoutsuite_results_path(output_dir);
+    if !source.is_file() {
+        return Ok(false);
+    }
+    let raw = std::fs::read_to_string(&source)
+        .map_err(|e| ScannerError::ScanIo(format!("read scoutsuite output: {e}")))?;
+
+    // ScoutSuite writes:
+    //   scoutsuite_results =
+    //   { ... JSON ... }
+    // OR sometimes
+    //   scoutsuite_results = { ... JSON ... };
+    // We tolerate both shapes: find the first `=`, take everything after
+    // it, then trim any trailing `;` and surrounding whitespace.
+    let body = match raw.split_once('=') {
+        Some((_, rest)) => rest.trim().trim_end_matches(';').trim(),
+        // Fallback: if there's no `=`, hand the whole file to the parser
+        // and let it surface a malformed-JSON error rather than swallow
+        // the bytes silently.
+        None => raw.as_str(),
+    };
+
+    std::fs::write(raw_output_path, body)
+        .map_err(|e| ScannerError::ScanIo(format!("write raw_output_path: {e}")))?;
+    // Inherit the same user-only perms ensure_user_only_dir applied to
+    // the parent. The findings/exporter paths set file perms themselves
+    // when they take ownership; here we just produce the file.
+    Ok(true)
+}
+
+/// Persist ScoutSuite's stderr to a sidecar log file inside the scan's
+/// output directory. Called regardless of exit category so a successful
+/// run also leaves a diagnostic trail (rule-tuning, future debugging).
+///
+/// Best-effort: a failure to write the sidecar does NOT propagate up —
+/// the scan's overall result is more important than the log. Errors
+/// are silently dropped because the caller is already in an error path
+/// when this matters.
+pub fn write_stderr_sidecar(output_dir: &Path, stderr: &[u8]) {
+    if stderr.is_empty() {
+        return;
+    }
+    let path = output_dir.join("scoutsuite-stderr.log");
+    let _ = std::fs::write(path, stderr);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,5 +333,86 @@ mod tests {
         assert_eq!(classify_exit(Some(1)), ExitCategory::Failure);
         assert_eq!(classify_exit(Some(137)), ExitCategory::Failure);
         assert_eq!(classify_exit(None), ExitCategory::Failure);
+    }
+
+    #[test]
+    fn scoutsuite_results_path_uses_stable_name() {
+        let dir = std::path::PathBuf::from("/tmp/scan-42");
+        let got = scoutsuite_results_path(&dir);
+        assert_eq!(
+            got,
+            std::path::PathBuf::from(
+                "/tmp/scan-42/scoutsuite-results/scoutsuite_results_aws-cloudsaw.js"
+            )
+        );
+    }
+
+    #[test]
+    fn post_process_strips_scoutsuite_prefix() {
+        let dir = std::env::temp_dir().join(format!(
+            "cloudsaw-postprocess-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let results_dir = dir.join("scoutsuite-results");
+        std::fs::create_dir_all(&results_dir).unwrap();
+        let source = results_dir.join("scoutsuite_results_aws-cloudsaw.js");
+        std::fs::write(
+            &source,
+            "scoutsuite_results =\n{\"account_id\":\"111122223333\",\"services\":{}}\n",
+        )
+        .unwrap();
+
+        let raw = dir.join("raw-scout.json");
+        let ok = post_process_scoutsuite_output(&dir, &raw).unwrap();
+        assert!(ok);
+
+        let cleaned = std::fs::read_to_string(&raw).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&cleaned).unwrap();
+        assert_eq!(parsed["account_id"], "111122223333");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn post_process_handles_trailing_semicolon() {
+        let dir = std::env::temp_dir().join(format!(
+            "cloudsaw-postprocess-semi-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let results_dir = dir.join("scoutsuite-results");
+        std::fs::create_dir_all(&results_dir).unwrap();
+        let source = results_dir.join("scoutsuite_results_aws-cloudsaw.js");
+        std::fs::write(&source, "scoutsuite_results = {\"k\":\"v\"};").unwrap();
+
+        let raw = dir.join("raw-scout.json");
+        post_process_scoutsuite_output(&dir, &raw).unwrap();
+        let cleaned = std::fs::read_to_string(&raw).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&cleaned).unwrap();
+        assert_eq!(parsed["k"], "v");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn post_process_returns_false_when_source_missing() {
+        let dir = std::env::temp_dir().join(format!(
+            "cloudsaw-postprocess-missing-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let raw = dir.join("raw-scout.json");
+        let ok = post_process_scoutsuite_output(&dir, &raw).unwrap();
+        assert!(!ok);
+        assert!(!raw.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
