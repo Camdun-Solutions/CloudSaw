@@ -8,6 +8,7 @@ import dateutil.tz
 from ScoutSuite import DEFAULT_INCLUDES_DIRECTORY
 from ScoutSuite import DEFAULT_REPORT_DIRECTORY, DEFAULT_REPORT_RESULTS_DIRECTORY, DEFAULT_INCLUDES_DIRECTORY
 from ScoutSuite import ERRORS_LIST
+from ScoutSuite._cloudsaw_paths import package_dir
 from ScoutSuite.core.console import print_info, print_exception
 from ScoutSuite.output.result_encoder import JavaScriptEncoder, SqlLiteEncoder
 from ScoutSuite.output.utils import get_filename, prompt_for_overwrite
@@ -28,7 +29,7 @@ class HTMLReport:
 
         # exceptions = {} if exceptions is None else exceptions
         self.exceptions = exceptions if exceptions else {}
-        self.scout_report_data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+        self.scout_report_data_path = os.path.join(package_dir(__file__), 'data')
         self.html_data_path = os.path.join(self.scout_report_data_path, 'html')
         self.exceptions_encoder = JavaScriptEncoder(self.report_name, report_dir, timestamp)
 

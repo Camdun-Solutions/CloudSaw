@@ -1,5 +1,6 @@
 import os
 
+from ScoutSuite._cloudsaw_paths import package_dir
 from ScoutSuite.core.console import print_exception
 from ScoutSuite.providers.base.provider import BaseProvider
 from ScoutSuite.providers.gcp.services import GCPServicesConfig
@@ -16,8 +17,7 @@ class GCPProvider(BaseProvider):
         services = [] if services is None else services
         skipped_services = [] if skipped_services is None else skipped_services
 
-        self.metadata_path = '%s/metadata.json' % os.path.split(
-            os.path.abspath(__file__))[0]
+        self.metadata_path = '%s/metadata.json' % package_dir(__file__)
 
         self.provider_code = 'gcp'
         self.provider_name = 'Google Cloud Platform'

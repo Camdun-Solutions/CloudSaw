@@ -1,0 +1,10 @@
+# Pinned PyInstaller for CloudSaw's ScoutSuite freezing pipeline.
+#
+# Keep this pin separate from ScoutSuite's own requirements.txt so a
+# PyInstaller bump is a deliberate change, reviewable in a PR, that
+# doesn't ride along with an upstream ScoutSuite dependency pull.
+#
+# 6.11.x is the current stable line as of plan-authoring; bumping is
+# fine as long as the spec's `Analysis(...)` and `EXE(...)` constructors
+# still accept the same kwargs (the spec is the API boundary).
+pyinstaller==6.11.0

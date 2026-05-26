@@ -1,5 +1,6 @@
 import os
 
+from ScoutSuite._cloudsaw_paths import package_dir
 from ScoutSuite.providers.aliyun.services import AliyunServicesConfig
 from ScoutSuite.providers.base.provider import BaseProvider
 
@@ -15,7 +16,7 @@ class AliyunProvider(BaseProvider):
         services = [] if services is None else services
         skipped_services = [] if skipped_services is None else skipped_services
 
-        self.metadata_path = '%s/metadata.json' % os.path.split(os.path.abspath(__file__))[0]
+        self.metadata_path = '%s/metadata.json' % package_dir(__file__)
 
         self.provider_code = 'aliyun'
         self.provider_name = 'Alibaba Cloud'

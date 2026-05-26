@@ -1,0 +1,50 @@
+# PyInstaller build environment for the CloudSaw bundled ScoutSuite binary.
+#
+# This image is build-only — it produces `dist/scoutsuite` on a Debian
+# x86_64 runtime, which CloudSaw stages at
+# `src-tauri/vendor/scoutsuite/x86_64-unknown-linux-gnu/scoutsuite` and
+# packs into the Linux installer.
+#
+# The macOS and Windows binaries are produced separately on their
+# native runners (PyInstaller cannot cross-compile — frozen binaries
+# need the host's interpreter + libc).
+#
+# Usage: from `vendor/scoutsuite/`:
+#     docker build -t cloudsaw-scoutsuite-pyi -f docker/Dockerfile-pyinstaller .
+#     docker run --rm -v "$(pwd):/scoutsuite" cloudsaw-scoutsuite-pyi
+#
+# The source tree is mounted at /scoutsuite at runtime (not COPYed) so
+# iterating the spec file doesn't require an image rebuild — pip
+# install happens once at image-build time, edit-build-test cycles are
+# seconds after that.
+
+FROM python:3.11-slim-bookworm
+
+# Build-time deps PyInstaller needs to walk binary deps:
+#   * binutils — `objdump`, used by PyInstaller's analysis step to
+#                discover shared libraries the frozen binary needs.
+#   * ca-certificates — pip uses these to fetch from PyPI.
+#   * patchelf — PyInstaller uses it to rewrite RPATH on the bundled
+#                binary so dynamic loading works from `_MEIPASS`.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    binutils \
+    ca-certificates \
+    patchelf \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /scoutsuite
+
+# Pre-install the two pip requirement sets at image-build time so each
+# `docker run` only re-runs PyInstaller, not the full pip resolve.
+# When ScoutSuite's requirements.txt changes the image rebuild
+# automatically re-installs (Docker layer cache invalidated by the COPY).
+COPY pyinstaller-requirements.txt requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r pyinstaller-requirements.txt -r requirements.txt
+
+# At runtime the host mounts the source tree over /scoutsuite, which
+# shadows the requirements.txt files we COPY'd above — that's fine,
+# they were only needed at image-build time. The mounted tree
+# provides the source + cloudsaw.spec for the actual PyInstaller run.
+ENTRYPOINT ["pyinstaller", "cloudsaw.spec"]
+CMD ["--distpath", "dist", "--workpath", "build", "--clean", "--noconfirm"]
