@@ -38,26 +38,8 @@ import {
   type RiskTolerance,
   type ScanRecord,
   type TeamSize,
-  type TerraformAvailability,
 } from "@/lib/ipc";
-import ProvisionScannerRoleModal from "@/routes/ProvisionScannerRole";
-
-// IAM actions the bundled Terraform module performs against the user's
-// profile. Reconciled with src-tauri/tf-modules/scanner-role/main.tf:
-// the module creates an aws_iam_role with tags and one managed-policy
-// attachment, and CloudSaw resolves the trust principal via
-// sts:GetCallerIdentity. We deliberately do NOT list iam:PutRolePolicy
-// (Contract 5 forbids inline policies on the scanner role).
-const SCANNER_ROLE_IAM_ACTIONS = [
-  "sts:GetCallerIdentity",
-  "iam:CreateRole",
-  "iam:GetRole",
-  "iam:TagRole",
-  "iam:ListRoleTags",
-  "iam:AttachRolePolicy",
-  "iam:ListAttachedRolePolicies",
-  "iam:UpdateAssumeRolePolicy",
-];
+import ConnectScannerRoleForm from "@/components/ConnectScannerRoleForm";
 import { type Locale, LOCALES } from "@/lib/i18n";
 import { useLock } from "@/stores/lock";
 import { useLocale } from "@/stores/locale";
@@ -211,7 +193,7 @@ export default function Onboarding({ onCompleted }: Props) {
             onSkip={() => void skip("aws_account")}
           />
         ) : step === "terraform" ? (
-          <TerraformStep
+          <ScannerRoleStep
             onBack={() => goBack(step)}
             onContinue={() => advance("terraform")}
             onSkip={() => void skip("terraform")}
@@ -791,9 +773,9 @@ function AwsAccountStep({
   );
 }
 
-// --- Step 4: Terraform --------------------------------------------------
+// --- Step 4: Scanner role (Phase 2 — replaces deleted Terraform step) ---
 
-function TerraformStep({
+function ScannerRoleStep({
   onBack,
   onContinue,
   onSkip,
@@ -808,36 +790,21 @@ function TerraformStep({
   const [active, setActive] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
   const [status, setStatus] = useState<ProvisioningStatus | null>(null);
-  const [terraformAvail, setTerraformAvail] =
-    useState<TerraformAvailability | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [showManual, setShowManual] = useState(false);
-  // When non-null the ProvisionScannerRoleModal is open against this
-  // account. The modal owns the plan → diff → confirm → apply UX
-  // (Contract 5 §plan-diff-then-confirm) — the wizard never drives a
-  // silent second provisioning path.
-  const [provisionTarget, setProvisionTarget] = useState<Account | null>(null);
-  // True once the user has attempted provisioning at least once and it
-  // didn't end in a `provisioned` state. Used to surface the
-  // IAM-permissions remediation hint without misleading users who
-  // simply haven't clicked the button yet.
-  const [provisionAttempted, setProvisionAttempted] = useState(false);
 
   const reload = useCallback(async () => {
     setErr(null);
     try {
-      const [accs, act, profs, avail] = await Promise.all([
+      const [accs, act, profs] = await Promise.all([
         ipc.accountsList(),
         ipc.accountsGetActive(),
         ipc.authListProfiles(),
-        ipc.terraformDetect(),
       ]);
       setAccounts(accs);
       setActive(act);
       setProfiles(profs);
-      setTerraformAvail(avail);
       if (act) {
-        const s = await ipc.terraformProvisioningStatus(act);
+        const s = await ipc.scannerRoleStatus(act);
         setStatus(s);
       }
     } catch (e) {
@@ -853,105 +820,42 @@ function TerraformStep({
   const profileMissing =
     activeAccount && !profiles.some((p) => p.name === activeAccount.profile_name);
   const provisioned = status?.status === "provisioned";
-  const terraformAvailable = terraformAvail?.status === "available";
-  // Show the IAM permission remediation hint after a failed attempt OR
-  // when the backend recorded a previous failure for this account
-  // (status === "failed"). Either signal is enough to suggest the most
-  // likely root cause without misleading the user.
-  const showPermissionFailureHint =
-    activeAccount !== null &&
-    !provisioned &&
-    (provisionAttempted || status?.status === "failed");
 
   return (
     <StepCard
-      testId="onboarding-step-terraform"
+      testId="onboarding-step-scanner-role"
       title={t("onboarding.step.terraform.title")}
       body={t("onboarding.step.terraform.body")}
     >
       {!activeAccount ? (
         <p
           className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
-          data-testid="onboarding-terraform-no-account"
+          data-testid="onboarding-scanner-role-no-account"
         >
           {t("onboarding.step.terraform.no_account_hint")}
         </p>
       ) : profileMissing ? (
         <p
           className="rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900"
-          data-testid="onboarding-terraform-profile-missing"
+          data-testid="onboarding-scanner-role-profile-missing"
         >
           {t("onboarding.step.terraform.profile_missing_hint")}
         </p>
       ) : provisioned ? (
         <p
           className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
-          data-testid="onboarding-terraform-already-provisioned"
+          data-testid="onboarding-scanner-role-completed"
         >
           {t("onboarding.step.terraform.completed")}
         </p>
       ) : (
-        <>
-          <TwoCredentialExplainer />
-          <PermissionsExplainer profileName={activeAccount.profile_name} />
-        </>
+        <ConnectScannerRoleForm
+          awsAccountId={activeAccount.aws_account_id}
+          onConnected={() => {
+            void reload();
+          }}
+        />
       )}
-
-      {showPermissionFailureHint ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900"
-          data-testid="onboarding-terraform-permission-failure"
-        >
-          {t("onboarding.step.terraform.permission_failure_hint")}
-        </div>
-      ) : null}
-
-      {activeAccount && !profileMissing && !provisioned ? (
-        <div className="mt-4 flex flex-col gap-2">
-          <Button
-            variant="primary"
-            onClick={() => {
-              setProvisionAttempted(true);
-              setProvisionTarget(activeAccount);
-            }}
-            disabled={!terraformAvailable}
-            data-testid="onboarding-terraform-create-role"
-            aria-describedby={
-              !terraformAvailable
-                ? "onboarding-terraform-create-role-disabled-hint"
-                : undefined
-            }
-          >
-            {t("onboarding.step.terraform.create_role_cta")}
-          </Button>
-          {!terraformAvailable && terraformAvail !== null ? (
-            <p
-              id="onboarding-terraform-create-role-disabled-hint"
-              className="text-small text-saw-grey-700"
-              data-testid="onboarding-terraform-unavailable"
-            >
-              {t("onboarding.step.terraform.terraform_unavailable")}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="mt-4">
-        <ManualToggle showing={showManual} onToggle={() => setShowManual(!showManual)} />
-        {showManual ? (
-          <CliBlock
-            lines={[
-              "# CloudSaw runs the equivalent of:",
-              "terraform -chdir=<workdir> init",
-              "terraform -chdir=<workdir> plan -out=cloudsaw.tfplan",
-              "# Review the plan before applying:",
-              "terraform -chdir=<workdir> show cloudsaw.tfplan",
-              "terraform -chdir=<workdir> apply cloudsaw.tfplan",
-            ]}
-          />
-        ) : null}
-      </div>
 
       {err ? (
         <p role="alert" className="mt-3 text-small text-saw-red">
@@ -959,23 +863,15 @@ function TerraformStep({
         </p>
       ) : null}
 
-      <ProvisionScannerRoleModal
-        account={provisionTarget}
-        onClose={() => setProvisionTarget(null)}
-        onProvisioned={async () => {
-          await reload();
-        }}
-      />
-
       <div className="mt-5 flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} data-testid="onboarding-terraform-back">
+        <Button variant="ghost" onClick={onBack} data-testid="onboarding-scanner-role-back">
           {t("onboarding.nav.back")}
         </Button>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             onClick={onSkip}
-            data-testid="onboarding-terraform-skip"
+            data-testid="onboarding-scanner-role-skip"
           >
             {t("onboarding.nav.skip")}
           </Button>
@@ -983,104 +879,13 @@ function TerraformStep({
             variant="primary"
             onClick={onContinue}
             disabled={!provisioned}
-            data-testid="onboarding-terraform-continue"
+            data-testid="onboarding-scanner-role-continue"
           >
             {t("onboarding.nav.next")}
           </Button>
         </div>
       </div>
     </StepCard>
-  );
-}
-
-function TwoCredentialExplainer() {
-  const t = useT();
-  return (
-    <section
-      className="rounded-card border border-saw-grey-200 bg-saw-grey-50 p-4 text-small text-saw-grey-800"
-      data-testid="onboarding-terraform-two-credential"
-      aria-labelledby="onboarding-terraform-two-credential-title"
-    >
-      <h3
-        id="onboarding-terraform-two-credential-title"
-        className="text-body font-semibold text-saw-grey-900"
-      >
-        {t("onboarding.step.terraform.two_credential.title")}
-      </h3>
-      <dl className="mt-3 flex flex-col gap-3">
-        <div>
-          <dt className="font-semibold text-saw-grey-900">
-            {t("onboarding.step.terraform.two_credential.profile_label")}
-          </dt>
-          <dd className="mt-1 text-saw-grey-700">
-            {t("onboarding.step.terraform.two_credential.profile_desc")}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-mono font-semibold text-saw-grey-900">
-            {t("onboarding.step.terraform.two_credential.role_label")}
-          </dt>
-          <dd className="mt-1 text-saw-grey-700">
-            {t("onboarding.step.terraform.two_credential.role_desc")}
-          </dd>
-        </div>
-      </dl>
-      <div className="mt-3">
-        <p className="font-semibold text-saw-grey-900">
-          {t("onboarding.step.terraform.two_credential.why_label")}
-        </p>
-        <ul className="mt-1 list-disc pl-5 text-saw-grey-700">
-          <li>{t("onboarding.step.terraform.two_credential.why_least_priv")}</li>
-          <li>{t("onboarding.step.terraform.two_credential.why_audit")}</li>
-          <li>{t("onboarding.step.terraform.two_credential.why_reusable")}</li>
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-function PermissionsExplainer({ profileName }: { profileName: string }) {
-  const t = useT();
-  return (
-    <section
-      className="mt-4 rounded-card border border-saw-grey-200 bg-saw-white p-4 text-small text-saw-grey-800"
-      data-testid="onboarding-terraform-permissions"
-      aria-labelledby="onboarding-terraform-permissions-title"
-    >
-      <h3
-        id="onboarding-terraform-permissions-title"
-        className="text-body font-semibold text-saw-grey-900"
-      >
-        {t("onboarding.step.terraform.permissions.title")}
-      </h3>
-      <p className="mt-2 text-saw-grey-700">
-        {t("onboarding.step.terraform.permissions.body")}
-      </p>
-      <p className="mt-2 text-saw-grey-700">
-        <span className="text-saw-grey-500">{t("accounts.row.profile")}:</span>{" "}
-        <span className="font-mono">{profileName}</span>
-      </p>
-      <ul
-        className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2"
-        data-testid="onboarding-terraform-iam-actions"
-      >
-        {SCANNER_ROLE_IAM_ACTIONS.map((action) => (
-          <li
-            key={action}
-            className="font-mono text-xs text-saw-grey-900"
-            data-testid={`onboarding-terraform-iam-action-${action}`}
-          >
-            <span aria-hidden="true" className="text-saw-grey-500">
-              •
-            </span>{" "}
-            {action}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 rounded-card bg-saw-grey-100 px-3 py-2 text-xs text-saw-grey-800">
-        {t("onboarding.step.terraform.permissions.note_one_time")}
-      </p>
-    </section>
   );
 }
 

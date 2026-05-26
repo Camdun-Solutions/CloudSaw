@@ -25,7 +25,7 @@ use cloudsaw_lib::scanner::{
     self, binary, handles, storage as scan_storage, sts, types::ScanStatus, ScannerError,
     ScoutSuiteAvailability,
 };
-use cloudsaw_lib::terraform::{storage as tf_storage, types::PolicyVariant};
+use cloudsaw_lib::scanner_role::{storage as tf_storage, types::PolicyVariant};
 
 fn env_lock() -> &'static Mutex<()> {
     static L: OnceLock<Mutex<()>> = OnceLock::new();

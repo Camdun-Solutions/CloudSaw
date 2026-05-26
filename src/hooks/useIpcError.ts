@@ -53,18 +53,17 @@ const KNOWN_CODES: Record<string, string> = {
   duplicate_aws_account_id: "accounts.error.duplicate_aws_account_id",
   duplicate_label: "accounts.error.duplicate_label",
   aws_account_id_mismatch: "accounts.error.aws_account_id_mismatch",
-  // Terraform scanner-role provisioner (Contract 05). Each variant maps to a
-  // distinct localized message so the UI can guide the user to the right
-  // remediation (reinstall vs. fix permissions vs. re-plan).
-  terraform_not_bundled: "terraform.error.not_bundled",
-  terraform_integrity_failed: "terraform.error.integrity_failed",
-  terraform_init_failed: "terraform.error.init_failed",
-  terraform_plan_failed: "terraform.error.plan_failed",
-  terraform_apply_failed: "terraform.error.apply_failed",
-  terraform_plan_token_invalid: "terraform.error.plan_token_invalid",
-  terraform_plan_token_expired: "terraform.error.plan_token_expired",
-  terraform_identity_unresolvable: "terraform.error.identity_unresolvable",
-  terraform_trust_verification_failed: "terraform.error.trust_verification_failed",
+  // Scanner-role connect flow (Phase 2 — replaces the deleted Terraform
+  // Contract 05 error codes). Each variant maps to a distinct localized
+  // message so the UI can guide the user to the specific misconfiguration
+  // (wrong external_id, wrong account, malformed ARN, etc.).
+  scanner_role_assume_denied: "scanner_role.error.assume_denied",
+  scanner_role_not_found: "scanner_role.error.not_found",
+  scanner_role_assume_failed: "scanner_role.error.assume_failed",
+  scanner_role_account_mismatch: "scanner_role.error.account_mismatch",
+  scanner_role_caller_account_mismatch:
+    "scanner_role.error.caller_account_mismatch",
+  scanner_role_invalid_arn: "scanner_role.error.invalid_arn",
   // Scanner orchestrator (Contract 06). Each scanner_* code maps to a
   // dedicated `scanner.failure.*` key so the UI can guide remediation
   // (reinstall vs. re-provision vs. re-run).
