@@ -30,6 +30,38 @@ import {
 } from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
 
+/** The 11 sections of the Settings page, in left-nav order.
+ *  PR #48 (this PR) introduces the left-menu layout — only one
+ *  section renders in the right panel at a time. Section IDs are
+ *  stable strings so a future PR can wire deep-linking via URL
+ *  hash / route sub-path. */
+type SettingsSection =
+  | "app_lock"
+  | "accounts"
+  | "schedules"
+  | "activity_log"
+  | "onboarding"
+  | "report"
+  | "retention"
+  | "updates"
+  | "github"
+  | "ai"
+  | "panic";
+
+const SECTION_ORDER: SettingsSection[] = [
+  "app_lock",
+  "accounts",
+  "schedules",
+  "activity_log",
+  "onboarding",
+  "report",
+  "retention",
+  "updates",
+  "github",
+  "ai",
+  "panic",
+];
+
 type PeriodChoice = "immediate" | "1d" | "7d" | "30d" | "never";
 
 const PERIOD_TO_CHOICE = (p: LockPeriod): PeriodChoice => {
@@ -97,6 +129,12 @@ export default function Settings({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [changeOpen, setChangeOpen] = useState(false);
+  // PR #48 — left-menu pane: only one section renders at a time
+  // in the right panel. Defaults to App Lock (the original
+  // top-of-page section). A future PR will wire deep-linking
+  // from the parent route's sub-path.
+  const [activeSection, setActiveSection] =
+    useState<SettingsSection>("app_lock");
 
   // Hydrate from store on mount / when settings change underneath us.
   useEffect(() => {
@@ -149,6 +187,22 @@ export default function Settings({
     { value: "never", label: t("applock.settings.period.never") },
   ];
 
+  // Each section's nav label uses the i18n keys added in PR #48.
+  // English defaults are short enough to fit a 224px-wide sidebar.
+  const sectionLabels: Record<SettingsSection, string> = {
+    app_lock: t("settings.nav.app_lock"),
+    accounts: t("settings.nav.accounts"),
+    schedules: t("settings.nav.schedules"),
+    activity_log: t("settings.nav.activity_log"),
+    onboarding: t("settings.nav.onboarding"),
+    report: t("settings.nav.report"),
+    retention: t("settings.nav.retention"),
+    updates: t("settings.nav.updates"),
+    github: t("settings.nav.github"),
+    ai: t("settings.nav.ai"),
+    panic: t("settings.nav.panic"),
+  };
+
   return (
     <main className="min-h-full bg-saw-grey-50 px-8 py-10">
       <header className="mb-6 flex items-center justify-between">
@@ -165,7 +219,47 @@ export default function Settings({
         </Button>
       </header>
 
-      <section className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6">
+      {/* PR #48 two-column layout: left nav (w-56) selects the
+          active section; right panel renders that section only.
+          The page's existing 10 section cards each become a
+          panel — visually unchanged inside but only one mounts
+          at a time, which both reduces visual noise and keeps
+          per-section IPC fetch costs low (e.g. UpdatesSection
+          only polls when active). */}
+      <div className="flex items-start gap-6">
+        <nav
+          aria-label={t("settings.nav.aria_label")}
+          data-testid="settings-nav"
+          className="sticky top-3 flex w-56 shrink-0 flex-col gap-1 rounded-card border border-saw-grey-200 bg-saw-white p-2"
+        >
+          {SECTION_ORDER.map((section) => {
+            const isActive = activeSection === section;
+            return (
+              <button
+                key={section}
+                type="button"
+                onClick={() => setActiveSection(section)}
+                aria-current={isActive ? "page" : undefined}
+                data-testid={`settings-nav-${section}`}
+                className={
+                  isActive
+                    ? "rounded-card bg-saw-red px-3 py-2 text-left text-small font-medium text-saw-white"
+                    : "rounded-card px-3 py-2 text-left text-small font-medium text-saw-grey-700 transition hover:bg-saw-grey-100 hover:text-saw-grey-900"
+                }
+              >
+                {sectionLabels[section]}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="min-w-0 flex-1" data-testid="settings-panel">
+
+      {activeSection === "app_lock" && (
+      <section
+        data-testid="settings-section-app_lock"
+        className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      >
         <h2 className="text-h3 font-semibold text-saw-grey-900">
           {t("applock.settings.section.app_lock")}
         </h2>
@@ -243,16 +337,11 @@ export default function Settings({
           </div>
         </div>
       </section>
+      )}
 
-      {/* PR #46 — Accounts moved into Settings. The Accounts
-          component renders in `embedded` mode here: its outer
-          <main> + page-level header are skipped, but every modal
-          (add / edit / remove / connect-scanner-role / scan) and
-          interaction works identically to the legacy standalone
-          route. PR #47 (Settings left menu) will move this into
-          its own panel rather than a stacked section. */}
+      {activeSection === "accounts" && (
       <section
-        className="mt-6 max-w-4xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        className="max-w-4xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
         data-testid="settings-section-accounts"
       >
         <h2 className="text-h3 font-semibold text-saw-grey-900">
@@ -265,9 +354,11 @@ export default function Settings({
           <Accounts embedded onOpenProfiles={onOpenProfiles} />
         </div>
       </section>
+      )}
 
+      {activeSection === "schedules" && (
       <section
-        className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
         data-testid="settings-section-schedules"
       >
         <h2 className="text-h3 font-semibold text-saw-grey-900">
@@ -286,15 +377,25 @@ export default function Settings({
           </Button>
         </div>
       </section>
+      )}
 
-      <ActivityLogSection onOpen={onOpenActivityLog} />
-      <OnboardingSection onRerun={onRerunOnboarding} />
-      <ReportSection onOpenCustomReport={onOpenCustomReport} />
-      <RetentionSection />
-      <UpdatesSection />
-      <GithubSection />
-      <AiSection />
-      <PanicSection />
+      {activeSection === "activity_log" && (
+        <ActivityLogSection onOpen={onOpenActivityLog} />
+      )}
+      {activeSection === "onboarding" && (
+        <OnboardingSection onRerun={onRerunOnboarding} />
+      )}
+      {activeSection === "report" && (
+        <ReportSection onOpenCustomReport={onOpenCustomReport} />
+      )}
+      {activeSection === "retention" && <RetentionSection />}
+      {activeSection === "updates" && <UpdatesSection />}
+      {activeSection === "github" && <GithubSection />}
+      {activeSection === "ai" && <AiSection />}
+      {activeSection === "panic" && <PanicSection />}
+
+        </div>
+      </div>
 
       <ChangePasswordDialog
         open={changeOpen}
