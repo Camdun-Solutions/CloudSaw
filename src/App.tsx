@@ -166,11 +166,26 @@ export default function App() {
 
   if (!onboarding?.completed) {
     return (
-      <Onboarding
-        onCompleted={() => {
-          void refreshOnboarding();
-        }}
-      />
+      // PR #52: ScanModalProvider also wraps onboarding so the
+      // FirstScanStep's `useScanModal()` hook + the global
+      // SCAN_FINISHED_EVENT listener work inside the wizard.
+      // Two separate provider instances (one here, one in the
+      // post-onboarding branch below) is fine — they're never
+      // active simultaneously.
+      <ScanModalProvider>
+        <Onboarding
+          onCompleted={(landingRoute) => {
+            // PR #52: if the wizard requested a specific landing
+            // page (e.g. FirstScanStep → "findings" after the
+            // bootstrap scan completes), flip the route BEFORE
+            // re-hydrating onboarding state so the user lands
+            // there immediately rather than briefly seeing the
+            // default Dashboard.
+            if (landingRoute) setRoute(landingRoute);
+            void refreshOnboarding();
+          }}
+        />
+      </ScanModalProvider>
     );
   }
 

@@ -40,14 +40,26 @@ import {
   type TeamSize,
 } from "@/lib/ipc";
 import ConnectScannerRoleForm from "@/components/ConnectScannerRoleForm";
+import { SCAN_FINISHED_EVENT, useScanModal } from "@/contexts/ScanModalContext";
 import { type Locale, LOCALES } from "@/lib/i18n";
 import { useLock } from "@/stores/lock";
 import { useLocale } from "@/stores/locale";
 
+/** Routes the onboarding wizard knows how to redirect to on finish.
+ *  Currently only the first-scan step uses this — when the user's
+ *  bootstrap scan completes, FirstScanStep requests a redirect to
+ *  Findings so they see their results immediately. */
+export type OnboardingLandingRoute = "findings";
+
 type Props = {
   /** Optional callback the wizard fires after `onboardingComplete()`
-   * succeeds, so App.tsx can re-hydrate and route to the main app. */
-  onCompleted?: () => void;
+   * succeeds, so App.tsx can re-hydrate and route to the main app.
+   * The optional `landingRoute` argument lets a step request a
+   * specific post-onboarding destination — App.tsx flips the route
+   * BEFORE re-hydrating onboarding state so the user lands directly
+   * on that page rather than transiently seeing the default Dashboard
+   * Welcome surface (PR #52). */
+  onCompleted?: (landingRoute?: OnboardingLandingRoute) => void;
 };
 
 const STEP_INDEX: Record<OnboardingStep, number> = {
@@ -130,10 +142,10 @@ export default function Onboarding({ onCompleted }: Props) {
     }
   }
 
-  async function finish() {
+  async function finish(landingRoute?: OnboardingLandingRoute) {
     try {
       await ipc.onboardingComplete();
-      onCompleted?.();
+      onCompleted?.(landingRoute);
     } catch (e) {
       setTopErr(formatError(e));
     }
@@ -216,7 +228,7 @@ export default function Onboarding({ onCompleted }: Props) {
               void advance("first_scan");
             }}
             onSkip={() => void skip("first_scan")}
-            onFinish={() => void finish()}
+            onFinish={(landingRoute) => void finish(landingRoute)}
           />
         ) : (
           <DoneCard onFinish={() => void finish()} />
@@ -1228,11 +1240,16 @@ function FirstScanStep({
   onBack: () => void;
   onContinue: () => void;
   onSkip: () => void;
-  onFinish: () => void;
+  /** PR #52: now accepts an optional landing route. The first-
+   *  scan step requests "findings" so the user lands on the
+   *  Findings page immediately after a scan completes. */
+  onFinish: (landingRoute?: OnboardingLandingRoute) => void;
 }) {
   const t = useT();
   const formatError = useIpcError();
+  const { open: openScanModal } = useScanModal();
   const [active, setActive] = useState<string | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
   const [recent, setRecent] = useState<ScanRecord[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
@@ -1243,9 +1260,17 @@ function FirstScanStep({
       const act = await ipc.accountsGetActive();
       setActive(act);
       if (act) {
-        const list = await ipc.scannerListRecent(act, 5);
-        setRecent(list);
+        // Need the full Account object for `useScanModal().open({ account })`
+        // to pre-bind the modal — fetch via accountsList (single small call).
+        const [list, scanList] = await Promise.all([
+          ipc.accountsList(),
+          ipc.scannerListRecent(act, 5),
+        ]);
+        const found = list.find((a) => a.aws_account_id === act);
+        setAccount(found ?? null);
+        setRecent(scanList);
       } else {
+        setAccount(null);
         setRecent([]);
       }
     } catch (e) {
@@ -1255,11 +1280,26 @@ function FirstScanStep({
 
   useEffect(() => {
     void reload();
+    // Keep the 3s poll: covers the legacy path where a user runs a
+    // scan externally (e.g. via the embedded Accounts panel) and
+    // comes back to onboarding. The new Scan Now button is the
+    // primary affordance.
     const id = window.setInterval(() => {
       void reload();
     }, 3000);
     return () => window.clearInterval(id);
   }, [reload]);
+
+  // PR #52: when a scan completes anywhere in the app (via the global
+  // ScanModalProvider's SCAN_FINISHED_EVENT), finish onboarding and
+  // request a redirect to Findings so the user sees their results.
+  useEffect(() => {
+    const handler = () => {
+      onFinish("findings");
+    };
+    document.addEventListener(SCAN_FINISHED_EVENT, handler);
+    return () => document.removeEventListener(SCAN_FINISHED_EVENT, handler);
+  }, [onFinish]);
 
   const hasTerminalScan = (recent ?? []).some(
     (s) =>
@@ -1268,6 +1308,9 @@ function FirstScanStep({
       s.status === "failed" ||
       s.status === "canceled",
   );
+
+  const canScan =
+    !!account && account.role_provisioned;
 
   return (
     <StepCard
@@ -1286,11 +1329,39 @@ function FirstScanStep({
         >
           {t("onboarding.step.scan.completed_hint")}
         </p>
+      ) : !canScan ? (
+        <p
+          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          data-testid="onboarding-scan-role-missing-hint"
+        >
+          {t("onboarding.step.scan.role_missing_hint")}
+        </p>
       ) : (
-        <p className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700">
-          {t("scanner.scan.subtitle").replace("{label}", "")}
+        <p
+          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          data-testid="onboarding-scan-ready-hint"
+        >
+          {t("onboarding.step.scan.ready_hint")}
         </p>
       )}
+
+      {/* PR #52: primary Scan Now affordance. Opens the global
+          ScanModal with the just-configured account pre-bound, so
+          the user can actually run their first scan from inside
+          the wizard. On terminal scan-complete, the SCAN_FINISHED
+          event handler above calls onFinish("findings") to land
+          the user on the new Findings page. */}
+      {canScan ? (
+        <div className="mt-4">
+          <Button
+            variant="primary"
+            onClick={() => account && openScanModal({ account })}
+            data-testid="onboarding-scan-now"
+          >
+            {t("onboarding.step.scan.scan_now")}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mt-4">
         <ManualToggle showing={showManual} onToggle={() => setShowManual(!showManual)} />
@@ -1330,7 +1401,7 @@ function FirstScanStep({
               variant="primary"
               onClick={() => {
                 onContinue();
-                onFinish();
+                onFinish("findings");
               }}
               data-testid="onboarding-scan-finish"
             >
