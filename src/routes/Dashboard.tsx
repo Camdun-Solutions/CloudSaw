@@ -19,6 +19,7 @@ import {
   EmptyState,
   ExportReportDialog,
   LineChart,
+  Logo,
   Modal,
   SeverityBadge,
   Switch,
@@ -187,10 +188,7 @@ export default function Dashboard({ onClose, onOpenAccounts, onOpenReport }: Pro
       />
       <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
         <div className="flex items-center gap-3">
-          <div
-            className="h-7 w-7 rounded-card bg-saw-red"
-            aria-hidden="true"
-          />
+          <Logo size="sm" />
           <div className="flex flex-col">
             <h1 className="text-h2 font-semibold tracking-tight">
               {t("dashboard.title")}

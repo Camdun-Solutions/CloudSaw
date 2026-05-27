@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { Button, PasswordField, Select } from "@/components";
+import { Button, Logo, PasswordField, Select } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -155,12 +155,17 @@ export default function Onboarding({ onCompleted }: Props) {
     <main className="min-h-full bg-saw-grey-50 px-6 py-10">
       <div className="mx-auto max-w-2xl">
         <header className="mb-6">
-          <h1 className="text-h1 font-semibold text-saw-grey-900">
-            {t("onboarding.title")}
-          </h1>
-          <p className="mt-1 text-small text-saw-grey-600">
-            {t("onboarding.subtitle")}
-          </p>
+          <div className="flex items-center gap-3">
+            <Logo size="md" />
+            <div>
+              <h1 className="text-h1 font-semibold text-saw-grey-900">
+                {t("onboarding.title")}
+              </h1>
+              <p className="mt-1 text-small text-saw-grey-600">
+                {t("onboarding.subtitle")}
+              </p>
+            </div>
+          </div>
           <ProgressBar current={Math.min(stepIdx, total)} total={total} />
         </header>
 

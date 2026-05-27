@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Badge, Button, EmptyState, Modal, Select } from "@/components";
+import { Badge, Button, EmptyState, Logo, Modal, Select } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -111,10 +111,7 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
     <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
       <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
         <div className="flex items-center gap-3">
-          <div
-            className="h-7 w-7 rounded-card bg-saw-red"
-            aria-hidden="true"
-          />
+          <Logo size="sm" />
           <div className="flex flex-col">
             <h1 className="text-h2 font-semibold tracking-tight">
               {t("accounts.title")}

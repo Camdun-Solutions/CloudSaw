@@ -22,7 +22,78 @@ fn main() {
     warn_oversized_kb_articles();
     generate_scoutsuite_pin();
     ensure_scoutsuite_bundle_target();
+    generate_logo_base64();
     tauri_build::build();
+}
+
+/// Generate `${OUT_DIR}/logo_base64.rs` containing the 128px CloudSaw
+/// logo as a const base64 string. Embedded into the exported HTML
+/// report header by `src/reports/html.rs::render_header()` so the
+/// report renders the brand without any external file references —
+/// matches the existing "self-contained, no remote URLs" posture
+/// already enforced for CSS and other static assets there.
+///
+/// We read from `icons/128x128.png` (Tauri-generated from the user's
+/// source artwork) rather than embedding the 1MB 1024x1024 source
+/// directly; 128px is enough for the report header and keeps the
+/// compiled binary small.
+fn generate_logo_base64() {
+    let logo_path = Path::new("icons").join("128x128.png");
+    println!("cargo:rerun-if-changed={}", logo_path.display());
+
+    let out_dir = match std::env::var_os("OUT_DIR") {
+        Some(d) => PathBuf::from(d),
+        None => return,
+    };
+    let out_file = out_dir.join("logo_base64.rs");
+
+    let body = match std::fs::read(&logo_path) {
+        Ok(bytes) => {
+            let encoded = base64_encode(&bytes);
+            format!("pub const LOGO_PNG_BASE64: &str = \"{encoded}\";\n")
+        }
+        Err(_) => {
+            // Logo missing during dev (icons not regenerated). Empty
+            // string makes the HTML report fall back to no logo;
+            // existing CSS hides the <img> on `src=""`.
+            "pub const LOGO_PNG_BASE64: &str = \"\";\n".to_string()
+        }
+    };
+
+    if let Err(e) = std::fs::write(&out_file, body) {
+        panic!("failed to write {}: {e}", out_file.display());
+    }
+}
+
+/// Minimal RFC 4648 base64 encoder. Inline so we don't introduce a
+/// build-time dep just to encode one PNG. Standard alphabet + padding.
+fn base64_encode(input: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+    let mut i = 0;
+    while i + 3 <= input.len() {
+        let n = ((input[i] as u32) << 16) | ((input[i + 1] as u32) << 8) | (input[i + 2] as u32);
+        out.push(ALPHABET[((n >> 18) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((n >> 12) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((n >> 6) & 0x3F) as usize] as char);
+        out.push(ALPHABET[(n & 0x3F) as usize] as char);
+        i += 3;
+    }
+    let rem = input.len() - i;
+    if rem == 1 {
+        let n = (input[i] as u32) << 16;
+        out.push(ALPHABET[((n >> 18) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((n >> 12) & 0x3F) as usize] as char);
+        out.push('=');
+        out.push('=');
+    } else if rem == 2 {
+        let n = ((input[i] as u32) << 16) | ((input[i + 1] as u32) << 8);
+        out.push(ALPHABET[((n >> 18) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((n >> 12) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((n >> 6) & 0x3F) as usize] as char);
+        out.push('=');
+    }
+    out
 }
 
 fn warn_oversized_kb_articles() {
