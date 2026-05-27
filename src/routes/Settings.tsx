@@ -10,6 +10,7 @@ import { Button, Modal, PasswordField, Select, Switch } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import Accounts from "@/routes/Accounts";
 
 import {
   ipc,
@@ -71,6 +72,11 @@ type Props = {
    * this to expose "Add another AWS account" and "Re-run the full
    * wizard" actions (Contract 14 §Expected Output). */
   onRerunOnboarding?: (startAt: "aws_account" | "language") => void;
+  /** Opens the standalone Profiles diagnostic view (~/.aws/config
+   * reader). Wired by App.tsx to `setRoute("profiles")`. PR #46
+   * moves Accounts into Settings — the embedded Accounts panel's
+   * "Open profiles" button forwards here. */
+  onOpenProfiles: () => void;
 };
 
 export default function Settings({
@@ -79,6 +85,7 @@ export default function Settings({
   onOpenActivityLog,
   onOpenCustomReport,
   onRerunOnboarding,
+  onOpenProfiles,
 }: Props) {
   const t = useT();
   const formatError = useIpcError();
@@ -234,6 +241,28 @@ export default function Settings({
               {t("applock.settings.lock_now")}
             </Button>
           </div>
+        </div>
+      </section>
+
+      {/* PR #46 — Accounts moved into Settings. The Accounts
+          component renders in `embedded` mode here: its outer
+          <main> + page-level header are skipped, but every modal
+          (add / edit / remove / connect-scanner-role / scan) and
+          interaction works identically to the legacy standalone
+          route. PR #47 (Settings left menu) will move this into
+          its own panel rather than a stacked section. */}
+      <section
+        className="mt-6 max-w-4xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        data-testid="settings-section-accounts"
+      >
+        <h2 className="text-h3 font-semibold text-saw-grey-900">
+          {t("accounts.title")}
+        </h2>
+        <p className="mt-1 text-small text-saw-grey-600">
+          {t("accounts.subtitle")}
+        </p>
+        <div className="mt-4">
+          <Accounts embedded onOpenProfiles={onOpenProfiles} />
         </div>
       </section>
 

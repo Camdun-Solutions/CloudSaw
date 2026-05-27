@@ -31,13 +31,38 @@ import ConnectScannerRoleForm from "@/components/ConnectScannerRoleForm";
 import ScanProgressModal from "@/routes/ScanProgress";
 
 type Props = {
-  onClose: () => void;
+  /** Standalone-route close handler. Required unless `embedded` is
+   *  true (embedded mode is owned by the host Settings page and
+   *  has no separate close affordance). */
+  onClose?: () => void;
   onOpenProfiles: () => void;
+  /**
+   * PR #46: render as an inline section inside the Settings page
+   * rather than as a standalone route. When true:
+   *   - The outer <main> wrapper + the page-level header (logo,
+   *     title, refresh + close buttons) are skipped.
+   *   - The "Open profiles" + "Refresh" buttons reflow into a
+   *     compact action row above the configured-accounts list.
+   *   - The "Close" button is hidden — the user navigates away
+   *     via the persistent TopNav (PR #41) or by scrolling
+   *     within Settings to another section.
+   *
+   * Default false preserves the legacy standalone-route shape so
+   * any not-yet-migrated caller keeps rendering correctly. The
+   * App.tsx route handler for "accounts" was removed in the same
+   * PR though, so embedded=true is effectively the only call
+   * site post-merge.
+   */
+  embedded?: boolean;
 };
 
 const ENVIRONMENTS: Environment[] = ["dev", "staging", "prod", "other"];
 
-export default function Accounts({ onClose, onOpenProfiles }: Props) {
+export default function Accounts({
+  onClose,
+  onOpenProfiles,
+  embedded = false,
+}: Props) {
   const t = useT();
   const formatError = useIpcError();
 
@@ -107,37 +132,42 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
     }
   }
 
-  return (
-    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
-      <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
-        <div className="flex items-center gap-3">
-          <Logo size="sm" />
-          <div className="flex flex-col">
-            <h1 className="text-h2 font-semibold tracking-tight">
-              {t("accounts.title")}
-            </h1>
-            <p className="text-small text-saw-grey-500">
-              {t("accounts.subtitle")}
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenProfiles}
-              data-testid="accounts-open-profiles"
-            >
-              {t("accounts.open_profiles")}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void reload()}
-              disabled={refreshing}
-              data-testid="accounts-refresh"
-            >
-              {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
-            </Button>
+  // In embedded mode (rendered inside Settings, PR #46), the page-
+  // level header is hidden and the "Refresh" / "Open profiles"
+  // actions reflow into a compact action row directly above the
+  // configured-accounts list. In standalone mode (legacy route),
+  // the original full-page header renders unchanged.
+  const standaloneHeader = (
+    <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+      <div className="flex items-center gap-3">
+        <Logo size="sm" />
+        <div className="flex flex-col">
+          <h1 className="text-h2 font-semibold tracking-tight">
+            {t("accounts.title")}
+          </h1>
+          <p className="text-small text-saw-grey-500">
+            {t("accounts.subtitle")}
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenProfiles}
+            data-testid="accounts-open-profiles"
+          >
+            {t("accounts.open_profiles")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void reload()}
+            disabled={refreshing}
+            data-testid="accounts-refresh"
+          >
+            {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
+          </Button>
+          {onClose ? (
             <Button
               variant="ghost"
               size="sm"
@@ -146,11 +176,50 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
             >
               {t("common.close")}
             </Button>
-          </div>
+          ) : null}
         </div>
-      </header>
+      </div>
+    </header>
+  );
 
-      <section className="mx-auto max-w-4xl px-8 py-10">
+  // Embedded-mode action row — same Open Profiles + Refresh
+  // affordances that lived in the standalone header, just laid
+  // out as a compact row above the section content.
+  const embeddedActions = (
+    <div className="mb-4 flex items-center justify-end gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onOpenProfiles}
+        data-testid="accounts-open-profiles"
+      >
+        {t("accounts.open_profiles")}
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => void reload()}
+        disabled={refreshing}
+        data-testid="accounts-refresh"
+      >
+        {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
+      </Button>
+    </div>
+  );
+
+  // Body content — identical in both modes. Section padding/max-
+  // width is dropped in embedded mode because the host Settings
+  // page already imposes its own layout container.
+  const body = (
+    <>
+      {embedded ? embeddedActions : null}
+      <section
+        className={
+          embedded
+            ? "flex flex-col gap-3"
+            : "mx-auto max-w-4xl px-8 py-10"
+        }
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-h3 font-semibold tracking-tight">
@@ -306,6 +375,19 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
           }}
         />
       ) : null}
+    </>
+  );
+
+  // Embedded mode (PR #46): host Settings page owns the page-level
+  // <main> + chrome, so we just return the body fragment. Standalone
+  // mode wraps the same body in the original <main> + header.
+  if (embedded) {
+    return body;
+  }
+  return (
+    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
+      {standaloneHeader}
+      {body}
     </main>
   );
 }

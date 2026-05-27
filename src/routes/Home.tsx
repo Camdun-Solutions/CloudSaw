@@ -37,14 +37,10 @@ export default function Home({
             >
               {t("nav.dashboard")}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenAccounts}
-              data-testid="header-accounts"
-            >
-              {t("nav.accounts")}
-            </Button>
+            {/* Per-route "Accounts" button removed in PR #46 —
+                Accounts now lives as an embedded section inside
+                Settings, reachable via the persistent TopNav's
+                Settings button. */}
             {/* "Lock now" used to live here as a text button — PR
                 #42 moved it to a lock icon in the persistent TopNav
                 (top-right corner, always visible). The Settings
