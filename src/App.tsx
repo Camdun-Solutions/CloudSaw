@@ -5,6 +5,7 @@ import {
   ErrorReportDialog,
   TopNav,
   UpdateBanner,
+  VersionFooter,
   type TopNavRoute,
 } from "@/components";
 import { ScanModalProvider } from "@/contexts/ScanModalContext";
@@ -239,6 +240,11 @@ export default function App() {
             void ipc.applockLock();
           }}
         />
+        {/* Global version footer (PR #43). Fixed bottom-left so the
+            version is always visible regardless of route. Hidden
+            automatically while locked / during onboarding because
+            this render branch sits below those gates. */}
+        <VersionFooter />
         <AppShell
           route={route}
           setRoute={setRoute}
