@@ -3,15 +3,19 @@
 // Output invariants:
 //   * No `<script>` tags. Ever. The renderer never emits the literal
 //     string `<script` — see the regression test below.
-//   * No remote URLs. Every URL the renderer ships is either `mailto:`
-//     or `#` (anchor). The CSS is inlined in a `<style>` block; there
-//     are no `<link rel="stylesheet">`, `<img>`, `<iframe>`, `<object>`
-//     elements emitted.
+//   * No remote URLs. Every URL the renderer ships is either `mailto:`,
+//     `#` (anchor), or `data:` (compile-time-embedded bytes — see
+//     `LOGO_PNG_BASE64`). The CSS is inlined in a `<style>` block;
+//     the only `<img>` carries a `data:image/png;base64,...` src whose
+//     bytes come from `icons/128x128.png` at build time and cannot be
+//     influenced by any input field. No `<link rel="stylesheet">`,
+//     `<iframe>`, `<object>` elements are ever emitted.
 //   * No external resource loads. Same fence as above — there is no
 //     value of any input that can introduce a network reference,
 //     because every text field is HTML-escaped at the boundary.
-//   * Banner, generation timestamp, and CloudSaw version live in the
-//     header section so every report carries the mandatory copy.
+//   * Banner, brand logo, generation timestamp, and CloudSaw version
+//     live in the header section so every report carries the
+//     mandatory copy + branding.
 //
 // The renderer is a pure function over `ReportContent`. Tests assert
 // the no-script / no-remote-url / banner-present invariants on every
@@ -26,6 +30,12 @@ use super::model::{
 use crate::findings::{FindingStatus, Severity};
 
 const CSS: &str = include_str!("report.css");
+
+// Compile-time-embedded brand logo for the report header. Generated
+// by `build.rs::generate_logo_base64()` from `icons/128x128.png`. See
+// the comment block at the top of this file for why this is the only
+// data: URI the renderer is allowed to emit.
+include!(concat!(env!("OUT_DIR"), "/logo_base64.rs"));
 
 pub fn render(content: &ReportContent) -> String {
     let mut s = String::with_capacity(8 * 1024);
@@ -75,9 +85,21 @@ fn render_header(s: &mut String, content: &ReportContent) {
     s.push_str("<div class=\"banner\" role=\"alert\">");
     push_text(s, &content.header.review_banner);
     s.push_str("</div>");
+    // Brand banner — logo + title in a flex row. The logo src is a
+    // compile-time-baked data: URI; it cannot be influenced by user
+    // input. When LOGO_PNG_BASE64 is empty (dev builds before icons/
+    // is populated) the `<img>` renders as a broken-image placeholder
+    // which the CSS hides via `img:not([src]), img[src=""]`.
+    s.push_str("<div class=\"brand\">");
+    if !LOGO_PNG_BASE64.is_empty() {
+        s.push_str("<img class=\"brand-logo\" alt=\"\" src=\"data:image/png;base64,");
+        s.push_str(LOGO_PNG_BASE64);
+        s.push_str("\">");
+    }
     s.push_str("<h1>");
     push_text(s, &content.header.title);
     s.push_str("</h1>");
+    s.push_str("</div>");
     if let Some(sub) = &content.header.subtitle {
         s.push_str("<p class=\"subtitle\">");
         push_text(s, sub);
@@ -420,12 +442,25 @@ mod tests {
     #[test]
     fn output_contains_no_remote_url_schemes() {
         let html = render(&empty_content());
-        for needle in ["http://", "https://", "//cdn.", "src=\""] {
+        for needle in ["http://", "https://", "//cdn."] {
             assert!(
                 !html.contains(needle),
                 "renderer must never emit `{needle}`",
             );
         }
+        // The only HTML attribute that takes a URL the renderer is
+        // allowed to emit is the brand logo's `src="data:image/png;..."` —
+        // see the renderer's top-of-file docstring. Any OTHER URL-bearing
+        // attribute would be a regression. We isolate the BODY (the
+        // <style> block is allowed `src=""` inside CSS selectors so we
+        // ignore that section).
+        let body_start = html.find("</style></head><body>").unwrap_or(0);
+        let body = &html[body_start..];
+        let stripped = body.replace("src=\"data:image/png;base64,", "");
+        assert!(
+            !stripped.contains("src=\""),
+            "the only `src=` allowed in the body is the brand logo's data: URI",
+        );
     }
 
     #[test]

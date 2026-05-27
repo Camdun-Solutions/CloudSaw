@@ -8,6 +8,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
        "Helvetica Neue", Arial, "Noto Sans", sans-serif; color: #1F1F1F;
        margin: 24px; line-height: 1.45; }
 h1 { font-size: 26px; margin: 0 0 8px; }
+.brand { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; }
+.brand-logo { width: 48px; height: 48px; flex: 0 0 auto; }
+.brand h1 { margin: 0; }
+/* Hide broken-image placeholders if LOGO_PNG_BASE64 was empty at build
+   time (dev builds before icons/ is populated). The renderer skips
+   the <img> tag entirely in that case, but defense-in-depth: this
+   ensures no broken-image icon ever renders. */
+img:not([src]), img[src=""] { display: none; }
 h2 { font-size: 20px; margin: 24px 0 8px; border-bottom: 1px solid #E5E7EB;
      padding-bottom: 4px; }
 h4 { font-size: 14px; margin: 12px 0 6px; }

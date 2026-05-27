@@ -4,7 +4,7 @@
 
 import { useState, type FormEvent } from "react";
 
-import { Button, PasswordField } from "@/components";
+import { Button, Logo, PasswordField } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { ipc } from "@/lib/ipc";
@@ -53,7 +53,7 @@ export default function FirstRunSetup() {
     <main className="min-h-full bg-saw-grey-50 flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md rounded-card bg-saw-white p-8 shadow-sm border border-saw-grey-200">
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-card bg-saw-red" aria-hidden="true" />
+          <Logo size="sm" />
           <h1 className="text-h2 font-semibold text-saw-grey-900">
             {t("applock.setup.title")}
           </h1>
