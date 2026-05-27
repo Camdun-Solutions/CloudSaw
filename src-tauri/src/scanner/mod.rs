@@ -399,13 +399,28 @@ fn execute_scan_inner(
     }
 
     // Convert ScoutSuite's `.js`-wrapped output at
-    // `<output_dir>/scoutsuite-results/scoutsuite_results_aws-cloudsaw.js`
+    // `<output_dir>/scoutsuite-results/scoutsuite_results_cloudsaw.js`
     // into clean JSON at `raw_output_path`. The findings parser reads
     // from `raw_output_path` unchanged — the `.js` → JSON transform is
     // isolated here. If ScoutSuite never produced an output file the
     // helper returns Ok(false) and the next block falls into the
     // `OutputMissing` / `ProcessFailed` branch below.
-    let _ = runner::post_process_scoutsuite_output(&output_dir, &raw_output_path);
+    //
+    // We log read/write errors via the scan's stderr sidecar instead of
+    // silently dropping them — silent error-swallowing here is what hid
+    // the 2026.5.13 `scoutsuite_results_aws-cloudsaw.js` vs
+    // `scoutsuite_results_cloudsaw.js` filename-mismatch bug behind a
+    // generic "no findings file" message. Errors don't propagate up
+    // because the next `is_file()` check correctly maps to a UI-
+    // surfaced error; but we want them visible in the log.
+    if let Err(post_err) = runner::post_process_scoutsuite_output(&output_dir, &raw_output_path) {
+        // Best-effort: write to a sibling log file (not scoutsuite-stderr.log
+        // which is ScoutSuite's own stderr and would get clobbered). The
+        // "Show scan files" button surfaces both logs to the user.
+        let log_path = output_dir.join("cloudsaw-postprocess-error.log");
+        let msg = format!("post_process_scoutsuite_output failed: {post_err}\n");
+        let _ = std::fs::write(log_path, msg);
+    }
 
     // Confirm the raw output file landed. Empty/missing == hard failure.
     let category = runner::classify_exit(outcome.exit_code);
@@ -435,7 +450,29 @@ fn execute_scan_inner(
         }
         runner::ExitCategory::Failure => {
             storage::record_failed(scan_id, ScannerError::ProcessFailed.code())?;
+            return Ok(());
         }
+    }
+
+    // Trigger the findings parser inline. Without this the scan status
+    // shows "complete" on the dashboard but findings tables stay empty
+    // and the Welcome page's "recent scans" list misses the entry —
+    // because both surfaces read from the `findings` SQLite tables, not
+    // from `scans.raw_output_path` directly. The findings parser is
+    // local-only (no AWS, no network) and runs in milliseconds on a
+    // typical scoutsuite output, so chaining inline keeps the
+    // contract's "scan complete = data ready" invariant intact.
+    //
+    // Best-effort: a parse failure logs to a sibling file and the scan
+    // stays "complete" (not "failed") because ScoutSuite itself
+    // succeeded; the user can retry the parse via a future
+    // `findings_parse_and_store` IPC call if we surface a UI button
+    // for it. Currently we just log so any regression surfaces in
+    // `Show scan files`.
+    if let Err(parse_err) = crate::findings::parse_and_store(scan_id) {
+        let log_path = output_dir.join("cloudsaw-findings-parse-error.log");
+        let msg = format!("findings::parse_and_store failed: {parse_err}\n");
+        let _ = std::fs::write(log_path, msg);
     }
 
     Ok(())

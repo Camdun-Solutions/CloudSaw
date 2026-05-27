@@ -244,8 +244,24 @@ pub fn scan_output_dir(scan_id: &str) -> Result<PathBuf, ScannerError> {
 /// Path ScoutSuite actually writes the results file to, given the
 /// `--report-dir` and `--report-name` flags `spawn_scoutsuite()` passes.
 /// Constructed per ScoutSuite's `get_filename()` in
-/// `vendor/scoutsuite/ScoutSuite/output/utils.py`:
-///   `<report-dir>/scoutsuite-results/scoutsuite_results_<provider>-<name>.js`
+/// `vendor/scoutsuite/ScoutSuite/output/utils.py:49`:
+///
+/// ```python
+/// name = f'scoutsuite_results_{file_name}' if file_name else 'scoutsuite_results'
+/// ```
+///
+/// Filename layout:
+///   `<report-dir>/scoutsuite-results/scoutsuite_results_<name>.js`
+///
+/// NOTE: an earlier version of this function included an `aws-` prefix
+/// before `<name>` based on a misreading of the upstream code. ScoutSuite
+/// does NOT prefix with the provider — `file_name` is what we pass via
+/// `--report-name` and that's used verbatim. 2026.5.13 shipped the wrong
+/// path, which caused `post_process_scoutsuite_output()` to return
+/// `Ok(false)` (source file "missing"), the scanner module then mapped
+/// the missing `raw-scout.json` to `OutputMissing` — surfaced in the UI
+/// as "scanner finished but produced no findings file" even though the
+/// real ScoutSuite run had completed perfectly.
 ///
 /// The `.js` extension is not a typo — ScoutSuite emits the JSON inside
 /// a `scoutsuite_results = { ... }` JavaScript variable so the HTML
@@ -254,7 +270,7 @@ pub fn scan_output_dir(scan_id: &str) -> Result<PathBuf, ScannerError> {
 /// in `post_process_scoutsuite_output()`.
 pub fn scoutsuite_results_path(output_dir: &Path) -> PathBuf {
     output_dir.join("scoutsuite-results").join(format!(
-        "scoutsuite_results_aws-{name}.js",
+        "scoutsuite_results_{name}.js",
         name = SCOUTSUITE_REPORT_NAME,
     ))
 }
@@ -337,12 +353,19 @@ mod tests {
 
     #[test]
     fn scoutsuite_results_path_uses_stable_name() {
+        // Regression test: the path MUST match what ScoutSuite's
+        // `output/utils.py:get_filename()` emits — i.e.
+        // `scoutsuite_results_<name>.js` with NO `aws-` (or any other
+        // provider) prefix. 2026.5.13 shipped the wrong path and every
+        // scan completed successfully at the ScoutSuite layer but then
+        // failed in post-processing with a misleading "no findings
+        // file" message.
         let dir = std::path::PathBuf::from("/tmp/scan-42");
         let got = scoutsuite_results_path(&dir);
         assert_eq!(
             got,
             std::path::PathBuf::from(
-                "/tmp/scan-42/scoutsuite-results/scoutsuite_results_aws-cloudsaw.js"
+                "/tmp/scan-42/scoutsuite-results/scoutsuite_results_cloudsaw.js"
             )
         );
     }

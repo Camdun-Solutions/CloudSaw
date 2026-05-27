@@ -21,6 +21,9 @@
 #     not enough — the data files those walks land on still have to be
 #     declared below in `datas`.
 
+import glob
+import os
+
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
@@ -61,8 +64,35 @@ datas = [
     # Static reference data (ip-ranges.json, etc.) under ScoutSuite/data/.
     # ScoutSuite/core/fs.py walks `../data/` from `core/`, so we mirror
     # that layout.
-    ('ScoutSuite/data', 'ScoutSuite/data'),
+    #
+    # IMPORTANT: enumerated explicitly rather than using the directory
+    # tuple form `('ScoutSuite/data', 'ScoutSuite/data')`. PyInstaller's
+    # directory-tuple semantics are platform-inconsistent — the Windows
+    # bundle in 2026.5.9-2026.5.13 picked up the entire subtree, but the
+    # macOS CI build silently dropped `icmp_message_types.json` and
+    # `protocols.json`, surfacing as a runtime `[Errno 2] No such file or
+    # directory: '.../ScoutSuite/core/../data/icmp_message_types.json'`
+    # at scan-time once the AWSProvider class definition loaded
+    # SecurityGroups. Explicit globs remove the ambiguity.
 ]
+for root, _dirs, files in os.walk('ScoutSuite/data'):
+    for fname in files:
+        src = os.path.join(root, fname).replace('\\', '/')
+        # Destination path inside the bundle = source's directory, with
+        # forward-slash normalization so the bundle layout matches what
+        # ScoutSuite's `core/fs.py` expects on every platform.
+        dest = root.replace('\\', '/')
+        datas.append((src, dest))
+# Fail-fast assertions: if the source tree changes shape we want a build-time
+# error in CI, not another runtime-only failure on a user's install. These
+# specific files have a history of going missing on macOS bundles via the
+# directory-tuple form (see SPEC_NOTES.md 2026-05-27).
+assert any('icmp_message_types.json' in p for p, _ in datas), \
+    'icmp_message_types.json missing from datas — check vendor/scoutsuite/ScoutSuite/data/'
+assert any('protocols.json' in p for p, _ in datas), \
+    'protocols.json missing from datas — check vendor/scoutsuite/ScoutSuite/data/'
+assert any('ip-ranges/aws.json' in p for p, _ in datas), \
+    'ip-ranges/aws.json missing from datas — check vendor/scoutsuite/ScoutSuite/data/aws/ip-ranges/'
 
 # botocore + boto3 ship cloud service models as JSON under their own
 # `data/` directories. Without these, the first AWS API call raises
