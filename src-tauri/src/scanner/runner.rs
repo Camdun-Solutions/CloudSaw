@@ -381,7 +381,7 @@ mod tests {
         ));
         let results_dir = dir.join("scoutsuite-results");
         std::fs::create_dir_all(&results_dir).unwrap();
-        let source = results_dir.join("scoutsuite_results_aws-cloudsaw.js");
+        let source = results_dir.join("scoutsuite_results_cloudsaw.js");
         std::fs::write(
             &source,
             "scoutsuite_results =\n{\"account_id\":\"111122223333\",\"services\":{}}\n",
@@ -410,7 +410,7 @@ mod tests {
         ));
         let results_dir = dir.join("scoutsuite-results");
         std::fs::create_dir_all(&results_dir).unwrap();
-        let source = results_dir.join("scoutsuite_results_aws-cloudsaw.js");
+        let source = results_dir.join("scoutsuite_results_cloudsaw.js");
         std::fs::write(&source, "scoutsuite_results = {\"k\":\"v\"};").unwrap();
 
         let raw = dir.join("raw-scout.json");
