@@ -20,18 +20,20 @@ type LogoSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 const SIZE_CLASSES: Record<LogoSize, string> = {
   // HEIGHT-based sizing with auto width so the cloud renders at
-  // its natural 2.1:1 aspect ratio. PR #37 + #40 used `h-X w-X`
-  // (square box) but the underlying asset was a horizontal cloud
-  // padded onto a square canvas — the cloud ended up ~50% the
-  // visible size of the box. PR #44 changes the asset itself to
-  // a bounding-box-cropped non-square PNG; this rule lets that
-  // natural aspect flow through.
-  xs: "h-7 w-auto", // top-of-list avatars, compact rows
-  sm: "h-10 w-auto", // page-header chrome (Home / Dashboard /
-  //                    Accounts / Profiles / UnlockScreen /
-  //                    FirstRunSetup — reads cleanly next to a
-  //                    text-h2 title)
-  md: "h-14 w-auto", // onboarding step header
+  // its natural 2.1:1 aspect ratio (PR #44 changed the asset to
+  // a bounding-box-cropped non-square PNG; that crop makes the
+  // small sizes here read much larger than the same h-X did
+  // pre-#44, even though the numeric h-X is smaller).
+  //
+  // PR #45 shrunk `sm` and `md` ~40% (h-10 → h-6, h-14 → h-8)
+  // per user spec — the bbox-cropped cloud at the previous h-10
+  // was visually dwarfing the text-h2 titles next to it.
+  xs: "h-6 w-auto", // top-of-list avatars, compact rows
+  sm: "h-6 w-auto", // page-header chrome (Home / Dashboard /
+  //                   Accounts / Profiles / UnlockScreen /
+  //                   FirstRunSetup — sits proportional to a
+  //                   text-h2 title)
+  md: "h-8 w-auto", // onboarding step header
   lg: "h-20 w-auto", // splash, empty-state hero
   xl: "h-28 w-auto", // unlock screen, first-run welcome
 };
