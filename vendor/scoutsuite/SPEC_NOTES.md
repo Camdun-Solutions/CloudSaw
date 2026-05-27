@@ -82,3 +82,23 @@ known to have these freezing hazards:
 **Smoke**: `scoutsuite.exe --help` and `scoutsuite.exe aws --help` both rendered cleanly.
 **Fake-creds scan**: Same `aws --access-keys ... AKIA...EXAMPLE ...` invocation → identical outcome to Linux (started ScoutSuite, resolved auth strategy, AWS rejected the token, graceful exit). The spec is genuinely cross-platform; no per-OS branching needed.
 **What's still untested**: macOS native build. Same approach (Python 3.11 + venv + native `pyinstaller cloudsaw.spec`) should produce a working binary, but Mach-O signing and the codesign-before-bundle pipeline are macOS-only concerns that will be verified by the release.yml step on the macOS runner.
+
+## 2026-05-26 — explicit hiddenimports for per-provider `.provider` modules
+
+**Symptom**: `Initialization failure: No module named 'ScoutSuite.providers.aws.provider'` at scan-time on a real-credentials macOS scan (2026.5.13). The fake-credentials Phase 1 validation against AKIA…EXAMPLE never hit this code path because AWS rejected the STS token at the auth step, before `__main__.py:257` (`get_provider`) ran.
+**Change**: Added `ScoutSuite.providers.<cloud>.provider` for all seven providers to `hiddenimports`, mirroring the existing `authentication_strategy` block.
+**Why**: `ScoutSuite/providers/__init__.py:12` does `__import__(f'ScoutSuite.providers.{provider}.provider', fromlist=[provider_class])` — the same dynamic-dispatch pattern as `authentication_strategy_factory.py:14`. PyInstaller's static analyzer cannot follow the f-string; `collect_submodules('ScoutSuite.providers.aws')` lists `provider` (verified locally) but PyInstaller silently drops the concrete submodule from the freeze. Explicit listing is the proven workaround.
+**Real-creds verification**: Rebuilt `dist/scoutsuite.exe` on Windows, ran against a `cloudsaw` AWS CLI profile (account 928244370248, IAM ReadOnly):
+
+```
+INFO Launching Scout
+INFO Authenticating to cloud provider
+INFO Gathering data from APIs                  ← first time this line appears post-fix
+INFO Fetching resources for the IAM service
+INFO Running rule engine
+INFO Saving data to scoutsuite_results_cloudsaw.js
+exit: 0
+```
+
+Output file (2.1 MB) parsed cleanly by CloudSaw's `post_process_scoutsuite_output` regex; 37 real findings detected. End-to-end scan time: 19 seconds. **This is the first confirmed full-stack ScoutSuite scan from a CloudSaw-built binary against real AWS, ever.**
+**What's still potentially fragile**: Other dispatch-style imports elsewhere in ScoutSuite that the fake-creds path didn't exercise but the real-creds path might. The CI E2E moto/localstack harness (open task #40) would catch any remaining gaps at build time instead of in production.
