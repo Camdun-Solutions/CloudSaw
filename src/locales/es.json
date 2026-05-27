@@ -2,6 +2,7 @@
   "app.name": "CloudSaw",
   "app.tagline": "Escáner de seguridad de AWS local",
   "app.version_label": "Versión",
+  "nav.aria_label": "Main navigation",
   "nav.dashboard": "Dashboard",
   "nav.scans": "Scans",
   "nav.findings": "Findings",

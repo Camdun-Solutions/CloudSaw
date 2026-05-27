@@ -14,5 +14,7 @@ export { default as Select } from "./Select";
 export { default as SeverityBadge } from "./SeverityBadge";
 export { default as SubmissionPreviewModal } from "./SubmissionPreviewModal";
 export { default as Switch } from "./Switch";
+export { default as TopNav } from "./TopNav";
+export type { TopNavRoute } from "./TopNav";
 export { default as UpdateBanner } from "./UpdateBanner";
 export { default as VirtualList } from "./VirtualList";
