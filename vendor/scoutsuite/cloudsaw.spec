@@ -121,6 +121,38 @@ hiddenimports += [
     'ScoutSuite.providers.kubernetes.authentication_strategy',
 ]
 
+# Per-provider provider modules — `__import__`'d as a string by
+# `ScoutSuite/providers/__init__.py:12` (`get_provider_object()`):
+#
+#     provider_module = __import__(
+#         f'ScoutSuite.providers.{provider}.provider',
+#         fromlist=[provider_class]
+#     )
+#
+# Same dynamic-dispatch pattern as authentication_strategy_factory above —
+# PyInstaller's static analyzer can't follow the f-string, and
+# `collect_submodules('ScoutSuite.providers.aws')` silently drops the
+# concrete `.provider` submodule from the freeze (the cause appears to
+# be `provider.py`'s transitive import surface, but the symmetric fix
+# is to declare it explicitly the same way we did for
+# `authentication_strategy`).
+#
+# 2026.5.9-2026.5.12 shipped without these entries; the auth strategy
+# resolved fine, so scout.py printed "Authenticating to cloud provider"
+# successfully — but the very next step (`get_provider_object('aws')`)
+# threw `ModuleNotFoundError: No module named 'ScoutSuite.providers.aws.provider'`
+# at runtime. Our fake-credentials Phase 1 validation never reached this
+# code path because AWS rejected the fake STS token first.
+hiddenimports += [
+    'ScoutSuite.providers.aws.provider',
+    'ScoutSuite.providers.azure.provider',
+    'ScoutSuite.providers.gcp.provider',
+    'ScoutSuite.providers.aliyun.provider',
+    'ScoutSuite.providers.oci.provider',
+    'ScoutSuite.providers.do.provider',
+    'ScoutSuite.providers.kubernetes.provider',
+]
+
 a = Analysis(
     ['scout.py'],
     pathex=['.'],
