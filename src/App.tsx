@@ -229,6 +229,15 @@ export default function App() {
         <TopNav
           active={topNavActive(route)}
           onNavigate={(target) => setRoute(target)}
+          onLock={() => {
+            // The lock state listener in the useLock store flips
+            // status to "locked" on the next IPC tick; App.tsx
+            // re-renders into <UnlockScreen /> via the `state.locked`
+            // gate above. Errors here would mean the lock IPC
+            // rejected (rare — usually only if SQLite is hosed), in
+            // which case the ErrorBoundary picks up the throw.
+            void ipc.applockLock();
+          }}
         />
         <AppShell
           route={route}
