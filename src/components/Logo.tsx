@@ -19,18 +19,21 @@ import logoUrl from "@/assets/cloudsaw-logo.png";
 type LogoSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 const SIZE_CLASSES: Record<LogoSize, string> = {
-  // Bumped one notch each from the initial PR #37 sizes — the
-  // placeholder red square at h-7 / h-10 didn't read at all once
-  // replaced with detailed brand artwork (the cloud's negative
-  // space made the rendered mark feel undersized next to a
-  // text-h2 page title).
-  xs: "h-7 w-7", // top-of-list avatars, compact rows
-  sm: "h-10 w-10", // page-header chrome (Home / Dashboard / Accounts
-  //                  / Profiles / UnlockScreen / FirstRunSetup —
-  //                  reads cleanly next to a text-h2 title)
-  md: "h-14 w-14", // onboarding step header, settings pane title
-  lg: "h-20 w-20", // splash, empty-state hero
-  xl: "h-28 w-28", // unlock screen, first-run welcome
+  // HEIGHT-based sizing with auto width so the cloud renders at
+  // its natural 2.1:1 aspect ratio. PR #37 + #40 used `h-X w-X`
+  // (square box) but the underlying asset was a horizontal cloud
+  // padded onto a square canvas — the cloud ended up ~50% the
+  // visible size of the box. PR #44 changes the asset itself to
+  // a bounding-box-cropped non-square PNG; this rule lets that
+  // natural aspect flow through.
+  xs: "h-7 w-auto", // top-of-list avatars, compact rows
+  sm: "h-10 w-auto", // page-header chrome (Home / Dashboard /
+  //                    Accounts / Profiles / UnlockScreen /
+  //                    FirstRunSetup — reads cleanly next to a
+  //                    text-h2 title)
+  md: "h-14 w-auto", // onboarding step header
+  lg: "h-20 w-auto", // splash, empty-state hero
+  xl: "h-28 w-auto", // unlock screen, first-run welcome
 };
 
 type Props = {
