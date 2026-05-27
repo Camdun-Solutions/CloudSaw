@@ -11,6 +11,7 @@
   "common.cancel": "Cancelar",
   "common.confirm": "Confirmar",
   "common.close": "Cerrar",
+  "common.back_to": "Back to {destination}",
   "common.back": "Atrás",
   "common.save": "Guardar",
   "common.loading": "Cargando…",

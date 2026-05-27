@@ -11,6 +11,7 @@
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
   "common.close": "Close",
+  "common.back_to": "Back to {destination}",
   "common.back": "Back",
   "common.save": "Save",
   "common.loading": "Loading…",

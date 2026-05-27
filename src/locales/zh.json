@@ -11,6 +11,7 @@
   "common.cancel": "取消",
   "common.confirm": "确认",
   "common.close": "关闭",
+  "common.back_to": "Back to {destination}",
   "common.back": "返回",
   "common.save": "保存",
   "common.loading": "加载中…",

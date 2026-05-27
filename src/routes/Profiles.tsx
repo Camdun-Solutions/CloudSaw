@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { Badge, Button, EmptyState, Logo } from "@/components";
+import { BackBreadcrumb, Badge, Button, EmptyState, Logo } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -94,6 +94,17 @@ export default function Profiles({ onClose }: Props) {
   return (
     <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
       <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+        {/* PR #49: back-arrow breadcrumb replaces the old Close
+            text button. Profiles is a sub-page of Settings (the
+            embedded Accounts panel's "Open profiles" button is
+            the only entry point post PR #46), so Back-to-Settings. */}
+        <div className="mb-2">
+          <BackBreadcrumb
+            destination={t("nav.settings")}
+            onBack={onClose}
+            data-testid="profiles-back"
+          />
+        </div>
         <div className="flex items-center gap-3">
           <Logo size="sm" />
           <div className="flex flex-col">
@@ -111,14 +122,6 @@ export default function Profiles({ onClose }: Props) {
               data-testid="profiles-refresh"
             >
               {refreshing ? t("profiles.refreshing") : t("profiles.refresh")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              data-testid="profiles-close"
-            >
-              {t("common.close")}
             </Button>
           </div>
         </div>

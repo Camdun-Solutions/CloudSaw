@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, EmptyState, Select } from "@/components";
+import { BackBreadcrumb, Button, EmptyState, Select } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { ipc, type EventKind, type EventLogEntry } from "@/lib/ipc";
@@ -100,18 +100,18 @@ export default function ActivityLog({ onBack }: Props) {
 
   return (
     <main className="min-h-full bg-saw-grey-50 px-8 py-10">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-h1 font-semibold text-saw-grey-900">
-            {t("eventlog.title")}
-          </h1>
-          <p className="mt-1 text-small text-saw-grey-600">
-            {t("eventlog.subtitle")}
-          </p>
-        </div>
-        <Button variant="ghost" onClick={onBack} data-testid="activitylog-back">
-          {t("common.back")}
-        </Button>
+      <header className="mb-6">
+        <BackBreadcrumb
+          destination={t("nav.settings")}
+          onBack={onBack}
+          data-testid="activitylog-back"
+        />
+        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
+          {t("eventlog.title")}
+        </h1>
+        <p className="mt-1 text-small text-saw-grey-600">
+          {t("eventlog.subtitle")}
+        </p>
       </header>
 
       <section className="max-w-5xl rounded-card bg-saw-white border border-saw-grey-200 p-6">

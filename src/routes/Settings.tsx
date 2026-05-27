@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, Modal, PasswordField, Select, Switch } from "@/components";
+import { BackBreadcrumb, Button, Modal, PasswordField, Select, Switch } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -151,18 +151,24 @@ export default function Settings({
 
   return (
     <main className="min-h-full bg-saw-grey-50 px-8 py-10">
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-h1 font-semibold text-saw-grey-900">
+          {/* PR #49: back-arrow + breadcrumb replaces the old
+              "Close" text button. Lands the user on whatever
+              the parent route considered "home" (currently the
+              Home route, which becomes Dashboard in PR #50). */}
+          <BackBreadcrumb
+            destination={t("nav.dashboard")}
+            onBack={onClose}
+            data-testid="settings-back"
+          />
+          <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
             {t("nav.settings")}
           </h1>
           <p className="mt-1 text-small text-saw-grey-600">
             {t("applock.settings.subtitle")}
           </p>
         </div>
-        <Button variant="ghost" onClick={onClose}>
-          {t("common.close")}
-        </Button>
       </header>
 
       <section className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6">
