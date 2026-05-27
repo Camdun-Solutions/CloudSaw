@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ErrorBoundary, ErrorReportDialog, UpdateBanner } from "@/components";
+import { ScanModalProvider } from "@/contexts/ScanModalContext";
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
@@ -186,30 +187,32 @@ export default function App() {
         </>
       )}
     >
-      <AppShell
-        route={route}
-        setRoute={setRoute}
-        onOpenReport={openReport}
-        onRerunOnboarding={async (startAt) => {
-          try {
-            await ipc.onboardingResetForRerun(startAt);
-            await refreshOnboarding();
-          } catch {
-            // Surface via the bug-report path so the user sees an
-            // actionable affordance rather than a silent failure.
-            openReport("Failed to re-enter the onboarding wizard.");
-          }
-        }}
-      />
-      <ErrorReportDialog
-        open={errorDialogOpen}
-        initialNotes={errorDialogNotes}
-        onClose={() => setErrorDialogOpen(false)}
-        onConfigureToken={() => {
-          setErrorDialogOpen(false);
-          setRoute("settings");
-        }}
-      />
+      <ScanModalProvider>
+        <AppShell
+          route={route}
+          setRoute={setRoute}
+          onOpenReport={openReport}
+          onRerunOnboarding={async (startAt) => {
+            try {
+              await ipc.onboardingResetForRerun(startAt);
+              await refreshOnboarding();
+            } catch {
+              // Surface via the bug-report path so the user sees an
+              // actionable affordance rather than a silent failure.
+              openReport("Failed to re-enter the onboarding wizard.");
+            }
+          }}
+        />
+        <ErrorReportDialog
+          open={errorDialogOpen}
+          initialNotes={errorDialogNotes}
+          onClose={() => setErrorDialogOpen(false)}
+          onConfigureToken={() => {
+            setErrorDialogOpen(false);
+            setRoute("settings");
+          }}
+        />
+      </ScanModalProvider>
       </ErrorBoundary>
     </>
   );

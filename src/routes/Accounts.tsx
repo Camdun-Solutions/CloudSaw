@@ -291,15 +291,21 @@ export default function Accounts({ onClose, onOpenProfiles }: Props) {
         </Modal>
       ) : null}
 
-      <ScanProgressModal
-        account={scanTarget}
-        onClose={() => setScanTarget(null)}
-        onScanFinished={async () => {
-          // Refresh accounts so the last_scan_at / last_scan_status badges
-          // pick up the new terminal state.
-          await reload();
-        }}
-      />
+      {/* Conditionally mount so the modal's new account-picker phase
+          (PR #39 — when the account prop is null) doesn't fire here.
+          Accounts.tsx is the legacy pre-bound caller — the modal must
+          only render when a row's Scan button was clicked. */}
+      {scanTarget ? (
+        <ScanProgressModal
+          account={scanTarget}
+          onClose={() => setScanTarget(null)}
+          onScanFinished={async () => {
+            // Refresh accounts so the last_scan_at / last_scan_status
+            // badges pick up the new terminal state.
+            await reload();
+          }}
+        />
+      ) : null}
     </main>
   );
 }
