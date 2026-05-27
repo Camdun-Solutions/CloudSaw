@@ -119,6 +119,55 @@ pub fn cancel_scan(scan_id: &str) -> Result<ScanRecord, ScannerError> {
     Ok(updated)
 }
 
+/// Open the platform file manager at this scan's output directory so the
+/// user can inspect the raw outputs CloudSaw collected — `raw-scout.json`,
+/// `scoutsuite-stderr.log`, and the `scoutsuite-results/` tree.
+///
+/// We validate the scan_id against the DB first (defense-in-depth — the
+/// path is built from `runner::scan_output_dir`, which only joins onto
+/// `app_data_dir`, but the frontend is not trusted with arbitrary string
+/// substitution so we still gate on a real scan record). If the directory
+/// does not exist (e.g. a scan that never produced output) we still attempt
+/// the open call — the OS file manager will surface the missing-folder
+/// message, which is more diagnostic than CloudSaw silently no-op'ing.
+///
+/// Cross-platform shell-out: explorer.exe / `open` / `xdg-open`. No flags,
+/// no shell, single argv element (the absolute path), spawned and detached.
+pub fn reveal_scan_dir(scan_id: &str) -> Result<(), ScannerError> {
+    // Validates the scan exists in our SQLite. Errors with ScanNotFound
+    // otherwise — the frontend handles that the same way as it does for
+    // scanner_scan_status / scanner_cancel_scan.
+    let _ = storage::get(scan_id)?;
+    let dir = runner::scan_output_dir(scan_id)?;
+    open_in_file_manager(&dir).map_err(|e| ScannerError::ScanIo(e.to_string()))
+}
+
+#[cfg(target_os = "windows")]
+fn open_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
+    // `explorer.exe` returns a non-zero exit code in some success paths
+    // (it's chatty about whether the window was already open), so we
+    // spawn and detach without inspecting the exit status.
+    std::process::Command::new("explorer.exe")
+        .arg(path)
+        .spawn()?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn open_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
+    std::process::Command::new("open").arg(path).spawn()?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn open_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
+    // `xdg-open` is part of every freedesktop-compliant DE we'd ship on.
+    // On a headless box it'd fail at spawn — surfaced to the UI as a
+    // ScanIo error, which is correct.
+    std::process::Command::new("xdg-open").arg(path).spawn()?;
+    Ok(())
+}
+
 /// History query used by the UI. Returns the most recent `limit` scans for
 /// the account, newest first.
 pub fn list_recent_scans(

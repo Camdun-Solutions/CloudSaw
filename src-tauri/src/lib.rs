@@ -86,6 +86,7 @@ pub fn run() {
             ipc::scanner_run_scan,
             ipc::scanner_scan_status,
             ipc::scanner_cancel_scan,
+            ipc::scanner_reveal_scan_dir,
             ipc::scanner_list_recent,
             ipc::findings_parse_and_store,
             ipc::findings_list,
