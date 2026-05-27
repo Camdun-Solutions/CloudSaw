@@ -83,6 +83,13 @@ known to have these freezing hazards:
 **Fake-creds scan**: Same `aws --access-keys ... AKIA...EXAMPLE ...` invocation → identical outcome to Linux (started ScoutSuite, resolved auth strategy, AWS rejected the token, graceful exit). The spec is genuinely cross-platform; no per-OS branching needed.
 **What's still untested**: macOS native build. Same approach (Python 3.11 + venv + native `pyinstaller cloudsaw.spec`) should produce a working binary, but Mach-O signing and the codesign-before-bundle pipeline are macOS-only concerns that will be verified by the release.yml step on the macOS runner.
 
+## 2026-05-27 — explicit-glob datas for ScoutSuite/data tree (macOS bundling fix)
+
+**Symptom**: `[Errno 2] No such file or directory: '/var/folders/.../T/_MEIEv49Fb/ScoutSuite/core/../data/icmp_message_types.json'` at scan-time on 2026.5.14 on macOS. Once the AWS provider's `SecurityGroups` class definition runs (`vendor/scoutsuite/ScoutSuite/providers/aws/resources/ec2/securitygroups.py:9`), it calls `load_data('icmp_message_types.json', ...)` which walks `ScoutSuite/core/../data/`. Windows bundles produced the same day worked fine.
+**Change**: Replaced the `('ScoutSuite/data', 'ScoutSuite/data')` directory tuple with an explicit `os.walk('ScoutSuite/data')` loop that emits one `datas` entry per file. Added fail-fast assertions for `icmp_message_types.json`, `protocols.json`, and `ip-ranges/aws.json` so the build dies at spec-eval if the source tree changes shape.
+**Why**: PyInstaller's directory-tuple semantics in `datas` are platform-inconsistent — the Windows builder for 2026.5.9 through 2026.5.14 picked up the entire `ScoutSuite/data/` subtree, but the macOS CI builder silently dropped the non-`__init__.py` files. `pyi-archive_viewer --brief` on the Windows EXE confirmed all 5 data files were bundled there. Explicit per-file globs remove the ambiguity. Bumps coverage from 1 line to 5 (icmp_message_types, protocols, 3× ip-ranges/*.json).
+**Real-creds verification**: Rebuilt `dist/scoutsuite.exe` locally on Windows, exit 0 against the `cloudsaw` AWS profile across all 27 services / 157 findings. The same spec, when built by CI on the macOS runner, will now bundle the data tree explicitly.
+
 ## 2026-05-26 — explicit hiddenimports for per-provider `.provider` modules
 
 **Symptom**: `Initialization failure: No module named 'ScoutSuite.providers.aws.provider'` at scan-time on a real-credentials macOS scan (2026.5.13). The fake-credentials Phase 1 validation against AKIA…EXAMPLE never hit this code path because AWS rejected the STS token at the auth step, before `__main__.py:257` (`get_provider`) ran.
