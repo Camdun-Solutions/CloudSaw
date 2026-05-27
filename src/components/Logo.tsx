@@ -19,13 +19,18 @@ import logoUrl from "@/assets/cloudsaw-logo.png";
 type LogoSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 const SIZE_CLASSES: Record<LogoSize, string> = {
-  xs: "h-6 w-6", // top-of-list avatars
-  sm: "h-7 w-7", // page-header chrome (drop-in replacement for the
-  //                placeholder `h-7 w-7 rounded-card bg-saw-red` div
-  //                that lived on Home / Dashboard / Accounts / etc.)
-  md: "h-10 w-10", // onboarding step header, settings pane title
-  lg: "h-16 w-16", // splash, empty-state hero
-  xl: "h-24 w-24", // unlock screen, first-run welcome
+  // Bumped one notch each from the initial PR #37 sizes — the
+  // placeholder red square at h-7 / h-10 didn't read at all once
+  // replaced with detailed brand artwork (the cloud's negative
+  // space made the rendered mark feel undersized next to a
+  // text-h2 page title).
+  xs: "h-7 w-7", // top-of-list avatars, compact rows
+  sm: "h-10 w-10", // page-header chrome (Home / Dashboard / Accounts
+  //                  / Profiles / UnlockScreen / FirstRunSetup —
+  //                  reads cleanly next to a text-h2 title)
+  md: "h-14 w-14", // onboarding step header, settings pane title
+  lg: "h-20 w-20", // splash, empty-state hero
+  xl: "h-28 w-28", // unlock screen, first-run welcome
 };
 
 type Props = {
