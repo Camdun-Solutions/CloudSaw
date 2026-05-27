@@ -8,7 +8,8 @@ import {
   VersionFooter,
   type TopNavRoute,
 } from "@/components";
-import { ScanModalProvider } from "@/contexts/ScanModalContext";
+import { ScanModalProvider, SCAN_FINISHED_EVENT } from "@/contexts/ScanModalContext";
+import { notifyScanComplete } from "@/lib/scanNotifications";
 import { useT } from "@/hooks/useT";
 // PR #46: Accounts is no longer a top-level route — it's an
 // embedded section inside Settings. App.tsx doesn't render it
@@ -97,6 +98,23 @@ export default function App() {
   useEffect(() => {
     void refreshOnboarding();
   }, [refreshOnboarding]);
+
+  // PR #54 — desktop notification on scan completion. Listens for
+  // the global SCAN_FINISHED_EVENT (fired by ScanModalProvider on
+  // scan-modal completions, plus Accounts.tsx for legacy callsites
+  // — see PR #54 for the dispatch wiring). The helper itself gates
+  // on the user's Settings → Notifications opt-in toggle, so this
+  // listener is harmless when the user hasn't enabled.
+  useEffect(() => {
+    const handler = () => {
+      void notifyScanComplete({
+        title: t("notifications.scan_complete.title"),
+        body: t("notifications.scan_complete.body"),
+      });
+    };
+    document.addEventListener(SCAN_FINISHED_EVENT, handler);
+    return () => document.removeEventListener(SCAN_FINISHED_EVENT, handler);
+  }, [t]);
 
   function openReport(notes?: string) {
     setErrorDialogNotes(notes);
