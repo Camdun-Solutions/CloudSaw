@@ -17,4 +17,5 @@ export { default as Switch } from "./Switch";
 export { default as TopNav } from "./TopNav";
 export type { TopNavRoute } from "./TopNav";
 export { default as UpdateBanner } from "./UpdateBanner";
+export { default as VersionFooter } from "./VersionFooter";
 export { default as VirtualList } from "./VirtualList";

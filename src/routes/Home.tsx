@@ -1,11 +1,7 @@
-import { useEffect, useState } from "react";
-
-import Badge from "@/components/Badge";
 import Button from "@/components/Button";
 import EmptyState from "@/components/EmptyState";
 import Logo from "@/components/Logo";
 import { useT } from "@/hooks/useT";
-import { ipc } from "@/lib/ipc";
 
 type Props = {
   onOpenSettings: () => void;
@@ -19,28 +15,6 @@ export default function Home({
   onOpenDashboard,
 }: Props) {
   const t = useT();
-  const [version, setVersion] = useState<string | null>(null);
-  const [versionError, setVersionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    ipc
-      .appVersion()
-      .then((v) => {
-        if (!cancelled) setVersion(v);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const msg =
-          typeof err === "object" && err !== null && "message" in err
-            ? String((err as { message: unknown }).message)
-            : t("common.error_generic");
-        setVersionError(msg);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [t]);
 
 
   return (
@@ -85,18 +59,10 @@ export default function Home({
             >
               {t("nav.settings")}
             </Button>
-            <span>{t("app.version_label")}</span>
-            {version ? (
-              <Badge tone="neutral" data-testid="app-version">
-                {version}
-              </Badge>
-            ) : versionError ? (
-              <Badge tone="danger" data-testid="app-version-error">
-                {versionError}
-              </Badge>
-            ) : (
-              <Badge tone="neutral">{t("common.loading")}</Badge>
-            )}
+            {/* Version badge previously lived here. Moved to the
+                global bottom-left <VersionFooter /> in PR #43 so
+                the version stays visible across every route, not
+                just Home. */}
           </div>
         </div>
       </header>
