@@ -233,7 +233,16 @@ export default function App() {
             once this nav is verified. */}
         <TopNav
           active={topNavActive(route)}
-          onNavigate={(target) => setRoute(target)}
+          onNavigate={(target) => {
+            // PR #50: "Dashboard" in the TopNav lands on the new
+            // Welcome content rendered by Home.tsx. The "dashboard"
+            // Route value still exists in the union for backward
+            // compat with the legacy Dashboard.tsx (scans / drift /
+            // trends tabs) that's still reachable via the
+            // "findings" route's initialTab seam — but no UI
+            // surface routes there directly anymore.
+            setRoute(target === "dashboard" ? "home" : target);
+          }}
           onLock={() => {
             // The lock state listener in the useLock store flips
             // status to "locked" on the next IPC tick; App.tsx
@@ -338,10 +347,6 @@ function AppShell({
     );
   }
   return (
-    <Home
-      onOpenSettings={() => setRoute("settings")}
-      onOpenAccounts={() => setRoute("settings")}
-      onOpenDashboard={() => setRoute("dashboard")}
-    />
+    <Home onOpenSettings={() => setRoute("settings")} />
   );
 }
