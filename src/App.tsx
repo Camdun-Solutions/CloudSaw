@@ -16,6 +16,7 @@ import { useT } from "@/hooks/useT";
 import ActivityLog from "@/routes/ActivityLog";
 import CustomReport from "@/routes/CustomReport";
 import Dashboard from "@/routes/Dashboard";
+import Findings from "@/routes/Findings";
 import Home from "@/routes/Home";
 import Onboarding from "@/routes/Onboarding";
 import Profiles from "@/routes/Profiles";
@@ -337,14 +338,11 @@ function AppShell({
     );
   }
   if (route === "findings") {
-    return (
-      <Dashboard
-        onClose={() => setRoute("home")}
-        onOpenAccounts={() => setRoute("settings")}
-        onOpenReport={onOpenReport}
-        initialTab="findings"
-      />
-    );
+    // PR #51: Findings promoted to a first-class top-level page.
+    // The legacy Dashboard.tsx still has a findings tab and is
+    // still reachable via the "dashboard" route, but the TopNav
+    // Findings button now lands on the new page.
+    return <Findings onBack={() => setRoute("home")} />;
   }
   return (
     <Home onOpenSettings={() => setRoute("settings")} />

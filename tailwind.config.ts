@@ -9,6 +9,12 @@ const config: Config = {
           red: "#E63946",
           orange: "#F77F1F",
           gold: "#F2B705",
+          // PR #51: "well-configured" / resolved-finding green for
+          // the Findings page's color-coded left borders. Picked
+          // for AA contrast against saw-white and saw-grey-50
+          // backgrounds; passes ratio 4.5:1 for the border-only
+          // use case.
+          green: "#22A06B",
           black: "#0A0B0D",
           white: "#FFFFFF",
           grey: {
