@@ -291,6 +291,18 @@ pub fn scanner_cancel_scan(scan_id: String) -> Result<ScanRecord, AppError> {
     scanner::cancel_scan(&scan_id).map_err(AppError::from)
 }
 
+/// Open the platform file manager at the scan's output directory so the
+/// user can inspect `raw-scout.json`, `scoutsuite-stderr.log`, and the
+/// `scoutsuite-results/` tree. Exposed in the UI from the failure banner
+/// in `ScanProgress.tsx` so a failed scan is self-serve to triage — the
+/// scoutsuite stderr that pinned the macOS hardened-runtime regression
+/// in 2026.5.9-2026.5.12 lived in a Finder-hidden `~/Library` path and
+/// took 10+ minutes to even locate. This command removes that friction.
+#[tauri::command]
+pub fn scanner_reveal_scan_dir(scan_id: String) -> Result<(), AppError> {
+    scanner::reveal_scan_dir(&scan_id).map_err(AppError::from)
+}
+
 #[tauri::command]
 pub fn scanner_list_recent(
     aws_account_id: String,

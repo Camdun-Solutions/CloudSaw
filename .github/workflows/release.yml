@@ -285,9 +285,27 @@ jobs:
           security unlock-keychain -p actions build.keychain
           security set-keychain-settings -lut 7200 build.keychain
           BIN=src-tauri/vendor/scoutsuite/aarch64-apple-darwin/scoutsuite
+          ENTITLEMENTS=src-tauri/vendor/scoutsuite/entitlements.plist
+          # --entitlements is required for PyInstaller --onefile bundles:
+          # the inner Python.framework extracted at runtime is signed by a
+          # DIFFERENT Team ID (python.org / actions/setup-python), and
+          # hardened runtime's library-validation rejects the dlopen with
+          # "different Team IDs" unless we ship disable-library-validation
+          # + allow-unsigned-executable-memory + allow-dyld-environment-
+          # variables. See entitlements.plist for the full rationale.
+          # Without this the binary signs and notarizes cleanly but every
+          # scan dies at scoutsuite startup before reaching AWS auth.
           codesign --force --options runtime --timestamp \
+              --entitlements "$ENTITLEMENTS" \
               --sign "$APPLE_SIGNING_IDENTITY" "$BIN"
           codesign --verify --verbose "$BIN"
+          # Belt-and-suspenders: verify the entitlements actually landed
+          # in the signature, so a silent codesign behavior change in a
+          # future macOS runner image surfaces here instead of at
+          # runtime on a user's machine.
+          codesign --display --entitlements - "$BIN" | grep -q \
+              "com.apple.security.cs.disable-library-validation" \
+              || { echo "entitlement missing from signature"; exit 1; }
           NEW_SHA=$(shasum -a 256 "$BIN" | awk '{print $1}')
           cat > src-tauri/vendor/scoutsuite/pinned.json <<EOF
           {"binary": "scoutsuite", "triple": "aarch64-apple-darwin", "sha256": "$NEW_SHA"}

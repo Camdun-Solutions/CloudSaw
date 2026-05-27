@@ -405,6 +405,18 @@ function ScanRecordSection({
   includeFinishedAt: boolean;
 }) {
   const t = useT();
+  const handleIpcError = useIpcError();
+  const [revealing, setRevealing] = useState(false);
+  const onRevealClick = useCallback(async () => {
+    setRevealing(true);
+    try {
+      await ipc.scannerRevealScanDir(record.scan_id);
+    } catch (err) {
+      handleIpcError(err);
+    } finally {
+      setRevealing(false);
+    }
+  }, [record.scan_id, handleIpcError]);
   return (
     <div className="flex flex-col gap-3" data-testid="scanner-progress">
       <h3 className="text-small font-semibold text-saw-grey-800">
@@ -461,6 +473,27 @@ function ScanRecordSection({
           </>
         ) : null}
       </dl>
+
+      {record.failure_code ? (
+        <div
+          className="rounded-card border border-saw-red-100 bg-saw-red-50/40 px-3 py-2 text-small text-saw-grey-800"
+          data-testid="scanner-failure-detail"
+        >
+          <p>{t("scanner.scan.failure_hint")}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-1 px-0 text-saw-blue"
+            onClick={onRevealClick}
+            disabled={revealing}
+            data-testid="scanner-reveal-output"
+          >
+            {revealing
+              ? t("scanner.scan.reveal_in_progress")
+              : t("scanner.scan.reveal_output")}
+          </Button>
+        </div>
+      ) : null}
 
       {record.status === "complete" ||
       record.status === "complete_with_warnings" ? (

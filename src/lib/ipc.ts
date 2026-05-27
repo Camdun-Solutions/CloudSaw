@@ -820,6 +820,16 @@ export const ipc = {
     return invoke<ScanRecord>("scanner_cancel_scan", { scanId });
   },
 
+  /** Open the OS file manager at the scan's output directory. Lets the
+   * user inspect `raw-scout.json`, `scoutsuite-stderr.log`, and the
+   * `scoutsuite-results/` tree without having to remember the per-OS
+   * path (especially `~/Library/Application Support/CloudSaw/...` on
+   * macOS, which Finder hides by default). Resolves on successful
+   * spawn — there's no useful return value. */
+  scannerRevealScanDir(scanId: string): Promise<void> {
+    return invoke<void>("scanner_reveal_scan_dir", { scanId });
+  },
+
   /** Most-recent scans for an account, newest first. */
   scannerListRecent(
     awsAccountId: string,
