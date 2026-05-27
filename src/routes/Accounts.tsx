@@ -335,12 +335,17 @@ export default function Accounts({
 
       {/* Phase 2 — "Connect scanner role" modal. Wraps the shared
         * ConnectScannerRoleForm component so the per-account action on
-        * this page surfaces the same flow as onboarding step 4. */}
+        * this page surfaces the same flow as onboarding step 4.
+        * PR #53: `size="lg"` so the recipe blocks (CFN YAML, Terraform
+        * HCL) don't word-wrap into illegibility, and the modal's body
+        * is now scrollable so long content (which previously
+        * overflowed the viewport) is reachable. */}
       {provisionTarget ? (
         <Modal
           open={true}
           onClose={() => setProvisionTarget(null)}
           title={"Connect scanner role"}
+          size="lg"
           footer={
             <Button
               variant="ghost"
