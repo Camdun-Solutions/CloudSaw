@@ -10,7 +10,9 @@ import {
 } from "@/components";
 import { ScanModalProvider } from "@/contexts/ScanModalContext";
 import { useT } from "@/hooks/useT";
-import Accounts from "@/routes/Accounts";
+// PR #46: Accounts is no longer a top-level route — it's an
+// embedded section inside Settings. App.tsx doesn't render it
+// directly anymore; Settings imports it.
 import ActivityLog from "@/routes/ActivityLog";
 import CustomReport from "@/routes/CustomReport";
 import Dashboard from "@/routes/Dashboard";
@@ -24,8 +26,11 @@ import { ipc, type OnboardingState } from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
 
 type Route =
+  // "accounts" was a top-level route until PR #46; it's now an
+  // embedded section inside `Settings`. The Route union no longer
+  // includes it — every former caller (Dashboard, Home, etc.)
+  // routes to "settings" instead.
   | "home"
-  | "accounts"
   | "profiles"
   | "settings"
   | "schedules"
@@ -38,9 +43,9 @@ type Route =
   | "findings";
 
 /** Map the parent `Route` union onto the subset the persistent TopNav
- *  knows about. Returns `null` while on a "deeper" route (Accounts,
- *  Profiles, Schedules, etc.) so no menu button is shown active —
- *  the user is somewhere intermediate. */
+ *  knows about. Returns `null` while on a "deeper" route (Profiles,
+ *  etc.) so no menu button is shown active — the user is somewhere
+ *  intermediate. */
 function topNavActive(route: Route): TopNavRoute | null {
   switch (route) {
     case "home":
@@ -53,7 +58,6 @@ function topNavActive(route: Route): TopNavRoute | null {
     case "activitylog":
     case "custom_report":
       return "settings";
-    case "accounts":
     case "profiles":
       return null;
   }
@@ -293,6 +297,7 @@ function AppShell({
         onOpenSchedules={() => setRoute("schedules")}
         onOpenActivityLog={() => setRoute("activitylog")}
         onOpenCustomReport={() => setRoute("custom_report")}
+        onOpenProfiles={() => setRoute("profiles")}
         onRerunOnboarding={onRerunOnboarding}
       />
     );
@@ -306,22 +311,18 @@ function AppShell({
   if (route === "custom_report") {
     return <CustomReport onBack={() => setRoute("settings")} />;
   }
-  if (route === "accounts") {
-    return (
-      <Accounts
-        onClose={() => setRoute("home")}
-        onOpenProfiles={() => setRoute("profiles")}
-      />
-    );
-  }
   if (route === "profiles") {
-    return <Profiles onClose={() => setRoute("accounts")} />;
+    // PR #46: Accounts is now an embedded section inside Settings.
+    // Profiles still has its own page; the Back button returns to
+    // Settings (which is where the user opened it from via the
+    // embedded Accounts panel's "Open profiles" button).
+    return <Profiles onClose={() => setRoute("settings")} />;
   }
   if (route === "dashboard") {
     return (
       <Dashboard
         onClose={() => setRoute("home")}
-        onOpenAccounts={() => setRoute("accounts")}
+        onOpenAccounts={() => setRoute("settings")}
         onOpenReport={onOpenReport}
       />
     );
@@ -330,7 +331,7 @@ function AppShell({
     return (
       <Dashboard
         onClose={() => setRoute("home")}
-        onOpenAccounts={() => setRoute("accounts")}
+        onOpenAccounts={() => setRoute("settings")}
         onOpenReport={onOpenReport}
         initialTab="findings"
       />
@@ -339,7 +340,7 @@ function AppShell({
   return (
     <Home
       onOpenSettings={() => setRoute("settings")}
-      onOpenAccounts={() => setRoute("accounts")}
+      onOpenAccounts={() => setRoute("settings")}
       onOpenDashboard={() => setRoute("dashboard")}
     />
   );
