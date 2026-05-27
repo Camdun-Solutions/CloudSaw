@@ -43,21 +43,32 @@ import {
   type Severity,
 } from "@/lib/ipc";
 
+type Tab = "scans" | "findings" | "drift" | "trends";
+
 type Props = {
   onClose: () => void;
   onOpenAccounts: () => void;
   /** Open the global error-report dialog with the supplied notes
    * pre-filled. Optional; the dashboard's load-error UI uses it. */
   onOpenReport?: (notes?: string) => void;
+  /** Initial sub-tab to render. Defaults to "scans" (the existing
+   * landing tab). The persistent top-right TopNav (PR #41) uses
+   * this to deep-link Findings via `route === "findings"`. PR #48
+   * (Findings overhaul) will promote Findings to its own
+   * top-level route and remove this seam. */
+  initialTab?: Tab;
 };
 
-type Tab = "scans" | "findings" | "drift" | "trends";
-
-export default function Dashboard({ onClose, onOpenAccounts, onOpenReport }: Props) {
+export default function Dashboard({
+  onClose,
+  onOpenAccounts,
+  onOpenReport,
+  initialTab = "scans",
+}: Props) {
   const t = useT();
   const formatError = useIpcError();
 
-  const [tab, setTab] = useState<Tab>("scans");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [account, setAccount] = useState<Account | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [display, setDisplay] = useState<AccountsDisplaySettings>({

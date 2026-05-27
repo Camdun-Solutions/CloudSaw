@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ErrorBoundary, ErrorReportDialog, UpdateBanner } from "@/components";
+import {
+  ErrorBoundary,
+  ErrorReportDialog,
+  TopNav,
+  UpdateBanner,
+  type TopNavRoute,
+} from "@/components";
 import { ScanModalProvider } from "@/contexts/ScanModalContext";
 import { useT } from "@/hooks/useT";
 import Accounts from "@/routes/Accounts";
@@ -24,7 +30,33 @@ type Route =
   | "schedules"
   | "activitylog"
   | "custom_report"
-  | "dashboard";
+  | "dashboard"
+  // "findings" deep-links into the Dashboard component with
+  // `initialTab="findings"`. PR #48 (Findings overhaul) will promote
+  // this to its own page and remove the Dashboard sub-tab.
+  | "findings";
+
+/** Map the parent `Route` union onto the subset the persistent TopNav
+ *  knows about. Returns `null` while on a "deeper" route (Accounts,
+ *  Profiles, Schedules, etc.) so no menu button is shown active —
+ *  the user is somewhere intermediate. */
+function topNavActive(route: Route): TopNavRoute | null {
+  switch (route) {
+    case "home":
+    case "dashboard":
+      return "dashboard";
+    case "findings":
+      return "findings";
+    case "settings":
+    case "schedules":
+    case "activitylog":
+    case "custom_report":
+      return "settings";
+    case "accounts":
+    case "profiles":
+      return null;
+  }
+}
 
 export default function App() {
   const t = useT();
@@ -188,6 +220,16 @@ export default function App() {
       )}
     >
       <ScanModalProvider>
+        {/* Persistent top-right menu — Dashboard / Findings /
+            Settings. Fixed-positioned so it overlays whatever route
+            renders below. PR #41 introduces it; PR #42 will add the
+            lock icon to the right side, PR #44 will remove the
+            duplicate per-route nav buttons in Home/Dashboard/etc.
+            once this nav is verified. */}
+        <TopNav
+          active={topNavActive(route)}
+          onNavigate={(target) => setRoute(target)}
+        />
         <AppShell
           route={route}
           setRoute={setRoute}
@@ -266,6 +308,16 @@ function AppShell({
         onClose={() => setRoute("home")}
         onOpenAccounts={() => setRoute("accounts")}
         onOpenReport={onOpenReport}
+      />
+    );
+  }
+  if (route === "findings") {
+    return (
+      <Dashboard
+        onClose={() => setRoute("home")}
+        onOpenAccounts={() => setRoute("accounts")}
+        onOpenReport={onOpenReport}
+        initialTab="findings"
       />
     );
   }
