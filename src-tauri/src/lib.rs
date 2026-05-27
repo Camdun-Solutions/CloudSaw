@@ -54,6 +54,11 @@ pub fn run() {
         // to PROMPT the user (notify-only); applying happens only on
         // explicit IPC.
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // PR #54 — desktop notification on scan completion. Frontend
+        // wraps `@tauri-apps/plugin-notification` and only fires when
+        // the user has opted in via the Settings → Notifications
+        // toggle; the plugin itself just exposes the OS-native API.
+        .plugin(tauri_plugin_notification::init())
         .manage(session)
         .invoke_handler(tauri::generate_handler![
             ipc::app_version,

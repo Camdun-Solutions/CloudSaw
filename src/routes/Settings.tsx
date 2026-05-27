@@ -11,6 +11,10 @@ import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Accounts from "@/routes/Accounts";
+import {
+  isScanNotificationsEnabled,
+  setScanNotificationsEnabled,
+} from "@/lib/scanNotifications";
 
 import {
   ipc,
@@ -38,6 +42,7 @@ import { useLock } from "@/stores/lock";
 type SettingsSection =
   | "app_lock"
   | "accounts"
+  | "notifications"
   | "schedules"
   | "activity_log"
   | "onboarding"
@@ -51,6 +56,7 @@ type SettingsSection =
 const SECTION_ORDER: SettingsSection[] = [
   "app_lock",
   "accounts",
+  "notifications",
   "schedules",
   "activity_log",
   "onboarding",
@@ -192,6 +198,7 @@ export default function Settings({
   const sectionLabels: Record<SettingsSection, string> = {
     app_lock: t("settings.nav.app_lock"),
     accounts: t("settings.nav.accounts"),
+    notifications: t("settings.nav.notifications"),
     schedules: t("settings.nav.schedules"),
     activity_log: t("settings.nav.activity_log"),
     onboarding: t("settings.nav.onboarding"),
@@ -362,6 +369,8 @@ export default function Settings({
       </section>
       )}
 
+      {activeSection === "notifications" && <NotificationsSection />}
+
       {activeSection === "schedules" && (
       <section
         className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
@@ -432,6 +441,45 @@ type UpdateCheckResult =
   | { kind: "up_to_date"; at: string }
   | { kind: "available"; version: string; at: string }
   | { kind: "error"; message: string; at: string };
+
+/** PR #54 — Notifications settings. Single user-facing toggle that
+ *  gates the desktop notification fired on scan completion. The
+ *  underlying helper (`lib/scanNotifications.ts`) handles
+ *  permission prompts on first send; this section just exposes the
+ *  user-controlled opt-in. */
+function NotificationsSection() {
+  const t = useT();
+  const [enabled, setEnabled] = useState<boolean>(
+    isScanNotificationsEnabled(),
+  );
+
+  function onToggle(next: boolean) {
+    setEnabled(next);
+    setScanNotificationsEnabled(next);
+  }
+
+  return (
+    <section
+      className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      data-testid="settings-section-notifications"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900">
+        {t("settings.notifications.title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600">
+        {t("settings.notifications.subtitle")}
+      </p>
+      <div className="mt-4">
+        <Switch
+          label={t("settings.notifications.scan_complete_label")}
+          description={t("settings.notifications.scan_complete_description")}
+          checked={enabled}
+          onChange={onToggle}
+        />
+      </div>
+    </section>
+  );
+}
 
 function UpdatesSection() {
   const t = useT();

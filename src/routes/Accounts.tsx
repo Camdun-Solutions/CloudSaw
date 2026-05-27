@@ -28,6 +28,7 @@ import {
   type UpdateAccountInput,
 } from "@/lib/ipc";
 import ConnectScannerRoleForm from "@/components/ConnectScannerRoleForm";
+import { SCAN_FINISHED_EVENT } from "@/contexts/ScanModalContext";
 import ScanProgressModal from "@/routes/ScanProgress";
 
 type Props = {
@@ -377,6 +378,15 @@ export default function Accounts({
             // Refresh accounts so the last_scan_at / last_scan_status
             // badges pick up the new terminal state.
             await reload();
+            // PR #54: also dispatch the global SCAN_FINISHED_EVENT
+            // so the App.tsx listener fires the desktop
+            // notification (when the user has opted in) and the
+            // Dashboard Welcome page (PR #50) refreshes its
+            // recent-activity / top-findings cards. The global
+            // ScanModalProvider already dispatches this on its
+            // own modal-driven scans; this is the legacy
+            // pre-bound-modal callsite catching up.
+            document.dispatchEvent(new CustomEvent(SCAN_FINISHED_EVENT));
           }}
         />
       ) : null}

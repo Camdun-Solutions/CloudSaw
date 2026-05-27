@@ -32,6 +32,13 @@ tauri-plugin-dialog = "2"
 # before applying an update. The private key NEVER lives in the
 # repo; see docs/release-signing.md.
 tauri-plugin-updater = "2"
+# PR #54 — desktop notification on scan completion. The plugin
+# handles OS-specific permission prompts (macOS, Windows toast,
+# Linux libnotify) on first send. Wired in `src/lib.rs::run()`;
+# fired from the frontend via @tauri-apps/plugin-notification when
+# our SCAN_FINISHED_EVENT DOM event dispatches AND the user has
+# opted in via the Settings → Notifications toggle.
+tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
