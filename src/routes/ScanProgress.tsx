@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Badge, Button, Modal } from "@/components";
+import { Badge, Button, EmptyState, Modal } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -28,7 +28,18 @@ import {
 } from "@/lib/ipc";
 
 type Props = {
-  account: Account | null;
+  /**
+   * Pre-bound target. When the caller already knows which account
+   * the user wants to scan (e.g. Accounts.tsx → row "Scan" button),
+   * pass it here and the modal skips the picker.
+   *
+   * When `null` or omitted, the modal renders an in-modal account
+   * picker first, then proceeds. This is the path the global
+   * ScanModalProvider (`@/contexts/ScanModalContext`) uses for
+   * Scan-Now buttons that aren't bound to a specific account
+   * (Dashboard header, Onboarding step 6, etc.).
+   */
+  account?: Account | null;
   onClose: () => void;
   onScanFinished: () => Promise<void>;
 };
@@ -51,7 +62,7 @@ type Phase =
 const POLL_INTERVAL_MS = 1000;
 
 export default function ScanProgressModal({
-  account,
+  account: prebound,
   onClose,
   onScanFinished,
 }: Props) {
@@ -60,6 +71,12 @@ export default function ScanProgressModal({
   const [phase, setPhase] = useState<Phase>({ kind: "detecting" });
   const [error, setError] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
+  // The "active" account for the modal. Initialized from the prebound
+  // prop (legacy direct-render call sites). When null, the modal
+  // renders <AccountPicker/> first; once the user picks, setPicked
+  // fires and the rest of the flow proceeds as before.
+  const [picked, setPicked] = useState<Account | null>(prebound ?? null);
+  const account = picked;
   // Keep the timer in a ref so the cleanup callback always tears down the
   // latest scheduled poll regardless of how many renders happened.
   const pollTimer = useRef<number | null>(null);
@@ -166,7 +183,34 @@ export default function ScanProgressModal({
     }
   }, [phase, formatError, onScanFinished, stopPolling]);
 
-  if (!account) return null;
+  // When no account is bound yet, render the in-modal picker so the
+  // user can choose one. The picker resolves to setPicked(account),
+  // which flows back into the normal detect → start → run path
+  // unchanged. The footer is empty in the picker phase — the row
+  // click IS the action.
+  if (!account) {
+    return (
+      <Modal
+        open={true}
+        onClose={onClose}
+        title={t("scanner.scan.title")}
+      >
+        <AccountPicker
+          onPick={setPicked}
+          onError={(msg) => setError(msg)}
+        />
+        {error ? (
+          <p
+            role="alert"
+            className="mt-3 rounded-card border border-saw-grey-200 bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            data-testid="scanner-picker-error"
+          >
+            {error}
+          </p>
+        ) : null}
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -307,6 +351,104 @@ function renderFooter({
         </>
       );
   }
+}
+
+/** In-modal account picker shown when ScanProgressModal opens with
+ *  no pre-bound account. Lists every configured account (with
+ *  scanner-role status) and resolves a single click to the next phase
+ *  via `onPick`. Renders an EmptyState when there are no accounts to
+ *  scan against, pointing the user at Accounts to add one.
+ *
+ *  Accounts without a provisioned scanner role are listed but
+ *  disabled — the runner would reject them at validate-time anyway
+ *  (`ScannerError::RoleNotProvisioned`); failing early in the picker
+ *  is a better UX than letting the user pick → see a confusing
+ *  error in the detection phase. */
+function AccountPicker({
+  onPick,
+  onError,
+}: {
+  onPick: (account: Account) => void;
+  onError: (msg: string) => void;
+}) {
+  const t = useT();
+  const formatError = useIpcError();
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    ipc
+      .accountsList()
+      .then((list) => {
+        if (!cancelled) setAccounts(list);
+      })
+      .catch((err) => {
+        if (!cancelled) onError(formatError(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formatError, onError]);
+
+  if (accounts === null) {
+    return (
+      <p
+        className="text-small text-saw-grey-600"
+        data-testid="scanner-picker-loading"
+      >
+        {t("scanner.picker.loading")}
+      </p>
+    );
+  }
+
+  if (accounts.length === 0) {
+    return (
+      <div data-testid="scanner-picker-empty">
+        <EmptyState
+          title={t("scanner.picker.empty_title")}
+          body={t("scanner.picker.empty_body")}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="scanner-picker">
+      <p className="text-small text-saw-grey-600">
+        {t("scanner.picker.subtitle")}
+      </p>
+      <ul className="flex flex-col gap-2">
+        {accounts.map((a) => {
+          const disabled = !a.role_provisioned;
+          return (
+            <li key={a.aws_account_id}>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onPick(a)}
+                data-testid="scanner-picker-row"
+                className="flex w-full items-center justify-between gap-3 rounded-card border border-saw-grey-200 bg-saw-white px-4 py-3 text-left transition hover:border-saw-red hover:bg-saw-grey-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-saw-grey-200 disabled:hover:bg-saw-white"
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium text-saw-grey-900">
+                    {a.label}
+                  </span>
+                  <span className="font-mono text-xs text-saw-grey-500">
+                    {a.aws_account_id} · {a.profile_name}
+                  </span>
+                </div>
+                {disabled ? (
+                  <Badge tone="neutral">
+                    {t("scanner.picker.role_not_provisioned")}
+                  </Badge>
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function AccountSummary({ account }: { account: Account }) {
