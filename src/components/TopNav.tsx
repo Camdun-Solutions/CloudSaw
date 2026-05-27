@@ -33,9 +33,15 @@ type Props = {
    *  or Profiles sub-routes). */
   active: TopNavRoute | null;
   onNavigate: (route: TopNavRoute) => void;
+  /** Manual app-lock trigger. Wired to `ipc.applockLock()` by
+   *  App.tsx. PR #42 introduces it; the icon sits to the right of
+   *  the Settings button with a visual divider, distinct from the
+   *  three navigation buttons because it's an immediate action
+   *  (not a destination). */
+  onLock: () => void;
 };
 
-export default function TopNav({ active, onNavigate }: Props) {
+export default function TopNav({ active, onNavigate, onLock }: Props) {
   const t = useT();
   const items: { key: TopNavRoute; label: string }[] = [
     { key: "dashboard", label: t("nav.dashboard") },
@@ -71,6 +77,50 @@ export default function TopNav({ active, onNavigate }: Props) {
           </button>
         );
       })}
+      {/* Visual divider between navigation and the action icon. */}
+      <span
+        aria-hidden="true"
+        className="mx-1 h-5 w-px bg-saw-grey-200"
+      />
+      {/* Lock-now icon. Aria-labeled with the existing
+          `applock.settings.lock_now` key so screen readers
+          announce intent. Same hit-target sizing as the Modal X
+          (32x32) so it clears WCAG 2.2 AA. */}
+      <button
+        type="button"
+        onClick={onLock}
+        aria-label={t("applock.settings.lock_now")}
+        title={t("applock.settings.lock_now")}
+        data-testid="top-nav-lock"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-card text-saw-grey-700 transition hover:bg-saw-grey-100 hover:text-saw-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          className="h-4 w-4"
+        >
+          {/* Padlock body */}
+          <rect
+            x="4"
+            y="9"
+            width="12"
+            height="8"
+            rx="1.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          {/* Shackle */}
+          <path
+            d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+          {/* Keyhole accent */}
+          <circle cx="10" cy="12.5" r="1" fill="currentColor" />
+        </svg>
+      </button>
     </nav>
   );
 }

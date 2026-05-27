@@ -5,9 +5,7 @@ import Button from "@/components/Button";
 import EmptyState from "@/components/EmptyState";
 import Logo from "@/components/Logo";
 import { useT } from "@/hooks/useT";
-import { useIpcError } from "@/hooks/useIpcError";
 import { ipc } from "@/lib/ipc";
-import { useLock } from "@/stores/lock";
 
 type Props = {
   onOpenSettings: () => void;
@@ -21,8 +19,6 @@ export default function Home({
   onOpenDashboard,
 }: Props) {
   const t = useT();
-  const formatError = useIpcError();
-  const { refresh } = useLock();
   const [version, setVersion] = useState<string | null>(null);
   const [versionError, setVersionError] = useState<string | null>(null);
 
@@ -46,16 +42,6 @@ export default function Home({
     };
   }, [t]);
 
-  async function onLockNow() {
-    try {
-      await ipc.applockLock();
-      await refresh();
-    } catch (err) {
-      // No dedicated error surface on Home; swallow to a console diagnostic
-      // string. The next state read by LockProvider will resync.
-      console.error(formatError(err));
-    }
-  }
 
   return (
     <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
@@ -85,14 +71,12 @@ export default function Home({
             >
               {t("nav.accounts")}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLockNow}
-              data-testid="header-lock-now"
-            >
-              {t("applock.settings.lock_now")}
-            </Button>
+            {/* "Lock now" used to live here as a text button — PR
+                #42 moved it to a lock icon in the persistent TopNav
+                (top-right corner, always visible). The Settings
+                button below is one of the per-route duplicates
+                slated for removal in PR #44 once the TopNav is
+                fully verified. */}
             <Button
               variant="ghost"
               size="sm"
