@@ -384,7 +384,12 @@ function FindingRow({
 
 // ----- Detail panel -------------------------------------------------------
 
-function FindingDetailPanel({ findingId }: { findingId: string | null }) {
+// Exported so the PR #51 top-level Findings.tsx page can render
+// the same panel inline inside each expanded finding row without
+// duplicating the KB / AI / GitHub / resource / mapping logic.
+// Internal-only call sites (the original FindingsView's right pane)
+// still bind the unexported name.
+export function FindingDetailPanel({ findingId }: { findingId: string | null }) {
   const t = useT();
   const formatError = useIpcError();
   const [detail, setDetail] = useState<FindingDetail | null>(null);
