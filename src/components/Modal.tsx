@@ -2,12 +2,26 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 import { useT } from "@/hooks/useT";
 
+/** PR #53 — pinned set of modal widths so call sites can request
+ *  a wider modal for content-heavy flows (ConnectScannerRoleForm,
+ *  AddAccount, etc.) without inlining arbitrary max-w-* classes.
+ *  Defaults to "md" (the legacy max-w-lg width). */
+type ModalSize = "sm" | "md" | "lg" | "xl";
+
+const SIZE_CLASSES: Record<ModalSize, string> = {
+  sm: "max-w-md",
+  md: "max-w-lg", // unchanged default
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
+};
+
 type ModalProps = {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: ModalSize;
 };
 
 export default function Modal({
@@ -16,6 +30,7 @@ export default function Modal({
   title,
   children,
   footer,
+  size = "md",
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const t = useT();
@@ -45,7 +60,12 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         tabIndex={-1}
-        className="w-full max-w-lg rounded-card bg-saw-white shadow-xl outline-none"
+        // PR #53: max-h + flex column lets the card cap at the
+        // viewport and the body scroll independently of the
+        // header/footer (which stay pinned). Fixes the
+        // ConnectScannerRoleForm modal that previously overflowed
+        // the viewport on shorter windows.
+        className={`flex w-full ${SIZE_CLASSES[size]} max-h-[calc(100vh-2rem)] flex-col rounded-card bg-saw-white shadow-xl outline-none`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-saw-grey-200 px-5 py-3">
@@ -83,7 +103,9 @@ export default function Modal({
             </svg>
           </button>
         </div>
-        <div className="px-5 py-4 text-body text-saw-grey-800">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 text-body text-saw-grey-800">
+          {children}
+        </div>
         {footer ? (
           <div className="flex justify-end gap-2 border-t border-saw-grey-200 px-5 py-3">
             {footer}
