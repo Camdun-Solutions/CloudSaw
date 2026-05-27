@@ -23,6 +23,7 @@
   "common.cancel": "Annuler",
   "common.confirm": "Confirmer",
   "common.close": "Fermer",
+  "common.back_to": "Back to {destination}",
   "common.back": "Retour",
   "common.save": "Enregistrer",
   "common.loading": "Chargement…",

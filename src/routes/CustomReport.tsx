@@ -13,7 +13,7 @@ import { useState } from "react";
 
 import { save } from "@tauri-apps/plugin-dialog";
 
-import { Button } from "@/components";
+import { BackBreadcrumb, Button } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { ipc, type AccountIdDisclosure, type ExportOutcome } from "@/lib/ipc";
@@ -85,18 +85,18 @@ export default function CustomReport({ onBack }: Props) {
 
   return (
     <main className="min-h-full bg-saw-grey-50 px-8 py-10">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-h1 font-semibold text-saw-grey-900">
-            {t("report.custom.title")}
-          </h1>
-          <p className="mt-1 text-small text-saw-grey-600">
-            {t("report.custom.body")}
-          </p>
-        </div>
-        <Button variant="ghost" onClick={onBack} data-testid="custom-report-back">
-          {t("common.back")}
-        </Button>
+      <header className="mb-6">
+        <BackBreadcrumb
+          destination={t("nav.settings")}
+          onBack={onBack}
+          data-testid="custom-report-back"
+        />
+        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
+          {t("report.custom.title")}
+        </h1>
+        <p className="mt-1 text-small text-saw-grey-600">
+          {t("report.custom.body")}
+        </p>
       </header>
 
       <section className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6">
