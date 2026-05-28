@@ -435,11 +435,18 @@ function AccountRow({
 
   return (
     <li className="px-5 py-4" data-testid={`account-row-${account.aws_account_id}`}>
-      <div className="flex items-center gap-4">
-        <div className="min-w-0 flex-1">
+      {/* PR #65 — always stack vertically: details on top, action
+          buttons in a flex-wrap row below. The previous side-by-side
+          layout collapsed at narrow widths because the right action
+          column has min-content from the "Provision scanner role"
+          button and Tailwind v3 has no container queries installed,
+          so the buttons rendered visually on top of the dl values
+          inside the same Settings panel width. */}
+      <div className="flex flex-col gap-3">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p
-              className="truncate text-body font-medium"
+              className="min-w-0 truncate text-body font-medium"
               data-testid={`account-label-${account.aws_account_id}`}
             >
               {account.label}
@@ -478,10 +485,10 @@ function AccountRow({
           ) : null}
           <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-small text-saw-grey-600 dark:text-saw-grey-400">
             <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.profile")}</dt>
-            <dd className="font-mono">{account.profile_name}</dd>
+            <dd className="min-w-0 break-all font-mono">{account.profile_name}</dd>
             <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.account_id")}</dt>
             <dd
-              className="font-mono"
+              className="min-w-0 break-all font-mono"
               data-testid={`account-id-${account.aws_account_id}`}
             >
               {displayedId}
@@ -500,7 +507,12 @@ function AccountRow({
             </dd>
           </dl>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        {/* Action buttons — wrap horizontally; destructive Edit+Remove
+            pair pushed to the right via ml-auto so the visual hierarchy
+            still reads "primary actions first, destructive last". On
+            very narrow widths the ml-auto group naturally wraps to its
+            own line. */}
+        <div className="flex flex-wrap items-center gap-2">
           {active ? (
             <Button
               variant="ghost"
@@ -541,7 +553,7 @@ function AccountRow({
               {t("scanner.scan.cta")}
             </Button>
           ) : null}
-          <div className="flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
             <Button
               variant="ghost"
               size="sm"
