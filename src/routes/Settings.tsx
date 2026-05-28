@@ -12,6 +12,7 @@ import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import type { Appearance } from "@/lib/appearance";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
 import ScheduledScans from "@/routes/ScheduledScans";
@@ -1414,9 +1415,13 @@ function GithubSection() {
     }
   }
   async function openTokenPage() {
+    // PR #68: WebView2 blocks JS-initiated `window.open()` calls, so
+    // route the URL through `@tauri-apps/plugin-opener` instead. The
+    // Rust handler returns the PAT-creation URL string; `openUrl`
+    // hands it to the OS default browser.
     try {
       const url = await ipc.githubGenerateTokenUrl();
-      window.open(url, "_blank", "noopener,noreferrer");
+      await openUrl(url);
     } catch (e) {
       setErr(formatError(e));
     }
@@ -1533,29 +1538,11 @@ function GithubSection() {
           </p>
         ) : null}
 
-        <hr className="border-saw-grey-100 dark:border-saw-grey-800" />
-
-        <div className="text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <div className="font-medium">{t("github.error_repo.label")}</div>
-          <div className="font-mono text-saw-grey-900 dark:text-saw-beige">
-            {settings.error_report_repo.owner}/{settings.error_report_repo.name}
-          </div>
-          <div className="text-xs text-saw-grey-500 dark:text-saw-grey-400 mt-1">
-            {t("github.error_repo.hint")}
-          </div>
-        </div>
-        <div className="text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <div className="font-medium">{t("github.security_contact.label")}</div>
-          <div
-            className="font-mono text-saw-grey-900 dark:text-saw-beige"
-            data-testid="settings-github-security-contact"
-          >
-            {settings.security_contact}
-          </div>
-          <div className="text-xs text-saw-grey-500 dark:text-saw-grey-400 mt-1">
-            {t("github.security_contact.hint")}
-          </div>
-        </div>
+        {/* PR #68: "Error-report destination" + "Security contact"
+            blocks removed. Bug reports now flow through the
+            ReportBugFlag at the bottom-left of every screen, which
+            opens a modal with the GitHub-issues link + the
+            mailto:security@cloud-saw.com link directly. */}
 
         {err ? (
           <p role="alert" className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red">

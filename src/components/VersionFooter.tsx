@@ -43,7 +43,11 @@ export default function VersionFooter() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-2 left-2 z-30 text-xs text-saw-grey-500 dark:text-saw-grey-400"
+      // PR #68: shifted right from `left-2` to `left-10` so the
+      // ReportBugFlag (also at `bottom-2 left-2`, 24px wide) sits
+      // immediately to the left without overlap. Z-index stays lower
+      // than the flag so the flag's focus ring overlaps cleanly.
+      className="pointer-events-none fixed bottom-2 left-10 z-30 text-xs text-saw-grey-500 dark:text-saw-grey-400"
       data-testid="version-footer"
       aria-label={`${t("app.version_label")} ${version}`}
     >
