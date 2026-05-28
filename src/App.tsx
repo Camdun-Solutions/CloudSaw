@@ -20,7 +20,6 @@ import Dashboard from "@/routes/Dashboard";
 import Findings from "@/routes/Findings";
 import Home from "@/routes/Home";
 import Onboarding from "@/routes/Onboarding";
-import ScheduledScans from "@/routes/ScheduledScans";
 import Settings, { type SettingsSection } from "@/routes/Settings";
 import UnlockScreen from "@/routes/UnlockScreen";
 import { ipc, type OnboardingState } from "@/lib/ipc";
@@ -33,7 +32,6 @@ type Route =
   // routes to "settings" instead.
   | "home"
   | "settings"
-  | "schedules"
   | "custom_report"
   | "dashboard"
   // "findings" deep-links into the Dashboard component with
@@ -51,7 +49,6 @@ function topNavActive(route: Route): TopNavRoute | null {
     case "findings":
       return "findings";
     case "settings":
-    case "schedules":
     case "custom_report":
       return "settings";
   }
@@ -355,16 +352,6 @@ export default function App() {
           setRoute={setRoute}
           settingsTarget={settingsTarget}
           onOpenReport={openReport}
-          onRerunOnboarding={async (startAt) => {
-            try {
-              await ipc.onboardingResetForRerun(startAt);
-              await refreshOnboarding();
-            } catch {
-              // Surface via the bug-report path so the user sees an
-              // actionable affordance rather than a silent failure.
-              openReport("Failed to re-enter the onboarding wizard.");
-            }
-          }}
         />
         <ErrorReportDialog
           open={errorDialogOpen}
@@ -385,13 +372,11 @@ function AppShell({
   route,
   setRoute,
   onOpenReport,
-  onRerunOnboarding,
   settingsTarget,
 }: {
   route: Route;
   setRoute: (r: Route) => void;
   onOpenReport: (notes?: string) => void;
-  onRerunOnboarding: (startAt: "aws_account" | "language") => void;
   /** Optional deep-link target for Settings, forwarded from App's
    *  `goToSettingsSection` helper. Settings uses `initialSectionNonce`
    *  to detect repeat taps even when the section value is unchanged. */
@@ -401,16 +386,11 @@ function AppShell({
     return (
       <Settings
         onClose={() => setRoute("home")}
-        onOpenSchedules={() => setRoute("schedules")}
         onOpenCustomReport={() => setRoute("custom_report")}
-        onRerunOnboarding={onRerunOnboarding}
         initialSection={settingsTarget?.section}
         initialSectionNonce={settingsTarget?.nonce}
       />
     );
-  }
-  if (route === "schedules") {
-    return <ScheduledScans onBack={() => setRoute("settings")} />;
   }
   if (route === "custom_report") {
     return <CustomReport onBack={() => setRoute("settings")} />;

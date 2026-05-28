@@ -1045,6 +1045,23 @@ export const ipc = {
     return invoke<void>("system_request_reboot");
   },
 
+  /**
+   * PR #67 — Reset Application. Same data wipe as panic, but the app
+   * stays installed and immediately restarts so the user lands on
+   * the onboarding wizard. Requires the literal confirmation string
+   * `"RESET"`.
+   *
+   * Note: the returned Promise NEVER resolves in the happy path —
+   * `AppHandle::restart()` kills the process before the IPC reply
+   * crosses back. The caller should show a "Resetting…" UI and not
+   * `.then()` on the return; the fresh process re-opens to onboarding.
+   */
+  systemResetApplication(confirmation: string): Promise<PanicWipeResult> {
+    return invoke<PanicWipeResult>("system_reset_application", {
+      confirmation,
+    });
+  },
+
   // --- GitHub integration (Contract 12) -------------------------------
 
   /** Read current PAT status, findings-ticket repo, error-report repo,
