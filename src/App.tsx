@@ -15,7 +15,6 @@ import { useT } from "@/hooks/useT";
 // PR #46: Accounts is no longer a top-level route — it's an
 // embedded section inside Settings. App.tsx doesn't render it
 // directly anymore; Settings imports it.
-import ActivityLog from "@/routes/ActivityLog";
 import CustomReport from "@/routes/CustomReport";
 import Dashboard from "@/routes/Dashboard";
 import Findings from "@/routes/Findings";
@@ -37,7 +36,6 @@ type Route =
   | "profiles"
   | "settings"
   | "schedules"
-  | "activitylog"
   | "custom_report"
   | "dashboard"
   // "findings" deep-links into the Dashboard component with
@@ -58,7 +56,6 @@ function topNavActive(route: Route): TopNavRoute | null {
       return "findings";
     case "settings":
     case "schedules":
-    case "activitylog":
     case "custom_report":
       return "settings";
     case "profiles":
@@ -345,7 +342,6 @@ function AppShell({
       <Settings
         onClose={() => setRoute("home")}
         onOpenSchedules={() => setRoute("schedules")}
-        onOpenActivityLog={() => setRoute("activitylog")}
         onOpenCustomReport={() => setRoute("custom_report")}
         onOpenProfiles={() => setRoute("profiles")}
         onRerunOnboarding={onRerunOnboarding}
@@ -354,9 +350,6 @@ function AppShell({
   }
   if (route === "schedules") {
     return <ScheduledScans onBack={() => setRoute("settings")} />;
-  }
-  if (route === "activitylog") {
-    return <ActivityLog onBack={() => setRoute("settings")} />;
   }
   if (route === "custom_report") {
     return <CustomReport onBack={() => setRoute("settings")} />;
