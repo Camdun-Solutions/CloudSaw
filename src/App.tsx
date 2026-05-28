@@ -15,7 +15,6 @@ import { useT } from "@/hooks/useT";
 // PR #46: Accounts is no longer a top-level route — it's an
 // embedded section inside Settings. App.tsx doesn't render it
 // directly anymore; Settings imports it.
-import ActivityLog from "@/routes/ActivityLog";
 import CustomReport from "@/routes/CustomReport";
 import Dashboard from "@/routes/Dashboard";
 import Findings from "@/routes/Findings";
@@ -23,7 +22,7 @@ import Home from "@/routes/Home";
 import Onboarding from "@/routes/Onboarding";
 import Profiles from "@/routes/Profiles";
 import ScheduledScans from "@/routes/ScheduledScans";
-import Settings from "@/routes/Settings";
+import Settings, { type SettingsSection } from "@/routes/Settings";
 import UnlockScreen from "@/routes/UnlockScreen";
 import { ipc, type OnboardingState } from "@/lib/ipc";
 import { useLock } from "@/stores/lock";
@@ -37,7 +36,6 @@ type Route =
   | "profiles"
   | "settings"
   | "schedules"
-  | "activitylog"
   | "custom_report"
   | "dashboard"
   // "findings" deep-links into the Dashboard component with
@@ -58,7 +56,6 @@ function topNavActive(route: Route): TopNavRoute | null {
       return "findings";
     case "settings":
     case "schedules":
-    case "activitylog":
     case "custom_report":
       return "settings";
     case "profiles":
@@ -76,6 +73,23 @@ export default function App() {
   useAppearance();
   const { status, state, error, refresh } = useLock();
   const [route, setRoute] = useState<Route>("home");
+  // PR #63: when a deep-link to a specific Settings left-nav section
+  // is requested (e.g., scan modal → "Go to Settings → Accounts"),
+  // store both the target section AND a monotonically increasing
+  // counter so Settings' useEffect fires even on a repeat tap of the
+  // same section. The counter is what makes the prop value change
+  // every time; the section is what Settings reads.
+  const [settingsTarget, setSettingsTarget] = useState<{
+    section: SettingsSection;
+    nonce: number;
+  } | null>(null);
+  const goToSettingsSection = useCallback((section: SettingsSection) => {
+    setSettingsTarget((prev) => ({
+      section,
+      nonce: (prev?.nonce ?? 0) + 1,
+    }));
+    setRoute("settings");
+  }, []);
   // Manual-open path for the error dialog. Wired into the lock-load
   // error fallback below and into the ErrorBoundary, so any failure
   // path can reach the bug-report flow.
@@ -299,7 +313,7 @@ export default function App() {
         </>
       )}
     >
-      <ScanModalProvider>
+      <ScanModalProvider onGoToAccounts={() => goToSettingsSection("accounts")}>
         {/* Persistent top-right menu — Dashboard / Findings /
             Settings. Fixed-positioned so it overlays whatever route
             renders below. PR #41 introduces it; PR #42 will add the
@@ -336,6 +350,7 @@ export default function App() {
         <AppShell
           route={route}
           setRoute={setRoute}
+          settingsTarget={settingsTarget}
           onOpenReport={openReport}
           onRerunOnboarding={async (startAt) => {
             try {
@@ -368,29 +383,32 @@ function AppShell({
   setRoute,
   onOpenReport,
   onRerunOnboarding,
+  settingsTarget,
 }: {
   route: Route;
   setRoute: (r: Route) => void;
   onOpenReport: (notes?: string) => void;
   onRerunOnboarding: (startAt: "aws_account" | "language") => void;
+  /** Optional deep-link target for Settings, forwarded from App's
+   *  `goToSettingsSection` helper. Settings uses `initialSectionNonce`
+   *  to detect repeat taps even when the section value is unchanged. */
+  settingsTarget: { section: SettingsSection; nonce: number } | null;
 }) {
   if (route === "settings") {
     return (
       <Settings
         onClose={() => setRoute("home")}
         onOpenSchedules={() => setRoute("schedules")}
-        onOpenActivityLog={() => setRoute("activitylog")}
         onOpenCustomReport={() => setRoute("custom_report")}
         onOpenProfiles={() => setRoute("profiles")}
         onRerunOnboarding={onRerunOnboarding}
+        initialSection={settingsTarget?.section}
+        initialSectionNonce={settingsTarget?.nonce}
       />
     );
   }
   if (route === "schedules") {
     return <ScheduledScans onBack={() => setRoute("settings")} />;
-  }
-  if (route === "activitylog") {
-    return <ActivityLog onBack={() => setRoute("settings")} />;
   }
   if (route === "custom_report") {
     return <CustomReport onBack={() => setRoute("settings")} />;

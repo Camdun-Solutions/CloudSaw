@@ -51,9 +51,6 @@
     ]
   },
   "plugins": {
-    "notification": {
-      "all": true
-    },
     "updater": {
       "endpoints": [
         "https://github.com/Camdun-Solutions/CloudSaw/releases/latest/download/latest.json"

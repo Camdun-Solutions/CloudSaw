@@ -86,7 +86,18 @@ type ProviderState = {
   onScanFinished: (() => Promise<void> | void) | undefined;
 };
 
-export function ScanModalProvider({ children }: { children: ReactNode }) {
+export function ScanModalProvider({
+  children,
+  onGoToAccounts,
+}: {
+  children: ReactNode;
+  /** Optional. When provided, the scan modal's AccountPicker shows
+   *  "Go to Settings → Accounts" / "Set up scanner role" CTAs in its
+   *  no-accounts and role-not-provisioned states (PR #63). Omit it
+   *  to disable the affordance — the onboarding provider does this
+   *  because the wizard's own UI handles those flows. */
+  onGoToAccounts?: () => void;
+}) {
   const [state, setState] = useState<ProviderState>({
     open: false,
     prebound: null,
@@ -127,6 +138,14 @@ export function ScanModalProvider({ children }: { children: ReactNode }) {
           account={state.prebound}
           onClose={close}
           onScanFinished={onScanFinished}
+          onGoToAccounts={
+            onGoToAccounts
+              ? () => {
+                  close();
+                  onGoToAccounts();
+                }
+              : undefined
+          }
         />
       ) : null}
     </ScanModalContext.Provider>
