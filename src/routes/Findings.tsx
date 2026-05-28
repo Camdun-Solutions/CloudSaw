@@ -319,7 +319,7 @@ export default function Findings({ onBack }: Props) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-8 py-8">
+      <section className="mx-auto max-w-7xl px-8 py-8">
         {accounts === null ? (
           <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
         ) : accounts.length === 0 ? (

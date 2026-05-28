@@ -158,7 +158,7 @@ export default function Home({ onOpenSettings }: Props) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-5xl px-8 py-10">
+      <section className="mx-auto max-w-7xl px-8 py-10">
         {/* Scan Now CTA — the primary action on the page. Opens
             the global ScanModal which contains its own account
             picker (PR #39) so the user can scan from here without
@@ -174,6 +174,7 @@ export default function Home({ onOpenSettings }: Props) {
           </div>
           <Button
             variant="primary"
+            size="lg"
             onClick={() => openScanModal()}
             disabled={!hasAccounts}
             data-testid="dashboard-scan-now"

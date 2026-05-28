@@ -7,6 +7,13 @@ const config: Config = {
       colors: {
         saw: {
           red: "#E63946",
+          // PR #55: higher-saturation red for primary CTAs. The
+          // standard saw-red (#E63946) sits a touch desaturated for
+          // body emphasis use; the bold variant pushes saturation +
+          // darkens slightly so primary buttons read as the highest-
+          // weight element in any view. Contrast vs saw-white text
+          // stays >= 4.5:1 (AA).
+          "red-bold": "#D52836",
           orange: "#F77F1F",
           gold: "#F2B705",
           // PR #51: "well-configured" / resolved-finding green for
@@ -43,10 +50,28 @@ const config: Config = {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       fontSize: {
-        "display": ["2.25rem", { lineHeight: "2.5rem", letterSpacing: "-0.02em" }],
-        "h1": ["1.75rem", { lineHeight: "2rem", letterSpacing: "-0.01em" }],
-        "h2": ["1.375rem", { lineHeight: "1.75rem" }],
-        "h3": ["1.125rem", { lineHeight: "1.5rem" }],
+        // PR #55: weight + size step-up. The display + heading scale
+        // now ships its own fontWeight so headings render bold
+        // without callers having to remember `font-bold`. Body sizes
+        // stay weightless — Tailwind's `font-medium` (PR #55 base on
+        // <body>) carries them. Sizes themselves nudged up half a
+        // step on display/h1/h2 to match the heavier weight.
+        "display": [
+          "2.5rem",
+          { lineHeight: "2.75rem", letterSpacing: "-0.02em", fontWeight: "800" },
+        ],
+        "h1": [
+          "1.875rem",
+          { lineHeight: "2.25rem", letterSpacing: "-0.015em", fontWeight: "700" },
+        ],
+        "h2": [
+          "1.5rem",
+          { lineHeight: "2rem", letterSpacing: "-0.01em", fontWeight: "700" },
+        ],
+        "h3": [
+          "1.125rem",
+          { lineHeight: "1.5rem", fontWeight: "600" },
+        ],
         "body": ["0.9375rem", { lineHeight: "1.5rem" }],
         "small": ["0.8125rem", { lineHeight: "1.25rem" }],
       },

@@ -1,7 +1,7 @@
 {
   "name": "cloudsaw",
   "private": true,
-  "version": "2026.5.15",
+  "version": "2026.5.16",
   "type": "module",
   "scripts": {
     "dev": "vite",
