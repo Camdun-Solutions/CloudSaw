@@ -137,6 +137,40 @@ export default function App() {
     return () => document.removeEventListener(SCAN_FINISHED_EVENT, handler);
   }, [t]);
 
+  // PR #64 — DEV-ONLY: expose `seedDemoFindings` on the
+  // `__cloudsaw_dev` console namespace so a developer running
+  // `npm run tauri dev` against a fresh data root can populate the
+  // Findings UI without a real AWS scan / a vendored ScoutSuite
+  // binary. The Rust handler gates its body on `cfg(debug_assertions)`
+  // and the entire useEffect is dead-code-eliminated from release
+  // bundles by Vite via the `import.meta.env.DEV` check. Merges
+  // into any existing `__cloudsaw_dev` (e.g. the locale hook's
+  // entries) so neither overwrites the other.
+  //
+  // Usage in the browser DevTools console:
+  //   await __cloudsaw_dev.seedDemoFindings()            // active account
+  //   await __cloudsaw_dev.seedDemoFindings("123456789012")
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const w = window as unknown as { __cloudsaw_dev?: Record<string, unknown> };
+    w.__cloudsaw_dev = {
+      ...w.__cloudsaw_dev,
+      seedDemoFindings: async (awsAccountId?: string) => {
+        let target = awsAccountId;
+        if (!target) {
+          const active = await ipc.accountsGetActive();
+          if (!active) {
+            throw new Error(
+              "No active account — pass an awsAccountId or set one via Settings → Accounts",
+            );
+          }
+          target = active;
+        }
+        return ipc.devSeedDemoFindings(target);
+      },
+    };
+  }, []);
+
   function openReport(notes?: string) {
     setErrorDialogNotes(notes);
     setErrorDialogOpen(true);
