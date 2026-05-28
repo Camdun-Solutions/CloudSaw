@@ -14,6 +14,14 @@
     "notification:default",
     "notification:allow-notify",
     "notification:allow-is-permission-granted",
-    "notification:allow-request-permission"
+    "notification:allow-request-permission",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/*" },
+        { "url": "https://github.com/settings/personal-access-tokens/new" },
+        { "url": "mailto:security@cloud-saw.com" }
+      ]
+    }
   ]
 }

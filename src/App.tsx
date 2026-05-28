@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ErrorBoundary,
   ErrorReportDialog,
+  ReportBugFlag,
   TopNav,
   UpdateBanner,
   VersionFooter,
@@ -347,6 +348,14 @@ export default function App() {
             automatically while locked / during onboarding because
             this render branch sits below those gates. */}
         <VersionFooter />
+        {/* PR #68: Bug-report flag — sits LEFT of the version footer
+            with a higher z-index so it overlaps the (pointer-events-
+            none) version label. Hover reveals a "Report a bug"
+            label; click opens the modal with GitHub + mailto
+            options. Replaces the static "Error-report destination"
+            + "Security contact" blocks that used to live inside
+            Settings → GitHub. */}
+        <ReportBugFlag />
         <AppShell
           route={route}
           setRoute={setRoute}

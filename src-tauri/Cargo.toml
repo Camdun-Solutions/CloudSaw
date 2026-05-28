@@ -1,6 +1,6 @@
 [package]
 name = "cloudsaw"
-version = "2026.5.27"
+version = "2026.5.28"
 description = "CloudSaw — local-first AWS security scanner"
 authors = ["CloudSaw Contributors"]
 license = "Apache-2.0"
@@ -39,6 +39,13 @@ tauri-plugin-updater = "2"
 # our SCAN_FINISHED_EVENT DOM event dispatches AND the user has
 # opted in via the Settings → Notifications toggle.
 tauri-plugin-notification = "2"
+# PR #68 — opener plugin: opens external URLs and mailto: links in
+# the user's default browser / mail client. WebView2's default
+# behavior blocks JS-initiated `window.open()` calls, so we use the
+# plugin's `openUrl` for the Settings → GitHub "Generate token"
+# button (PAT creation page) and the new bug-report flag's GitHub
+# issues / security@ mailto links.
+tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }

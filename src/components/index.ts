@@ -11,6 +11,7 @@ export { default as MeatballMenu } from "./MeatballMenu";
 export type { MeatballMenuItem } from "./MeatballMenu";
 export { default as Modal } from "./Modal";
 export { default as PasswordField } from "./PasswordField";
+export { default as ReportBugFlag } from "./ReportBugFlag";
 export { default as SafeMarkdown } from "./SafeMarkdown";
 export { default as Select } from "./Select";
 export { default as SeverityBadge } from "./SeverityBadge";

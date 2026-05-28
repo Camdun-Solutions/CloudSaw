@@ -59,6 +59,10 @@ pub fn run() {
         // the user has opted in via the Settings → Notifications
         // toggle; the plugin itself just exposes the OS-native API.
         .plugin(tauri_plugin_notification::init())
+        // PR #68 — opener: opens external URLs and mailto: links in
+        // the OS default browser / mail client. Used by the GitHub
+        // "Generate token" button and the bug-report flag.
+        .plugin(tauri_plugin_opener::init())
         .manage(session)
         .invoke_handler(tauri::generate_handler![
             ipc::app_version,
