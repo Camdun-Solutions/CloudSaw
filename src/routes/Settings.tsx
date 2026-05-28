@@ -14,6 +14,7 @@ import type { Appearance } from "@/lib/appearance";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
+import ScheduledScans from "@/routes/ScheduledScans";
 import {
   isScanNotificationsEnabled,
   setScanNotificationsEnabled,
@@ -49,7 +50,6 @@ export type SettingsSection =
   | "notifications"
   | "schedules"
   | "activity_log"
-  | "onboarding"
   | "report"
   | "retention"
   | "updates"
@@ -67,7 +67,9 @@ const SECTION_ORDER: SettingsSection[] = [
   "notifications",
   "schedules",
   "activity_log",
-  "onboarding",
+  // PR #67: "onboarding" removed — re-onboarding now happens only
+  // via the new Reset Application flow under the renamed "Reset"
+  // (formerly "Panic wipe") section.
   "report",
   "retention",
   "updates",
@@ -110,13 +112,8 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
 
 type Props = {
   onClose: () => void;
-  onOpenSchedules: () => void;
   /** Open the custom-report builder (Contract 15B). */
   onOpenCustomReport?: () => void;
-  /** Re-enter the onboarding wizard at a specific step. Settings uses
-   * this to expose "Add another AWS account" and "Re-run the full
-   * wizard" actions (Contract 14 §Expected Output). */
-  onRerunOnboarding?: (startAt: "aws_account" | "language") => void;
   /** Optional deep-link target. When set, Settings opens with the
    *  given left-nav section pre-selected instead of the default
    *  `app_lock`. PR #63 (scan-modal Settings CTAs) uses this to land
@@ -132,9 +129,7 @@ type Props = {
 
 export default function Settings({
   onClose,
-  onOpenSchedules,
   onOpenCustomReport,
-  onRerunOnboarding,
   initialSection,
   initialSectionNonce,
 }: Props) {
@@ -226,7 +221,6 @@ export default function Settings({
     notifications: t("settings.nav.notifications"),
     schedules: t("settings.nav.schedules"),
     activity_log: t("settings.nav.activity_log"),
-    onboarding: t("settings.nav.onboarding"),
     report: t("settings.nav.report"),
     retention: t("settings.nav.retention"),
     updates: t("settings.nav.updates"),
@@ -397,33 +391,16 @@ export default function Settings({
 
       {activeSection === "notifications" && <NotificationsSection />}
 
-      {activeSection === "schedules" && (
-      <section
-        className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
-        data-testid="settings-section-schedules"
-      >
-        <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
-          {t("schedules.section_title")}
-        </h2>
-        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-          {t("schedules.section_subtitle")}
-        </p>
-        <div className="mt-4">
-          <Button
-            variant="secondary"
-            onClick={onOpenSchedules}
-            data-testid="settings-open-schedules"
-          >
-            {t("schedules.section_cta")}
-          </Button>
-        </div>
-      </section>
-      )}
+      {/* PR #67: Schedules now renders inline — the standalone
+          /schedules route is gone. The cadence form lives in a
+          modal inside the embedded panel. */}
+      {activeSection === "schedules" && <ScheduledScans />}
 
-      {activeSection === "activity_log" && <ActivityLogSection />}
-      {activeSection === "onboarding" && (
-        <OnboardingSection onRerun={onRerunOnboarding} />
-      )}
+      {/* PR #67: ActivityLog now owns its own section card +
+          header (so the Export button can anchor at the top-right
+          of the section). The Settings wrapper for this entry is
+          just a direct render. */}
+      {activeSection === "activity_log" && <ActivityLog />}
       {activeSection === "report" && (
         <ReportSection onOpenCustomReport={onOpenCustomReport} />
       )}
@@ -763,62 +740,6 @@ function formatTimestamp(iso: string): string {
 
 // --- Contract 11 sections -----------------------------------------------
 
-function OnboardingSection({
-  onRerun,
-}: {
-  onRerun?: (startAt: "aws_account" | "language") => void;
-}) {
-  const t = useT();
-  if (!onRerun) return null;
-  return (
-    <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
-      data-testid="settings-section-onboarding"
-    >
-      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
-        {t("settings.section.onboarding_title")}
-      </h2>
-      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-        {t("settings.section.onboarding_subtitle")}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          onClick={() => onRerun("aws_account")}
-          data-testid="settings-onboarding-add-account"
-        >
-          {t("settings.section.onboarding_add_account")}
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() => onRerun("language")}
-          data-testid="settings-onboarding-rerun-full"
-        >
-          {t("settings.section.onboarding_rerun_full")}
-        </Button>
-      </div>
-    </section>
-  );
-}
-
-function ActivityLogSection() {
-  const t = useT();
-  return (
-    <section
-      className="mt-6 max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
-      data-testid="settings-section-activity_log"
-    >
-      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
-        {t("eventlog.section_title")}
-      </h2>
-      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-        {t("eventlog.section_subtitle")}
-      </p>
-      <ActivityLog />
-    </section>
-  );
-}
-
 type RetentionChoice = "30d" | "60d" | "90d" | "180d" | "365d" | "never";
 
 function periodToChoice(p: RetentionPeriod): RetentionChoice {
@@ -992,16 +913,33 @@ function RetentionSection() {
 function PanicSection() {
   const t = useT();
   const formatError = useIpcError();
+  // Panic-wipe modal state.
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<PanicWipeResult | null>(null);
+  // PR #67: Reset Application modal state. Independent of panic
+  // state so the two cards never share a confirmation buffer.
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetErr, setResetErr] = useState<string | null>(null);
 
   function close() {
     setOpen(false);
     setConfirm("");
     setErr(null);
+  }
+
+  function closeReset() {
+    // Only allow closing when we're not in the middle of the wipe
+    // — the user explicitly asked us not to let the window be
+    // closed during the reset.
+    if (resetBusy) return;
+    setResetOpen(false);
+    setResetConfirm("");
+    setResetErr(null);
   }
 
   async function doPanic() {
@@ -1023,6 +961,26 @@ function PanicSection() {
     }
   }
 
+  async function doReset() {
+    if (resetConfirm !== "RESET") {
+      setResetErr(t("eventlog.error.confirmation_rejected"));
+      return;
+    }
+    setResetBusy(true);
+    setResetErr(null);
+    try {
+      // The happy-path promise from systemResetApplication never
+      // resolves — `AppHandle::restart()` kills the process. We
+      // await it anyway so the spinner stays up until the process
+      // is killed; the catch branch handles confirmation-rejected
+      // or write failures that come back BEFORE restart.
+      await ipc.systemResetApplication(resetConfirm);
+    } catch (e) {
+      setResetErr(formatError(e));
+      setResetBusy(false);
+    }
+  }
+
   async function doReboot() {
     try {
       await ipc.systemRequestReboot();
@@ -1035,8 +993,35 @@ function PanicSection() {
 
   return (
     <>
+      {/* PR #67: Reset Application — sits ABOVE the Panic card so a
+          user who just wants a fresh-install experience finds the
+          less destructive option first. */}
       <section
-        className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-red/40 p-6"
+        className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+        data-testid="settings-section-reset"
+      >
+        <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
+          {t("reset.section_title")}
+        </h2>
+        <p className="mt-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          {t("reset.section_subtitle")}
+        </p>
+        <p className="mt-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
+          {t("reset.section_warning")}
+        </p>
+        <div className="mt-4">
+          <Button
+            variant="primary"
+            onClick={() => setResetOpen(true)}
+            data-testid="settings-reset-cta"
+          >
+            {t("reset.section_cta")}
+          </Button>
+        </div>
+      </section>
+
+      <section
+        className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-red/40 p-6"
         data-testid="settings-section-panic"
       >
         <h2 className="text-h3 font-semibold text-saw-red">{t("panic.section_title")}</h2>
@@ -1140,6 +1125,78 @@ function PanicSection() {
           </div>
         </Modal>
       ) : null}
+
+      {/* PR #67: Reset Application confirmation modal. While
+          resetBusy is true the modal cannot be closed and shows a
+          plain "Resetting…" body — the user was warned not to close
+          the window. The app restarts via `AppHandle::restart()`
+          inside the IPC so the modal will simply disappear with the
+          rest of the process. */}
+      <Modal
+        open={resetOpen}
+        onClose={closeReset}
+        title={t("reset.modal.title")}
+        footer={
+          resetBusy ? null : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={closeReset}
+                disabled={resetBusy}
+                data-testid="reset-cancel"
+              >
+                {t("reset.modal.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void doReset()}
+                disabled={resetBusy || resetConfirm !== "RESET"}
+                data-testid="reset-confirm"
+              >
+                {t("reset.modal.confirm_cta")}
+              </Button>
+            </>
+          )
+        }
+      >
+        {resetBusy ? (
+          <div className="flex flex-col gap-3" data-testid="reset-busy">
+            <p className="text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+              {t("reset.modal.busy")}
+            </p>
+            <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
+              {t("reset.modal.busy_body")}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p>{t("reset.modal.explainer")}</p>
+            <p className="text-small text-saw-red">
+              {t("reset.modal.warning")}
+            </p>
+            <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+              <span>{t("reset.modal.confirm_label")}</span>
+              <input
+                type="text"
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value)}
+                autoFocus
+                className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+                data-testid="reset-confirm-input"
+              />
+            </label>
+            {resetErr ? (
+              <p
+                role="alert"
+                className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+                data-testid="reset-error"
+              >
+                {resetErr}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </Modal>
     </>
   );
 }

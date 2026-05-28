@@ -1,13 +1,16 @@
 // Activity log — Contract 11A.
 //
-// Embedded inside Settings → Activity log (PR #62). The dedicated
-// /activitylog route was removed because it added a click without
-// adding information density — clicking "Activity log" in the
-// Settings left nav now shows the log inline in the right panel.
-//
-// The list is searchable and filterable by event kind. "Clear view"
-// clears only the VIEW — underlying rows persist subject to the
-// event-log retention policy and still appear in Export.
+// PR #67 restructure:
+//   - The component now owns its OWN section card (h2 + subtitle +
+//     Export button at top-right). Settings.tsx renders
+//     `<ActivityLog />` directly without an outer wrapper.
+//   - Clear View + Refresh buttons removed (refresh runs on mount +
+//     after any reload-relevant state change; clear-view added no
+//     real value).
+//   - New pagination footer: a "Showing X of Y" counter + a
+//     rows-per-page selector (10 default, 20 / 50 / 100). Filtering
+//     happens client-side because all rows already arrived inside
+//     the 500-row reload cap.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -36,6 +39,9 @@ const KIND_OPTIONS: ReadonlyArray<{ value: EventKind | "all"; key: string }> = [
   { value: "app_started", key: "eventlog.kind.app_started" },
 ];
 
+const PAGE_SIZES = [10, 20, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZES)[number];
+
 export default function ActivityLog() {
   const t = useT();
   const formatError = useIpcError();
@@ -47,6 +53,10 @@ export default function ActivityLog() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // PR #67: pagination — slice the loaded entries client-side. The
+  // reload call already caps at 500 rows, which is plenty for the
+  // 10/20/50/100 paging tiers.
+  const [pageSize, setPageSize] = useState<PageSize>(10);
 
   const reload = useCallback(async () => {
     setLoadError(null);
@@ -91,18 +101,37 @@ export default function ActivityLog() {
     }
   }
 
-  async function onClearView() {
-    try {
-      await ipc.eventlogClearView();
-      await reload();
-    } catch (err) {
-      setLoadError(formatError(err));
-    }
-  }
+  const totalLoaded = entries?.length ?? 0;
+  const visible = entries ? entries.slice(0, pageSize) : [];
 
   return (
-    <div className="mt-4">
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+    <section
+      className="mt-6 max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      data-testid="settings-section-activity_log"
+    >
+      {/* PR #67: Export button anchored at the top-right of the
+          section. Search + kind filter sit in the row below. */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
+            {t("eventlog.section_title")}
+          </h2>
+          <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
+            {t("eventlog.section_subtitle")}
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void onExport()}
+          disabled={exporting}
+          data-testid="activitylog-export"
+        >
+          {exporting ? t("eventlog.action.export_busy") : t("eventlog.action.export")}
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("eventlog.search.placeholder")}</span>
           <input
@@ -124,39 +153,12 @@ export default function ActivityLog() {
           onChange={(v) => setKind(v)}
           data-testid="activitylog-kind"
         />
-        <div className="ml-auto flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void reload()}
-            data-testid="activitylog-refresh"
-          >
-            {t("eventlog.action.refresh")}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void onExport()}
-            disabled={exporting}
-            data-testid="activitylog-export"
-          >
-            {exporting ? t("eventlog.action.export_busy") : t("eventlog.action.export")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void onClearView()}
-            data-testid="activitylog-clear-view"
-          >
-            {t("eventlog.action.clear_view")}
-          </Button>
-        </div>
       </div>
 
       {loadError ? (
         <p
           role="alert"
-          className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+          className="mt-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
         >
           {loadError}
         </p>
@@ -164,7 +166,7 @@ export default function ActivityLog() {
       {toast ? (
         <p
           role="status"
-          className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+          className="mt-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="activitylog-toast"
         >
           {toast}
@@ -172,24 +174,22 @@ export default function ActivityLog() {
       ) : null}
 
       {entries === null ? (
-        <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
+        <p className="mt-4 text-body text-saw-grey-600 dark:text-saw-grey-400">
+          {t("common.loading")}
+        </p>
       ) : entries.length === 0 ? (
-        <EmptyState
-          title={t("eventlog.empty.title")}
-          body={t("eventlog.empty.body")}
-        />
+        <div className="mt-4">
+          <EmptyState
+            title={t("eventlog.empty.title")}
+            body={t("eventlog.empty.body")}
+          />
+        </div>
       ) : (
         <>
-          <p className="mb-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
-            {t("eventlog.count_total").replace(
-              "{count}",
-              String(count ?? entries.length),
-            )}
-          </p>
           <div
             role="table"
             aria-label={t("eventlog.section_title")}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 overflow-hidden"
+            className="mt-4 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 overflow-hidden"
           >
             <div
               role="row"
@@ -201,7 +201,7 @@ export default function ActivityLog() {
               <span role="columnheader">{t("eventlog.column.account")}</span>
               <span role="columnheader">{t("eventlog.column.count")}</span>
             </div>
-            {entries.map((e) => (
+            {visible.map((e) => (
               <div
                 role="row"
                 key={e.event_id}
@@ -234,9 +234,37 @@ export default function ActivityLog() {
               </div>
             ))}
           </div>
+
+          {/* PR #67: pagination footer — counter on the left ("Showing
+              N of M"), rows-per-page select on the right. The counter
+              prefers the SQLite total (`count`) when available so the
+              user sees the true table size, not just the filtered
+              loaded subset. */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-small text-saw-grey-600 dark:text-saw-grey-400">
+            <span data-testid="activitylog-counter">
+              {t("eventlog.pagination.showing")
+                .replace("{visible}", String(visible.length))
+                .replace("{total}", String(count ?? totalLoaded))}
+            </span>
+            <label className="flex items-center gap-2">
+              <span>{t("eventlog.pagination.rows_label")}</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+                data-testid="activitylog-page-size"
+                className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-2 py-1 text-small text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-red"
+              >
+                {PAGE_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </>
       )}
-    </div>
+    </section>
   );
 }
 

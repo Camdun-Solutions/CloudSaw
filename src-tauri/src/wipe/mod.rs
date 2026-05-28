@@ -57,19 +57,52 @@ pub struct PanicWipeResult {
 /// one subtree fails (Contract 11 §Acceptance Criteria: "if the helper
 /// cannot run, the data wipe still fully succeeds").
 pub fn run_panic_wipe(confirmation: &str) -> Result<PanicWipeResult, crate::errors::AppError> {
+    run_wipe(
+        confirmation,
+        "PANIC",
+        EventKind::PanicWipe,
+        "Panic wipe invoked.",
+        true,
+    )
+}
+
+/// PR #67 — Reset Application: wipes all user data but keeps the app
+/// installed. Same wipe pipeline as `run_panic_wipe`, but the
+/// self-delete helper is NOT staged — the user wants the app to
+/// restart fresh, not uninstall. The caller is expected to call
+/// `AppHandle::restart()` after this returns so the wizard surfaces
+/// on the next launch.
+pub fn run_application_reset(
+    confirmation: &str,
+) -> Result<PanicWipeResult, crate::errors::AppError> {
+    run_wipe(
+        confirmation,
+        "RESET",
+        EventKind::PanicWipe,
+        "Application reset invoked.",
+        false,
+    )
+}
+
+fn run_wipe(
+    confirmation: &str,
+    expected: &str,
+    event_kind: EventKind,
+    event_summary: &str,
+    stage_self_delete: bool,
+) -> Result<PanicWipeResult, crate::errors::AppError> {
     // Typed confirmation gate — same shape as the hard-delete pipeline.
-    if confirmation != "PANIC" {
+    if confirmation != expected {
         return Err(crate::errors::AppError::ConfirmationRejected);
     }
 
-    // Record the panic in the event log BEFORE we wipe. The row is
-    // about to be deleted, but the export-still-includes-it path is
-    // covered by the "user exported before panic" workflow described
-    // in the QA contract. Records as a stable count + path.
+    // Record the panic / reset in the event log BEFORE we wipe. The
+    // row is about to be deleted, but the export-still-includes-it
+    // path is covered by the "user exported before panic" workflow
+    // described in the QA contract. Records as a stable count + path.
     let pre_event_count = eventlog::count_events().unwrap_or(-1);
     eventlog::record_event(
-        EventInput::new(EventKind::PanicWipe, "Panic wipe invoked.")
-            .with_item_count(pre_event_count.max(0)),
+        EventInput::new(event_kind, event_summary).with_item_count(pre_event_count.max(0)),
     );
 
     // Best-effort: drain in-flight scanner children. We don't have a
@@ -115,10 +148,15 @@ pub fn run_panic_wipe(confirmation: &str) -> Result<PanicWipeResult, crate::erro
     // 7. Keychain.
     let keychain = keychain::wipe_all();
 
-    // Stage the self-delete helper. Failures don't abort — the data
-    // wipe has already happened and is what the contract acceptance
-    // criteria measure against.
-    let self_delete_staged = selfdelete::stage_self_delete().is_ok();
+    // Stage the self-delete helper for the panic path only. The
+    // application-reset path keeps the app installed so the next
+    // launch can surface the onboarding wizard — staging the helper
+    // would defeat the purpose.
+    let self_delete_staged = if stage_self_delete {
+        selfdelete::stage_self_delete().is_ok()
+    } else {
+        false
+    };
 
     Ok(PanicWipeResult {
         data_root_removed,

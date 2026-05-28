@@ -569,6 +569,30 @@ pub fn system_request_reboot() -> Result<(), AppError> {
     wipe::selfdelete::request_user_reboot().map_err(|e| AppError::Io(format!("reboot: {e}")))
 }
 
+/// PR #67 — Reset Application. Performs the same data wipe as
+/// `system_panic_wipe` but leaves the app installed and immediately
+/// restarts the process so the next launch surfaces the onboarding
+/// wizard. Requires the literal confirmation string `"RESET"`.
+///
+/// Note: `app.restart()` does not return — the process is killed and
+/// relaunched in-place. The frontend's awaiting Promise never
+/// resolves; the fresh process simply re-opens to the onboarding
+/// gate (because the wipe removed every persisted state).
+#[tauri::command]
+pub fn system_reset_application(
+    confirmation: String,
+    app: tauri::AppHandle,
+) -> Result<PanicWipeResult, AppError> {
+    let _result = wipe::run_application_reset(&confirmation)?;
+    // Restart the app in-place. Tauri's `AppHandle::restart()` kills
+    // the current process and launches a fresh one — control does
+    // not return here on the happy path. The `_result` binding above
+    // is intentional: a failed wipe would have returned earlier via
+    // the `?`, so the only reason we reach the restart call is if
+    // the wipe succeeded.
+    app.restart();
+}
+
 // --- GitHub integration (Contract 12) ------------------------------------
 //
 // Two surfaces share one PAT (stored only in the OS keychain at

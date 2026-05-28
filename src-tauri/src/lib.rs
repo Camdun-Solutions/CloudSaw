@@ -127,6 +127,7 @@ pub fn run() {
             ipc::deletion_vacuum_now,
             ipc::system_panic_wipe,
             ipc::system_request_reboot,
+            ipc::system_reset_application,
             ipc::github_get_settings,
             ipc::github_set_token,
             ipc::github_clear_token,

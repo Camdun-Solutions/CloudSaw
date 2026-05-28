@@ -35,11 +35,13 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   Badge,
+  Button,
   EmptyState,
   Logo,
   Select,
   SeverityBadge,
 } from "@/components";
+import { useScanModal } from "@/contexts/ScanModalContext";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -92,6 +94,10 @@ function rankSeverity(s: Severity): number {
 export default function Findings(_props: Props) {
   const t = useT();
   const formatError = useIpcError();
+  // PR #67: empty-state "Scan now" CTA opens the global scan modal,
+  // which already routes to Settings → Accounts when no accounts or
+  // role are configured (PR #63).
+  const scanModal = useScanModal();
 
   // Account selection + scan selection.
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -315,110 +321,150 @@ export default function Findings(_props: Props) {
       </header>
 
       <section className="mx-auto max-w-7xl px-8 py-8">
-        {accounts === null ? (
-          <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
-        ) : accounts.length === 0 ? (
-          <EmptyState
-            title={t("findings.empty.no_accounts.title")}
-            body={t("findings.empty.no_accounts.body")}
-          />
-        ) : (
-          <>
-            {/* Account + scan pickers. Side-by-side so the user
-                can sweep across accounts and scans without
-                touching their finger to the scroll wheel. */}
-            <div className="grid gap-3 lg:grid-cols-2">
-              <Select<string>
-                label={t("findings.account_label")}
-                value={accountId ?? ""}
-                options={accountOptions}
-                onChange={(v) => setAccountId(v || null)}
-                data-testid="findings-account-select"
-              />
-              <Select<string>
-                label={t("findings.scan_label")}
-                value={scanId ?? ""}
-                options={scanOptions}
-                onChange={(v) => setScanId(v || null)}
-                data-testid="findings-scan-select"
-              />
-            </div>
+        {(() => {
+          // PR #67: Findings empty-state restructure.
+          //
+          // "Universe-empty" means the user has nothing to show yet:
+          // no accounts, OR no scans across any account, OR no
+          // findings on the selected scan. In all three cases we
+          // collapse to a single card with the "Scan now" CTA —
+          // filters/pickers add no value with nothing to filter.
+          //
+          // While the initial loads are in flight (accounts === null,
+          // or scans still null after accounts arrived) the page
+          // renders silently — only the actual findings-fetch step
+          // shows a "Loading…" inline indicator.
+          const isInitialLoading =
+            accounts === null || (accounts.length > 0 && scans === null);
+          const universeEmpty =
+            !isInitialLoading &&
+            (accounts!.length === 0 ||
+              (scans !== null && scans.length === 0) ||
+              (findings !== null && findings.length === 0));
 
-            {/* Filter bar — severity / service / status / search. */}
-            <div className="mt-4 grid gap-3 lg:grid-cols-4">
-              <Select<SevFilter>
-                label={t("dashboard.findings.filter.severity")}
-                value={sev}
-                options={sevOptions}
-                onChange={setSev}
-                data-testid="findings-filter-sev"
+          if (isInitialLoading) {
+            // Silent — only show a message when we're truly waiting
+            // on findings, not on the initial accounts/scans round-
+            // trip.
+            return null;
+          }
+
+          if (universeEmpty) {
+            return (
+              <EmptyState
+                title={t("findings.empty.run_scan.title")}
+                body={t("findings.empty.run_scan.body")}
+                action={
+                  <Button
+                    variant="primary"
+                    onClick={() => scanModal.open()}
+                    data-testid="findings-empty-scan-cta"
+                  >
+                    {t("scanner.scan.cta")}
+                  </Button>
+                }
               />
-              <Select<string>
-                label={t("dashboard.findings.filter.service")}
-                value={service}
-                options={serviceOptions}
-                onChange={setService}
-                data-testid="findings-filter-service"
-              />
-              <Select<StatusFilter>
-                label={t("dashboard.findings.filter.status")}
-                value={status}
-                options={statusOptions}
-                onChange={setStatus}
-                data-testid="findings-filter-status"
-              />
-              <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-                <span>{t("findings.filter.search")}</span>
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("findings.filter.search_placeholder")}
-                  className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
-                  data-testid="findings-filter-search"
+            );
+          }
+
+          return (
+            <>
+              {/* Account + scan pickers. Side-by-side so the user
+                  can sweep across accounts and scans without
+                  touching their finger to the scroll wheel. */}
+              <div className="grid gap-3 lg:grid-cols-2">
+                <Select<string>
+                  label={t("findings.account_label")}
+                  value={accountId ?? ""}
+                  options={accountOptions}
+                  onChange={(v) => setAccountId(v || null)}
+                  data-testid="findings-account-select"
                 />
-              </label>
-            </div>
-
-            {error ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900 dark:text-saw-beige"
-                data-testid="findings-error"
-              >
-                {error}
-              </p>
-            ) : null}
-
-            {/* Per-service collapsible groups. */}
-            <div className="mt-6 flex flex-col gap-3" data-testid="findings-groups">
-              {findings === null ? (
-                <p className="text-body text-saw-grey-600">
-                  {t("common.loading")}
-                </p>
-              ) : grouped.length === 0 ? (
-                <EmptyState
-                  title={t("findings.empty.no_findings.title")}
-                  body={t("findings.empty.no_findings.body")}
+                <Select<string>
+                  label={t("findings.scan_label")}
+                  value={scanId ?? ""}
+                  options={scanOptions}
+                  onChange={(v) => setScanId(v || null)}
+                  data-testid="findings-scan-select"
                 />
-              ) : (
-                grouped.map((g) => (
-                  <ServiceGroup
-                    key={g.service}
-                    service={g.service}
-                    worst={g.worst}
-                    items={g.items}
-                    openByDefault={g.openByDefault}
-                    expandedId={expandedId}
-                    onToggleFinding={(id) =>
-                      setExpandedId((cur) => (cur === id ? null : id))
-                    }
+              </div>
+
+              {/* Filter bar — severity / service / status / search. */}
+              <div className="mt-4 grid gap-3 lg:grid-cols-4">
+                <Select<SevFilter>
+                  label={t("dashboard.findings.filter.severity")}
+                  value={sev}
+                  options={sevOptions}
+                  onChange={setSev}
+                  data-testid="findings-filter-sev"
+                />
+                <Select<string>
+                  label={t("dashboard.findings.filter.service")}
+                  value={service}
+                  options={serviceOptions}
+                  onChange={setService}
+                  data-testid="findings-filter-service"
+                />
+                <Select<StatusFilter>
+                  label={t("dashboard.findings.filter.status")}
+                  value={status}
+                  options={statusOptions}
+                  onChange={setStatus}
+                  data-testid="findings-filter-status"
+                />
+                <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+                  <span>{t("findings.filter.search")}</span>
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t("findings.filter.search_placeholder")}
+                    className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+                    data-testid="findings-filter-search"
                   />
-                ))
-              )}
-            </div>
-          </>
-        )}
+                </label>
+              </div>
+
+              {error ? (
+                <p
+                  role="alert"
+                  className="mt-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900 dark:text-saw-beige"
+                  data-testid="findings-error"
+                >
+                  {error}
+                </p>
+              ) : null}
+
+              {/* Per-service collapsible groups. */}
+              <div className="mt-6 flex flex-col gap-3" data-testid="findings-groups">
+                {findings === null ? (
+                  <p className="text-body text-saw-grey-600">
+                    {t("common.loading")}
+                  </p>
+                ) : grouped.length === 0 ? (
+                  <EmptyState
+                    title={t("findings.empty.no_findings.title")}
+                    body={t("findings.empty.no_findings.body")}
+                  />
+                ) : (
+                  grouped.map((g) => (
+                    <ServiceGroup
+                      key={g.service}
+                      service={g.service}
+                      worst={g.worst}
+                      items={g.items}
+                      openByDefault={g.openByDefault}
+                      expandedId={expandedId}
+                      onToggleFinding={(id) =>
+                        setExpandedId((cur) => (cur === id ? null : id))
+                      }
+                    />
+                  ))
+                )}
+              </div>
+            </>
+          );
+        })()}
       </section>
     </main>
   );

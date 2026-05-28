@@ -1,16 +1,21 @@
-// ScheduledScans — Settings sub-panel. Lists configured accounts, lets the
-// user pick a cadence per account, and surfaces the precomputed next-run
-// time. The configuration is plain non-secret data — no AWS calls happen
-// in this surface (CLAUDE.md §4.3; Contract 10 §Constraints).
+// Scheduled scans — Settings → Schedules embedded panel.
 //
-// Architecture: every action goes through `ipc.scheduler*` — no `invoke()`
-// calls live here and no IPC payload contains credential material. The
-// component re-reads schedules after every mutation so it stays in sync
-// with the background runner without bespoke event plumbing.
+// PR #67: the standalone /schedules route is gone. This component
+// now renders inline in `Settings.tsx`'s Schedules section. The
+// "configure cadence" form moved into a Modal that opens when the
+// user clicks "Add schedule" (or "Edit" on an existing schedule
+// row). Configured schedules render as a list below the section
+// header.
+//
+// Architecture: every action goes through `ipc.scheduler*` — no
+// `invoke()` calls live here and no IPC payload contains credential
+// material. The component re-reads schedules after every mutation
+// so it stays in sync with the background runner without bespoke
+// event plumbing.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { BackBreadcrumb, Badge, Button, EmptyState, Select, Switch } from "@/components";
+import { Badge, Button, EmptyState, Modal, Select, Switch } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -109,21 +114,35 @@ function lastRunOutcomeKey(outcome: LastRunOutcome | null): string {
   return `schedules.last_run.${outcome}`;
 }
 
-type Props = { onBack: () => void };
+function describeCadence(s: Schedule, t: (k: string) => string): string {
+  switch (s.cadence.kind) {
+    case "daily":
+      return t("schedules.cadence.daily");
+    case "weekly":
+      return `${t("schedules.cadence.weekly")} (${t(`schedules.dow.${["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][s.cadence.day_of_week]}`)})`;
+    case "monthly":
+      return `${t("schedules.cadence.monthly")} (${s.cadence.day_of_month})`;
+    case "interval":
+      return `${t("schedules.cadence.interval")} (${s.cadence.minutes}m)`;
+  }
+}
 
-export default function ScheduledScans({ onBack }: Props) {
+/** Modal phase. "pick" lets the user choose an account to schedule;
+ *  "form" shows the cadence editor for a specific account. The
+ *  parent transitions pick→form when the user picks an account. */
+type ModalPhase =
+  | { kind: "pick" }
+  | { kind: "form"; account: Account };
+
+export default function ScheduledScans() {
   const t = useT();
   const formatError = useIpcError();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
-    null,
-  );
+  const [modalPhase, setModalPhase] = useState<ModalPhase | null>(null);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
     setLoadError(null);
     try {
       const [acctList, schedList] = await Promise.all([
@@ -132,146 +151,225 @@ export default function ScheduledScans({ onBack }: Props) {
       ]);
       setAccounts(acctList);
       setSchedules(schedList);
-      if (acctList.length > 0 && !selectedAccountId) {
-        setSelectedAccountId(acctList[0].aws_account_id);
-      }
     } catch (err) {
       setLoadError(formatError(err));
-    } finally {
-      setLoading(false);
     }
-  }, [formatError, selectedAccountId]);
+  }, [formatError]);
 
   useEffect(() => {
     void refresh();
-    // Re-fetch every 30s so next-run times tick down without an explicit
-    // event. The runner itself polls on a similar cadence; aligning the UI
-    // gives the user a confidence cue.
+    // Re-fetch every 30s so next-run times tick down without an
+    // explicit event. The runner itself polls on a similar cadence;
+    // aligning the UI gives the user a confidence cue.
     const handle = window.setInterval(() => {
       void refresh();
     }, 30_000);
     return () => window.clearInterval(handle);
-    // We deliberately depend only on `refresh` — the callback is recreated
-    // when its dependencies change.
   }, [refresh]);
 
-  const selectedAccount = useMemo(
-    () => accounts.find((a) => a.aws_account_id === selectedAccountId) ?? null,
-    [accounts, selectedAccountId],
+  const accountById = useCallback(
+    (id: string) => accounts.find((a) => a.aws_account_id === id) ?? null,
+    [accounts],
   );
 
-  const selectedSchedule = useMemo(
+  const scheduleForAccount = useCallback(
+    (id: string) => schedules.find((s) => s.aws_account_id === id) ?? null,
+    [schedules],
+  );
+
+  // Accounts that don't already have a schedule — the "pick" phase
+  // restricts to these so the user doesn't try to add a duplicate.
+  const unscheduledAccounts = useMemo(
     () =>
-      schedules.find((s) => s.aws_account_id === selectedAccountId) ?? null,
-    [schedules, selectedAccountId],
+      accounts.filter(
+        (a) => !schedules.some((s) => s.aws_account_id === a.aws_account_id),
+      ),
+    [accounts, schedules],
   );
 
   return (
-    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
-      <header className="mb-6">
-        <BackBreadcrumb
-          destination={t("nav.settings")}
-          onBack={onBack}
-          data-testid="schedules-back"
-        />
-        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
-          {t("schedules.title")}
-        </h1>
-        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-          {t("schedules.subtitle")}
-        </p>
-      </header>
-
-      <section
-        className="grid max-w-5xl gap-6 lg:grid-cols-[260px_1fr]"
-        data-testid="schedules-section"
-      >
-        <aside className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-3">
-          <p className="px-2 pb-2 text-small font-medium text-saw-grey-600 dark:text-saw-grey-400">
-            {t("schedules.accounts_label")}
-          </p>
-          {loading && accounts.length === 0 ? (
-            <p className="px-2 py-3 text-small text-saw-grey-500 dark:text-saw-grey-400">
-              {t("common.loading")}
-            </p>
-          ) : accounts.length === 0 ? (
-            <EmptyState
-              title={t("schedules.no_accounts.title")}
-              body={t("schedules.no_accounts.body")}
-            />
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {accounts.map((account) => {
-                const schedule = schedules.find(
-                  (s) => s.aws_account_id === account.aws_account_id,
-                );
-                const isSelected =
-                  selectedAccountId === account.aws_account_id;
-                return (
-                  <li key={account.aws_account_id}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedAccountId(account.aws_account_id)
-                      }
-                      data-testid={`schedules-pick-${account.aws_account_id}`}
-                      className={[
-                        "flex w-full flex-col items-start gap-1 rounded-card px-3 py-2 text-left",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
-                        isSelected
-                          ? "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-900 dark:text-saw-beige"
-                          : "text-saw-grey-700 dark:text-saw-grey-300 hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800",
-                      ].join(" ")}
-                    >
-                      <span className="text-body font-medium">
-                        {account.label}
-                      </span>
-                      <span className="text-small text-saw-grey-500 dark:text-saw-grey-400">
-                        {maskAccountId(account.aws_account_id)}
-                      </span>
-                      {schedule ? (
-                        <Badge tone={schedule.enabled ? "success" : "neutral"}>
-                          {schedule.enabled
-                            ? t("schedules.row.enabled")
-                            : t("schedules.row.disabled")}
-                        </Badge>
-                      ) : (
-                        <Badge tone="neutral">
-                          {t("schedules.row.no_schedule")}
-                        </Badge>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </aside>
-
+    <section
+      className="mt-6 max-w-3xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      data-testid="settings-section-schedules"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          {loadError ? (
-            <p
-              role="alert"
-              data-testid="schedules-load-error"
-              className="mb-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
-            >
-              {loadError}
-            </p>
-          ) : null}
-          {selectedAccount ? (
-            <SchedulePanel
-              account={selectedAccount}
-              schedule={selectedSchedule}
-              onChanged={refresh}
+          <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
+            {t("schedules.section_title")}
+          </h2>
+          <p className="mt-1 max-w-2xl text-small text-saw-grey-600 dark:text-saw-grey-400">
+            {t("schedules.section_subtitle")}
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={() => setModalPhase({ kind: "pick" })}
+          disabled={accounts.length === 0}
+          data-testid="schedules-add"
+        >
+          {t("schedules.add_cta")}
+        </Button>
+      </div>
+
+      {loadError ? (
+        <p
+          role="alert"
+          data-testid="schedules-load-error"
+          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+        >
+          {loadError}
+        </p>
+      ) : null}
+
+      <div className="mt-4" data-testid="schedules-list">
+        {accounts.length === 0 ? (
+          <EmptyState
+            title={t("schedules.no_accounts.title")}
+            body={t("schedules.no_accounts.body")}
+          />
+        ) : schedules.length === 0 ? (
+          <p
+            className="rounded-card border border-dashed border-saw-grey-200 dark:border-saw-grey-700 px-4 py-6 text-center text-small text-saw-grey-600 dark:text-saw-grey-400"
+            data-testid="schedules-empty"
+          >
+            {t("schedules.empty")}
+          </p>
+        ) : (
+          <ul
+            className="divide-y divide-saw-grey-200 dark:divide-saw-grey-700 rounded-card border border-saw-grey-200 dark:border-saw-grey-700"
+            data-testid="schedules-rows"
+          >
+            {schedules.map((s) => {
+              const account = accountById(s.aws_account_id);
+              return (
+                <li
+                  key={s.aws_account_id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3"
+                  data-testid={`schedule-row-${s.aws_account_id}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+                      {account?.label ?? maskAccountId(s.aws_account_id)}
+                    </p>
+                    <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
+                      {describeCadence(s, t)}
+                    </p>
+                    <p className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+                      {t("schedules.row.next_run_label")}:{" "}
+                      {s.enabled ? formatLocalTimestamp(s.next_run_at) : "—"}
+                    </p>
+                  </div>
+                  <Badge tone={s.enabled ? "success" : "neutral"}>
+                    {s.enabled
+                      ? t("schedules.row.enabled")
+                      : t("schedules.row.disabled")}
+                  </Badge>
+                  {account ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        setModalPhase({ kind: "form", account })
+                      }
+                      data-testid={`schedule-edit-${s.aws_account_id}`}
+                    >
+                      {t("schedules.row.edit_cta")}
+                    </Button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* PR #67: Modal for Add / Edit. "pick" phase lets the user
+          select an account; once picked, the modal transitions to
+          "form" with the SchedulePanel. Edit jumps straight to
+          "form" with the row's account pre-set. */}
+      {modalPhase ? (
+        <Modal
+          open={true}
+          onClose={() => setModalPhase(null)}
+          title={
+            modalPhase.kind === "pick"
+              ? t("schedules.modal.pick_title")
+              : t("schedules.modal.form_title").replace(
+                  "{label}",
+                  modalPhase.account.label,
+                )
+          }
+          size="lg"
+        >
+          {modalPhase.kind === "pick" ? (
+            <PickAccount
+              accounts={unscheduledAccounts}
+              onPick={(account) => setModalPhase({ kind: "form", account })}
+              onCancel={() => setModalPhase(null)}
             />
           ) : (
-            <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">
-              {t("schedules.pick_an_account")}
-            </p>
+            <SchedulePanel
+              account={modalPhase.account}
+              schedule={scheduleForAccount(modalPhase.account.aws_account_id)}
+              onChanged={async () => {
+                await refresh();
+                setModalPhase(null);
+              }}
+            />
           )}
+        </Modal>
+      ) : null}
+    </section>
+  );
+}
+
+/** Account picker rendered inside the Add-schedule modal. Lists
+ *  accounts that don't already have a schedule. The user picks one
+ *  to transition into the cadence form. */
+function PickAccount({
+  accounts,
+  onPick,
+  onCancel,
+}: {
+  accounts: Account[];
+  onPick: (account: Account) => void;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  if (accounts.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">
+          {t("schedules.modal.pick_all_taken")}
+        </p>
+        <div className="flex justify-end">
+          <Button variant="ghost" onClick={onCancel}>
+            {t("common.close")}
+          </Button>
         </div>
-      </section>
-    </main>
+      </div>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-2" data-testid="schedules-pick-list">
+      {accounts.map((a) => (
+        <li key={a.aws_account_id}>
+          <button
+            type="button"
+            onClick={() => onPick(a)}
+            data-testid={`schedules-pick-${a.aws_account_id}`}
+            className="flex w-full flex-col items-start gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 text-left transition hover:border-saw-red hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-red"
+          >
+            <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
+              {a.label}
+            </span>
+            <span className="font-mono text-xs text-saw-grey-500 dark:text-saw-grey-400">
+              {maskAccountId(a.aws_account_id)} · {a.profile_name}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -293,7 +391,7 @@ function SchedulePanel({
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset the draft when the user selects a different account.
+  // Reset the draft when the modal's target account changes.
   useEffect(() => {
     setDraft(schedule ? draftFromSchedule(schedule) : defaultDraft());
     setError(null);
@@ -391,45 +489,31 @@ function SchedulePanel({
   const roleNotProvisioned = !account.role_provisioned;
 
   return (
-    <section
-      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-6"
-      data-testid="schedules-panel"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
-            {account.label}
-          </h2>
-          <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-            {t("schedules.panel.subtitle")}
-          </p>
-        </div>
-        <div className="flex flex-col gap-1 text-right">
-          <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
-            {t("schedules.panel.next_run")}
-          </p>
-          <p
-            className="text-body font-medium text-saw-grey-900 dark:text-saw-beige"
-            data-testid="schedules-next-run"
-          >
-            {schedule?.enabled
-              ? formatLocalTimestamp(schedule.next_run_at)
-              : "—"}
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4" data-testid="schedules-panel">
+      <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
+        {t("schedules.panel.subtitle")}
+      </p>
+      {schedule ? (
+        <p
+          className="text-small text-saw-grey-500 dark:text-saw-grey-400"
+          data-testid="schedules-next-run"
+        >
+          {t("schedules.panel.next_run")}:{" "}
+          {schedule.enabled ? formatLocalTimestamp(schedule.next_run_at) : "—"}
+        </p>
+      ) : null}
 
       {roleNotProvisioned ? (
         <p
           role="status"
           data-testid="schedules-role-warning"
-          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
         >
           {t("schedules.panel.role_warning")}
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Select<CadenceChoice>
           label={t("schedules.field.cadence")}
           value={draft.cadence}
@@ -494,20 +578,18 @@ function SchedulePanel({
         ) : null}
       </div>
 
-      <div className="mt-6">
-        <Switch
-          label={t("schedules.field.enabled")}
-          description={t("schedules.field.enabled_hint")}
-          checked={draft.enabled}
-          onChange={(next) => setDraft((d) => ({ ...d, enabled: next }))}
-        />
-      </div>
+      <Switch
+        label={t("schedules.field.enabled")}
+        description={t("schedules.field.enabled_hint")}
+        checked={draft.enabled}
+        onChange={(next) => setDraft((d) => ({ ...d, enabled: next }))}
+      />
 
       {error ? (
         <p
           role="alert"
           data-testid="schedules-save-error"
-          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
         >
           {error}
         </p>
@@ -516,13 +598,13 @@ function SchedulePanel({
         <p
           role="status"
           data-testid="schedules-saved"
-          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
         >
           {t("schedules.panel.saved")}
         </p>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           variant="primary"
           onClick={onSave}
@@ -544,7 +626,7 @@ function SchedulePanel({
       </div>
 
       {schedule ? (
-        <div className="mt-8 border-t border-saw-grey-200 dark:border-saw-grey-700 pt-6">
+        <div className="border-t border-saw-grey-200 dark:border-saw-grey-700 pt-4">
           <h3 className="text-small font-semibold uppercase tracking-wide text-saw-grey-600 dark:text-saw-grey-400">
             {t("schedules.panel.last_run_title")}
           </h3>
@@ -574,6 +656,6 @@ function SchedulePanel({
           </dl>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }
