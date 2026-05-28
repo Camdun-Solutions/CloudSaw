@@ -59,13 +59,22 @@ verify between sessions.
 - [ ] **(2) Screenshots** of every route in light + dark mode after
   running a real scan. Drop them into a `qa-screenshots/` directory
   and reference them inline by path. Suggested set:
-  - Home (with recent activity + top findings)
-  - Findings (per-service expanded, severity borders, AI inline
-    preview if a key is connected)
-  - Each Settings section (App lock, Accounts, Appearance,
-    Notifications, Schedules, Activity log, Onboarding, Reports,
-    Retention, Updates, GitHub, AI, Panic)
-  - Exported HTML report opened in a browser
+  - [ ] Home (with recent activity + top findings)
+  - [ ] Findings (per-service expanded, severity borders, AI inline preview if a key is connected)
+  - [ ] Settings → App lock
+  - [ ] Settings → Accounts
+  - [ ] Settings → Appearance
+  - [ ] Settings → Notifications
+  - [ ] Settings → Schedules
+  - [ ] Settings → Activity log
+  - [ ] Settings → Onboarding
+  - [ ] Settings → Reports
+  - [ ] Settings → Retention
+  - [ ] Settings → Updates
+  - [ ] Settings → GitHub
+  - [ ] Settings → AI
+  - [ ] Settings → Panic
+  - [ ] Exported HTML report opened in a browser
 
 - [ ] **(3) Tauri shell log capture** for one full session:
   ```powershell
@@ -82,7 +91,9 @@ verify between sessions.
 
 - [ ] First-run wizard: set master password (≥8 chars), complete all 6 steps from a fresh DB
 - [ ] Lock now → unlock with password
-- [ ] Re-lock after the configured period (try with "Immediate" + "1 day")
+- [ ] Re-lock period selector works end-to-end
+  - [ ] "Immediate" — session locks on app focus loss
+  - [ ] "1 day" — session persists for ~24h before re-lock
 - [ ] Biometric unlock (Windows Hello), if your device has it set up
 - [ ] Recovery flow — forgotten password → OS identity verification → new password
 - [ ] Recovery rejects when no biometric / PIN is configured at the OS level (graceful unavailable message)
@@ -117,7 +128,11 @@ verify between sessions.
 ## Phase 4 — Scanner role provisioning (Contract 05)
 
 - [ ] Terraform plan generates against AWS (look for `terraform.provision.detect.available` in the modal)
-- [ ] Plan diff renders correctly in the modal — Create / Update / Delete / No-op rows
+- [ ] Plan diff renders correctly in the modal
+  - [ ] Create rows render
+  - [ ] Update rows render
+  - [ ] Delete rows render
+  - [ ] No-op rows render
 - [ ] SecurityAudit (recommended) policy variant applies cleanly
 - [ ] ReadOnlyAccess policy variant applies cleanly (with the broader-permissions warning shown)
 - [ ] Apply succeeds with trust-policy SHA verified (success banner + role ARN displayed)
@@ -132,24 +147,51 @@ verify between sessions.
 - [ ] Findings written to SQLite (check `findings` table row count > 0)
 - [ ] `raw-scout.json` written to per-scan directory
 - [ ] Findings page (PR #51): per-service collapsible groups render
-- [ ] Findings page: severity-colored left borders per card (critical=black, high=red, medium=orange, low=gold, info=grey, resolved=green)
+- [ ] Findings page: severity-colored left borders per card
+  - [ ] critical = black
+  - [ ] high = red
+  - [ ] medium = orange
+  - [ ] low = gold
+  - [ ] info = grey
+  - [ ] resolved = green
 - [ ] Findings page: scan filter dropdown lists recent scans
-- [ ] Findings page: search filter matches `dashboard_name` / `rule_key` / `description`
+- [ ] Findings page: search filter matches multiple fields
+  - [ ] matches `dashboard_name`
+  - [ ] matches `rule_key`
+  - [ ] matches `description`
 - [ ] Findings page: clear filters resets all four filter controls
 - [ ] AI inline preview (PR #58): with provider key configured, click "AI suggestion" → preview unfurls below the CTA (NOT a modal)
-- [ ] AI inline preview shows all expected fields: provider, model, digest, business context, identifying-field flags, placeholder list, system prompt, user message
+- [ ] AI inline preview shows all expected fields
+  - [ ] provider
+  - [ ] model
+  - [ ] digest
+  - [ ] business context
+  - [ ] identifying-field flags
+  - [ ] placeholder list
+  - [ ] system prompt
+  - [ ] user message
 - [ ] AI Cancel at preview → zero outbound HTTPS to the provider host (verify via `netstat -an | findstr :443` or DevTools Network tab)
 - [ ] AI Send → loading spinner, then suggestion appears with "AI-generated, unreviewed" pill + token usage line
 - [ ] AI suggestion error path: invalidate key in provider UI mid-session → error message renders, KB article above still usable
-- [ ] Remediation variant tabs (PR #58): on a finding with KB article that carries all three variants, the Remediation disclosure shows tabs (Overview / Terraform Fix / AWS CLI Fix); clicking each swaps the markdown body
+- [ ] Remediation variant tabs (PR #58): on a finding with KB article that carries all three variants, the Remediation disclosure shows the tab strip
+  - [ ] Overview tab renders and shows the overview body
+  - [ ] Terraform Fix tab renders and swaps the markdown body
+  - [ ] AWS CLI Fix tab renders and swaps the markdown body
 - [ ] Remediation tabs: on a finding with only an Overview, the tab strip shows just Overview (single tab, no empty tabs)
-- [ ] Drift view (compare two scans) — new / resolved / unchanged buckets populate
+- [ ] Drift view (compare two scans) — buckets populate
+  - [ ] "new" bucket lists findings introduced in the later scan
+  - [ ] "resolved" bucket lists findings only present in the earlier scan
+  - [ ] "unchanged" bucket lists findings present in both
 - [ ] Drift view: same scan picked twice → "Pick two different scans" empty state
 - [ ] Trends view — MTTR + per-finding remediation timeline render with real data
 
 ## Phase 6 — Knowledge base + GitHub
 
-- [ ] KB remote refresh: opt-in → check for update → apply → revert
+- [ ] KB remote refresh flow
+  - [ ] opt-in toggle saves
+  - [ ] check for update finds the remote bundle
+  - [ ] apply succeeds and switches articles to the remote bundle
+  - [ ] revert returns to bundled articles
 - [ ] KB remote refresh: bundled article still available as offline fallback after remote is active
 - [ ] GitHub token save via PAT — token stored only in OS keychain (verify via Credential Manager)
 - [ ] GitHub findings-repo set, then create a finding ticket via API path
@@ -157,7 +199,9 @@ verify between sessions.
 - [ ] GitHub browser-fallback path (no token configured) opens browser with prefilled new-issue URL
 - [ ] Error-report submission: paste an ARN in the notes field → ARN is truncated in the redaction preview
 - [ ] Error-report submission: paste an AWS account ID → masked to `****1234` in the redaction preview
-- [ ] Error-report submission: token-bearing patterns (`ghp_…`, `sk-…`) redacted
+- [ ] Error-report submission: token-bearing patterns redacted
+  - [ ] GitHub PATs (`ghp_…`) redacted
+  - [ ] OpenAI-style keys (`sk-…`) redacted
 
 ## Phase 7 — Schedules + Activity log + Retention
 
@@ -167,15 +211,29 @@ verify between sessions.
 - [ ] Disable a schedule → config preserved, next-run line says "Disabled"
 - [ ] Catch-up scan after missed slot: close app, advance system clock past the next scheduled time, relaunch → catch-up scan fires
 - [ ] Activity log records scan completions with severity counts
-- [ ] Activity log records account add / remove / set-active events
+- [ ] Activity log records account lifecycle events
+  - [ ] account add
+  - [ ] account remove
+  - [ ] set-active
 - [ ] Activity log records password change events (no password material in the row)
-- [ ] Activity log records exports + retention purges + panic events
+- [ ] Activity log records system events
+  - [ ] export events (HTML / PDF / custom)
+  - [ ] retention purge events
+  - [ ] panic wipe events
 - [ ] Activity log search filters by free-text against summary + detail
 - [ ] Activity log filter dropdown narrows to a single event kind
 - [ ] Activity log "Clear view" hides rows but underlying SQLite rows persist (verify by re-opening the page)
-- [ ] Activity log export (clipboard / file)
+- [ ] Activity log export
+  - [ ] copy to clipboard
+  - [ ] save to file
 - [ ] Retention purge — manual run on demand
-- [ ] Retention purge — each scan period (30 / 60 / 90 / 180 / 365 / never) saves
+- [ ] Retention purge — each scan period saves
+  - [ ] 30 days
+  - [ ] 60 days
+  - [ ] 90 days
+  - [ ] 180 days
+  - [ ] 365 days
+  - [ ] never
 - [ ] Retention purge — each event-log period saves independently of scan period
 - [ ] After a retention purge: scan rows older than the threshold removed; findings metadata untouched
 
@@ -205,7 +263,11 @@ verify between sessions.
 - [ ] Delete scan (hard delete): confirm typing matches required token (DELETE or scan ID)
 - [ ] Delete scan: SQLite row + per-scan directory + raw file all removed; VACUUM run; toast message accurate
 - [ ] Delete scan with secure-overwrite checkbox: completes without error
-- [ ] Panic wipe: triggers only when "PANIC" typed exactly (no padded, no lowercase, no XSS — fix from QA verified)
+- [ ] Panic wipe input validation (fix from QA verified)
+  - [ ] exact "PANIC" → submit button enabled
+  - [ ] padded " PANIC " → submit button stays disabled (no trim)
+  - [ ] lowercase "panic" → submit button stays disabled (case-sensitive)
+  - [ ] XSS payload (e.g. `<script>alert(1)</script>`) → submit button stays disabled
 - [ ] Panic wipe: SQLite DB file removed
 - [ ] Panic wipe: every CloudSaw keychain entry cleared (verify via Windows Credential Manager — search "cloudsaw")
 - [ ] Panic wipe: scan dirs, terraform workdirs, log files all removed
@@ -235,8 +297,14 @@ verify between sessions.
 
 - [ ] **macOS scan path** — scoutsuite_results_cloudsaw.js filename + PyInstaller `data-files` bundling (regression check on PR #36's fix). Run a scan on macOS, verify findings show in dashboard
 - [ ] **macOS biometric unlock** (Touch ID)
-- [ ] High-DPI Windows: logo + finding cards + tab strips render correctly at 200% scale
-- [ ] Window resize: from 800×600 minimum (PR #38) up to ultra-wide. Verify TopNav remains visible, Logo doesn't clip, Findings table layout adapts
+- [ ] High-DPI Windows at 200% scale
+  - [ ] logo renders crisply (not pixelated, not blurry)
+  - [ ] finding cards render without truncation
+  - [ ] tab strips remain legible
+- [ ] Window resize from 800×600 minimum (PR #38) up to ultra-wide
+  - [ ] TopNav remains visible at the minimum size
+  - [ ] Logo doesn't clip at the minimum size
+  - [ ] Findings table layout adapts across the range
 - [ ] First boot on a clean Windows machine without AWS CLI installed: account add flow surfaces the helpful error pointing to `aws configure`
 
 ## Phase 13 — Edge cases worth deliberate exercise
