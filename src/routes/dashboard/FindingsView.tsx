@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  AiRequestPreviewModal,
   Button,
   EmptyState,
   SafeMarkdown,
@@ -468,6 +467,10 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
   }
 
   async function sendAiRequest(p: AiRequestPreview): Promise<AiSuggestion> {
+    // PR #58: inline flow. The preview body stays mounted (no modal hop)
+    // until the suggestion lands; clearing aiPreview right after the
+    // send flips the AiSuggestionBlock back to its post-suggestion
+    // state with the result visible below the CTA.
     const suggestion = await ipc.aiSendRequest(p);
     setAiSuggestion(suggestion);
     setAiPreview(null);
@@ -571,7 +574,11 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
           settings={aiSettings}
           suggestion={aiSuggestion}
           aiError={aiError}
+          preview={aiPreview}
           onStart={() => void startAiSuggestion()}
+          onSend={sendAiRequest}
+          onCancelPreview={() => setAiPreview(null)}
+          formatError={formatError}
         />
       </div>
 
@@ -595,33 +602,60 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
         onBrowserFallback={(p) => ipc.githubBrowserFallbackForFinding(p)}
         tokenConfigured={github?.token.configured ?? false}
       />
-
-      <AiRequestPreviewModal
-        preview={aiPreview}
-        onClose={() => setAiPreview(null)}
-        onSend={sendAiRequest}
-      />
     </div>
   );
 }
 
 // AI suggestion sub-panel — visually distinct from the KB article above.
-// Renders an opt-in CTA, the disabled-hint pointing to Settings if no key
-// is connected, and (after a Send) the suggestion with a clear
-// "AI-generated, unreviewed" label + placeholder reminder + token usage.
+// Renders an opt-in CTA, the disabled-hint pointing to Settings if no
+// key is connected, the request preview inline once the user clicks
+// the CTA, and (after a Send) the suggestion with a clear
+// "AI-generated, unreviewed" label + placeholder reminder + token
+// usage.
+//
+// PR #58: the request-preview step used to open a modal; the modal
+// is gone — the preview now unfurls inline below the CTA so the user
+// stays anchored to the finding row they're investigating. Contract
+// 13's "preview MUST show exact transmitted bytes before any call"
+// invariant is unchanged — every byte the modal showed (provider,
+// model, digest, context, flags, placeholders, system prompt, user
+// message) still renders here.
 function AiSuggestionBlock({
   settings,
   suggestion,
   aiError,
+  preview,
   onStart,
+  onSend,
+  onCancelPreview,
+  formatError,
 }: {
   settings: AiSettingsT | null;
   suggestion: AiSuggestion | null;
   aiError: string | null;
+  preview: AiRequestPreview | null;
   onStart: () => void;
+  onSend: (preview: AiRequestPreview) => Promise<AiSuggestion>;
+  onCancelPreview: () => void;
+  formatError: (err: unknown) => string;
 }) {
   const t = useT();
   const ready = !!settings?.key_connected;
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendErr, setSendErr] = useState<string | null>(null);
+
+  async function submit() {
+    if (!preview) return;
+    setSendBusy(true);
+    setSendErr(null);
+    try {
+      await onSend(preview);
+    } catch (e) {
+      setSendErr(formatError(e));
+    } finally {
+      setSendBusy(false);
+    }
+  }
 
   return (
     <div
@@ -634,16 +668,20 @@ function AiSuggestionBlock({
             {t("ai.suggestion.label")}
           </span>
         </div>
-        <Button
-          variant={ready ? "secondary" : "ghost"}
-          size="sm"
-          onClick={onStart}
-          data-testid="ai-suggestion-cta"
-        >
-          {t("ai.suggestion.cta")}
-        </Button>
+        {/* Hide the CTA while the inline preview is unfurled — the
+            preview's own Send button takes over. */}
+        {!preview ? (
+          <Button
+            variant={ready ? "secondary" : "ghost"}
+            size="sm"
+            onClick={onStart}
+            data-testid="ai-suggestion-cta"
+          >
+            {t("ai.suggestion.cta")}
+          </Button>
+        ) : null}
       </div>
-      {!ready ? (
+      {!ready && !preview ? (
         <p
           className="mt-2 text-small text-saw-grey-600 dark:text-saw-grey-400"
           data-testid="ai-suggestion-disabled-hint"
@@ -659,6 +697,15 @@ function AiSuggestionBlock({
         >
           {aiError}
         </p>
+      ) : null}
+      {preview ? (
+        <AiPreviewInline
+          preview={preview}
+          busy={sendBusy}
+          err={sendErr}
+          onSend={() => void submit()}
+          onCancel={onCancelPreview}
+        />
       ) : null}
       {suggestion ? (
         <div className="mt-3" data-testid="ai-suggestion-result">
@@ -692,6 +739,180 @@ function AiSuggestionBlock({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// PR #58: inline replacement for the old AiRequestPreviewModal. Same
+// content the modal showed, just laid out without a modal wrapper so
+// the user stays in the finding row. Contract 13 §Constraints requires
+// the full transmitted bytes to render before any call — every field
+// the modal exposed (provider, model, digest, context, identifying
+// flags, placeholders, system prompt, user message) renders here too.
+function AiPreviewInline({
+  preview,
+  busy,
+  err,
+  onSend,
+  onCancel,
+}: {
+  preview: AiRequestPreview;
+  busy: boolean;
+  err: string | null;
+  onSend: () => void;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  return (
+    <div
+      className="mt-3 flex flex-col gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4 text-small text-saw-grey-800 dark:text-saw-beige"
+      data-testid="ai-preview-inline"
+    >
+      <p>{t("ai.preview.subtitle")}</p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+            {t("ai.preview.provider")}
+          </div>
+          <div className="font-mono text-saw-grey-700 dark:text-saw-grey-300">
+            {preview.provider}
+          </div>
+        </div>
+        <div>
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+            {t("ai.preview.model")}
+          </div>
+          <div
+            className="font-mono text-saw-grey-700 dark:text-saw-grey-300"
+            data-testid="ai-preview-model"
+          >
+            {preview.model}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+          {t("ai.preview.digest_label")}
+        </div>
+        <div className="font-mono text-xs text-saw-grey-700 dark:text-saw-grey-300">
+          <div>rule_key: {preview.digest.rule_key}</div>
+          <div>service: {preview.digest.service}</div>
+          <div>resource_category: {preview.digest.resource_category}</div>
+          <div>severity: {preview.digest.severity}</div>
+          <div>
+            checked / flagged: {preview.digest.checked_items} /{" "}
+            {preview.digest.flagged_items}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+          {t("ai.preview.context_label")}
+        </div>
+        <div className="font-mono text-xs text-saw-grey-700 dark:text-saw-grey-300">
+          <div>industry: {preview.context.industry || "(none)"}</div>
+          <div>environment_type: {preview.context.environment_type}</div>
+          <div>
+            compliance: {preview.context.compliance.join(", ") || "(none)"}
+          </div>
+          <div>risk_tolerance: {preview.context.risk_tolerance}</div>
+          <div>team_size: {preview.context.team_size}</div>
+        </div>
+      </div>
+
+      {preview.flags.industry_identifying ||
+      preview.flags.compliance_identifying ? (
+        <div
+          className="rounded-card border border-saw-red/30 bg-saw-red/5 px-3 py-2 text-saw-red"
+          data-testid="ai-preview-flags"
+        >
+          <div className="font-medium">{t("ai.preview.flags_label")}</div>
+          {preview.flags.industry_identifying ? (
+            <div data-testid="ai-preview-flag-industry">
+              {t("ai.preview.flag_industry")}
+            </div>
+          ) : null}
+          {preview.flags.compliance_identifying ? (
+            <div data-testid="ai-preview-flag-compliance">
+              {t("ai.preview.flag_compliance")}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div>
+        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+          {t("ai.preview.placeholders_label")}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {preview.placeholders_used.map((p) => (
+            <span
+              key={p}
+              className="rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-xs font-mono text-saw-grey-800 dark:text-saw-beige"
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+          {t("ai.preview.system_label")}
+        </div>
+        <pre
+          className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
+          data-testid="ai-preview-system"
+        >
+          {preview.system_prompt}
+        </pre>
+      </div>
+
+      <div>
+        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+          {t("ai.preview.user_label")}
+        </div>
+        <pre
+          className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
+          data-testid="ai-preview-user"
+        >
+          {preview.user_message}
+        </pre>
+      </div>
+
+      {err ? (
+        <p
+          role="alert"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+          data-testid="ai-preview-error"
+        >
+          {err}
+        </p>
+      ) : null}
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          disabled={busy}
+          data-testid="ai-preview-cancel"
+        >
+          {t("ai.preview.cancel")}
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onSend}
+          disabled={busy}
+          data-testid="ai-preview-send"
+        >
+          {busy ? t("ai.preview.sending") : t("ai.preview.send")}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -753,7 +974,32 @@ function FindingTicketRow({
 
 function ArticleBody({ article }: { article: KnowledgeArticle }) {
   const t = useT();
-  const sections: { key: string; title: string; body: string }[] = [
+
+  // PR #58: the three remediation flavors (Overview / Terraform / AWS
+  // CLI) collapse into a single tabbed `<details>` so the user picks
+  // their preferred flavor without scanning past two adjacent
+  // disclosures with the same purpose. Empty variants drop out of the
+  // tab strip.
+  const remediationTabs: { key: string; title: string; body: string }[] = [
+    {
+      key: "remediation",
+      title: t("dashboard.findings.detail.section.remediation"),
+      body: article.remediation,
+    },
+    {
+      key: "terraform_fix",
+      title: t("dashboard.findings.detail.section.terraform_fix"),
+      body: article.terraform_fix,
+    },
+    {
+      key: "aws_cli_fix",
+      title: t("dashboard.findings.detail.section.aws_cli_fix"),
+      body: article.aws_cli_fix,
+    },
+  ].filter((s) => s.body && s.body.trim().length > 0);
+
+  // Non-remediation sections still render as standalone disclosures.
+  const otherSections: { key: string; title: string; body: string }[] = [
     {
       key: "description",
       title: t("dashboard.findings.detail.section.description"),
@@ -770,21 +1016,6 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
       body: article.detection_logic,
     },
     {
-      key: "remediation",
-      title: t("dashboard.findings.detail.section.remediation"),
-      body: article.remediation,
-    },
-    {
-      key: "terraform_fix",
-      title: t("dashboard.findings.detail.section.terraform_fix"),
-      body: article.terraform_fix,
-    },
-    {
-      key: "aws_cli_fix",
-      title: t("dashboard.findings.detail.section.aws_cli_fix"),
-      body: article.aws_cli_fix,
-    },
-    {
       key: "false_positives",
       title: t("dashboard.findings.detail.section.false_positives"),
       body: article.false_positives,
@@ -795,28 +1026,52 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
   // they aren't silently dropped (matches Contract 08 §Expected Output).
   const extras = Object.entries(article.unmatched_sections ?? {});
 
+  // Render order mirrors a human's reading flow: what is it →
+  // why it matters → how the scanner detected it → how to fix it →
+  // what false-positives look like → anything new from the article.
   return (
     <div className="mt-3 space-y-2">
-      {sections.map((s) => (
-        <details
-          key={s.key}
-          open={
-            s.key === "description" ||
-            s.key === "risk" ||
-            s.key === "remediation"
-          }
-          className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
-        >
-          <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
-            {s.title}
-          </summary>
-          <SafeMarkdown
-            markdown={s.body}
-            className="mt-2"
-            data-testid={`kb-section-${s.key}`}
-          />
-        </details>
-      ))}
+      {otherSections
+        .filter((s) => s.key === "description" || s.key === "risk" || s.key === "detection_logic")
+        .map((s) => (
+          <details
+            key={s.key}
+            open={s.key === "description" || s.key === "risk"}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
+          >
+            <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+              {s.title}
+            </summary>
+            <SafeMarkdown
+              markdown={s.body}
+              className="mt-2"
+              data-testid={`kb-section-${s.key}`}
+            />
+          </details>
+        ))}
+
+      {remediationTabs.length > 0 ? (
+        <RemediationTabs tabs={remediationTabs} />
+      ) : null}
+
+      {otherSections
+        .filter((s) => s.key === "false_positives")
+        .map((s) => (
+          <details
+            key={s.key}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
+          >
+            <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+              {s.title}
+            </summary>
+            <SafeMarkdown
+              markdown={s.body}
+              className="mt-2"
+              data-testid={`kb-section-${s.key}`}
+            />
+          </details>
+        ))}
+
       {extras.map(([h, body]) => (
         <details
           key={`extra-${h}`}
@@ -829,6 +1084,69 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
         </details>
       ))}
     </div>
+  );
+}
+
+// PR #58: tabbed remediation disclosure. The KB article carries up to
+// three flavors (overview, terraform, aws cli); rendering them as
+// separate adjacent <details> blocks creates noise and asks the user
+// to scan three near-identical headers to find the one they want.
+// This component folds them into one disclosure with a tab strip.
+// Empty flavors get filtered out by the caller so this only sees the
+// tabs that actually have content.
+function RemediationTabs({
+  tabs,
+}: {
+  tabs: { key: string; title: string; body: string }[];
+}) {
+  const t = useT();
+  const [activeKey, setActiveKey] = useState<string>(tabs[0]?.key ?? "");
+  const active = tabs.find((tb) => tb.key === activeKey) ?? tabs[0];
+
+  return (
+    <details
+      open
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
+      data-testid="kb-section-remediation"
+    >
+      <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+        {t("dashboard.findings.detail.section.remediation")}
+      </summary>
+      <div
+        role="tablist"
+        aria-label={t("dashboard.findings.detail.section.remediation")}
+        className="mt-3 flex flex-wrap gap-1 border-b border-saw-grey-200 dark:border-saw-grey-700"
+      >
+        {tabs.map((tb) => {
+          const isActive = tb.key === active?.key;
+          return (
+            <button
+              key={tb.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveKey(tb.key)}
+              data-testid={`kb-remediation-tab-${tb.key}`}
+              className={
+                "rounded-t-card px-3 py-1.5 text-small font-medium transition " +
+                (isActive
+                  ? "bg-saw-white dark:bg-saw-grey-dark text-saw-grey-900 dark:text-saw-beige border border-saw-grey-200 dark:border-saw-grey-700 border-b-transparent -mb-px"
+                  : "text-saw-grey-600 dark:text-saw-grey-400 hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-grey-900 dark:hover:text-saw-beige")
+              }
+            >
+              {tb.title}
+            </button>
+          );
+        })}
+      </div>
+      {active ? (
+        <SafeMarkdown
+          markdown={active.body}
+          className="mt-3"
+          data-testid={`kb-section-${active.key}`}
+        />
+      ) : null}
+    </details>
   );
 }
 
