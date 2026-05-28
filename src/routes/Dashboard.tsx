@@ -260,7 +260,7 @@ export default function Dashboard({
         </nav>
       </header>
 
-      <section className="mx-auto max-w-6xl px-8 py-8">
+      <section className="mx-auto max-w-7xl px-8 py-8">
         {loadError ? (
           <div
             role="alert"

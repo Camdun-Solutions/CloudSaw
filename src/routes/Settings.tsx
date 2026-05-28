@@ -212,6 +212,11 @@ export default function Settings({
 
   return (
     <main className="min-h-full bg-saw-grey-50 px-8 py-10">
+      {/* PR #55: max-w-7xl mx-auto wraps the Settings content so the
+          two-column (left-nav + right-panel) layout stays readable
+          on ultra-wide displays instead of spreading the right
+          panel across the whole viewport. */}
+      <div className="mx-auto max-w-7xl">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
           {/* PR #49: back-arrow + breadcrumb replaces the old
@@ -420,6 +425,7 @@ export default function Settings({
           await refresh();
         }}
       />
+      </div>
     </main>
   );
 }
