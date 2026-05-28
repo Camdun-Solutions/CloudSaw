@@ -13,6 +13,7 @@ import { useIpcError } from "@/hooks/useIpcError";
 import type { Appearance } from "@/lib/appearance";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Accounts from "@/routes/Accounts";
+import ActivityLog from "@/routes/ActivityLog";
 import {
   isScanNotificationsEnabled,
   setScanNotificationsEnabled,
@@ -41,7 +42,7 @@ import { useLock } from "@/stores/lock";
  *  section renders in the right panel at a time. Section IDs are
  *  stable strings so a future PR can wire deep-linking via URL
  *  hash / route sub-path. */
-type SettingsSection =
+export type SettingsSection =
   | "app_lock"
   | "accounts"
   | "appearance"
@@ -110,7 +111,6 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
 type Props = {
   onClose: () => void;
   onOpenSchedules: () => void;
-  onOpenActivityLog: () => void;
   /** Open the custom-report builder (Contract 15B). */
   onOpenCustomReport?: () => void;
   /** Re-enter the onboarding wizard at a specific step. Settings uses
@@ -122,15 +122,27 @@ type Props = {
    * moves Accounts into Settings — the embedded Accounts panel's
    * "Open profiles" button forwards here. */
   onOpenProfiles: () => void;
+  /** Optional deep-link target. When set, Settings opens with the
+   *  given left-nav section pre-selected instead of the default
+   *  `app_lock`. PR #63 (scan-modal Settings CTAs) uses this to land
+   *  the user on `accounts` from the scan-modal's no-accounts /
+   *  role-not-provisioned CTAs. */
+  initialSection?: SettingsSection;
+  /** Bumped by the parent each time it wants the deep-link to
+   *  re-fire — without it, repeated CTAs to the same `initialSection`
+   *  wouldn't trigger the effect because React sees no prop change.
+   *  Parent owns the counter; Settings only reads it. */
+  initialSectionNonce?: number;
 };
 
 export default function Settings({
   onClose,
   onOpenSchedules,
-  onOpenActivityLog,
   onOpenCustomReport,
   onRerunOnboarding,
   onOpenProfiles,
+  initialSection,
+  initialSectionNonce,
 }: Props) {
   const t = useT();
   const formatError = useIpcError();
@@ -147,7 +159,18 @@ export default function Settings({
   // top-of-page section). A future PR will wire deep-linking
   // from the parent route's sub-path.
   const [activeSection, setActiveSection] =
-    useState<SettingsSection>("app_lock");
+    useState<SettingsSection>(initialSection ?? "app_lock");
+
+  // Re-apply the deep-link target whenever the parent re-targets,
+  // even if the section value is unchanged from the previous call.
+  // `initialSectionNonce` is what guarantees the effect fires on a
+  // repeat tap of the same section — React's dep array sees a new
+  // value each time the parent calls `goToSettingsSection`.
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection, initialSectionNonce]);
 
   // Hydrate from store on mount / when settings change underneath us.
   useEffect(() => {
@@ -409,9 +432,7 @@ export default function Settings({
       </section>
       )}
 
-      {activeSection === "activity_log" && (
-        <ActivityLogSection onOpen={onOpenActivityLog} />
-      )}
+      {activeSection === "activity_log" && <ActivityLogSection />}
       {activeSection === "onboarding" && (
         <OnboardingSection onRerun={onRerunOnboarding} />
       )}
@@ -792,11 +813,11 @@ function OnboardingSection({
   );
 }
 
-function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
+function ActivityLogSection() {
   const t = useT();
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="mt-6 max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-activity_log"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -805,15 +826,7 @@ function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
       <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("eventlog.section_subtitle")}
       </p>
-      <div className="mt-4">
-        <Button
-          variant="secondary"
-          onClick={onOpen}
-          data-testid="settings-open-activitylog"
-        >
-          {t("eventlog.section_cta")}
-        </Button>
-      </div>
+      <ActivityLog />
     </section>
   );
 }

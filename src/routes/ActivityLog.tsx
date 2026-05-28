@@ -1,18 +1,20 @@
-// Activity log route — Contract 11A.
+// Activity log — Contract 11A.
 //
-// Reachable from Settings → "Open activity log". The list is searchable
-// and filterable by event kind. "Clear all" clears only the VIEW —
-// underlying rows persist subject to the event-log retention policy and
-// still appear in Export.
+// Embedded inside Settings → Activity log (PR #62). The dedicated
+// /activitylog route was removed because it added a click without
+// adding information density — clicking "Activity log" in the
+// Settings left nav now shows the log inline in the right panel.
+//
+// The list is searchable and filterable by event kind. "Clear view"
+// clears only the VIEW — underlying rows persist subject to the
+// event-log retention policy and still appear in Export.
 
 import { useCallback, useEffect, useState } from "react";
 
-import { BackBreadcrumb, Button, EmptyState, Select } from "@/components";
+import { Button, EmptyState, Select } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { ipc, type EventKind, type EventLogEntry } from "@/lib/ipc";
-
-type Props = { onBack: () => void };
 
 const KIND_OPTIONS: ReadonlyArray<{ value: EventKind | "all"; key: string }> = [
   { value: "all", key: "eventlog.filter.all" },
@@ -34,7 +36,7 @@ const KIND_OPTIONS: ReadonlyArray<{ value: EventKind | "all"; key: string }> = [
   { value: "app_started", key: "eventlog.kind.app_started" },
 ];
 
-export default function ActivityLog({ onBack }: Props) {
+export default function ActivityLog() {
   const t = useT();
   const formatError = useIpcError();
 
@@ -99,158 +101,142 @@ export default function ActivityLog({ onBack }: Props) {
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
-      <header className="mb-6">
-        <BackBreadcrumb
-          destination={t("nav.settings")}
-          onBack={onBack}
-          data-testid="activitylog-back"
+    <div className="mt-4">
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("eventlog.search.placeholder")}</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("eventlog.search.placeholder")}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige min-w-[18rem]"
+            data-testid="activitylog-search"
+          />
+        </label>
+        <Select<EventKind | "all">
+          label={t("eventlog.filter.kind_label")}
+          value={kind}
+          options={KIND_OPTIONS.map((o) => ({
+            value: o.value,
+            label: t(o.key),
+          }))}
+          onChange={(v) => setKind(v)}
+          data-testid="activitylog-kind"
         />
-        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
-          {t("eventlog.title")}
-        </h1>
-        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-          {t("eventlog.subtitle")}
-        </p>
-      </header>
-
-      <section className="max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6">
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-            <span>{t("eventlog.search.placeholder")}</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("eventlog.search.placeholder")}
-              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige min-w-[18rem]"
-              data-testid="activitylog-search"
-            />
-          </label>
-          <Select<EventKind | "all">
-            label={t("eventlog.filter.kind_label")}
-            value={kind}
-            options={KIND_OPTIONS.map((o) => ({
-              value: o.value,
-              label: t(o.key),
-            }))}
-            onChange={(v) => setKind(v)}
-            data-testid="activitylog-kind"
-          />
-          <div className="ml-auto flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void reload()}
-              data-testid="activitylog-refresh"
-            >
-              {t("eventlog.action.refresh")}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void onExport()}
-              disabled={exporting}
-              data-testid="activitylog-export"
-            >
-              {exporting ? t("eventlog.action.export_busy") : t("eventlog.action.export")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void onClearView()}
-              data-testid="activitylog-clear-view"
-            >
-              {t("eventlog.action.clear_view")}
-            </Button>
-          </div>
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void reload()}
+            data-testid="activitylog-refresh"
+          >
+            {t("eventlog.action.refresh")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void onExport()}
+            disabled={exporting}
+            data-testid="activitylog-export"
+          >
+            {exporting ? t("eventlog.action.export_busy") : t("eventlog.action.export")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void onClearView()}
+            data-testid="activitylog-clear-view"
+          >
+            {t("eventlog.action.clear_view")}
+          </Button>
         </div>
+      </div>
 
-        {loadError ? (
-          <p
-            role="alert"
-            className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
-          >
-            {loadError}
-          </p>
-        ) : null}
-        {toast ? (
-          <p
-            role="status"
-            className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
-            data-testid="activitylog-toast"
-          >
-            {toast}
-          </p>
-        ) : null}
+      {loadError ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+        >
+          {loadError}
+        </p>
+      ) : null}
+      {toast ? (
+        <p
+          role="status"
+          className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+          data-testid="activitylog-toast"
+        >
+          {toast}
+        </p>
+      ) : null}
 
-        {entries === null ? (
-          <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
-        ) : entries.length === 0 ? (
-          <EmptyState
-            title={t("eventlog.empty.title")}
-            body={t("eventlog.empty.body")}
-          />
-        ) : (
-          <>
-            <p className="mb-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
-              {t("eventlog.count_total").replace(
-                "{count}",
-                String(count ?? entries.length),
-              )}
-            </p>
+      {entries === null ? (
+        <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
+      ) : entries.length === 0 ? (
+        <EmptyState
+          title={t("eventlog.empty.title")}
+          body={t("eventlog.empty.body")}
+        />
+      ) : (
+        <>
+          <p className="mb-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
+            {t("eventlog.count_total").replace(
+              "{count}",
+              String(count ?? entries.length),
+            )}
+          </p>
+          <div
+            role="table"
+            aria-label={t("eventlog.section_title")}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 overflow-hidden"
+          >
             <div
-              role="table"
-              aria-label={t("eventlog.title")}
-              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 overflow-hidden"
+              role="row"
+              className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] gap-2 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2 text-small font-medium text-saw-grey-700 dark:text-saw-grey-300"
             >
+              <span role="columnheader">{t("eventlog.column.when")}</span>
+              <span role="columnheader">{t("eventlog.column.kind")}</span>
+              <span role="columnheader">{t("eventlog.column.summary")}</span>
+              <span role="columnheader">{t("eventlog.column.account")}</span>
+              <span role="columnheader">{t("eventlog.column.count")}</span>
+            </div>
+            {entries.map((e) => (
               <div
                 role="row"
-                className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] gap-2 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2 text-small font-medium text-saw-grey-700 dark:text-saw-grey-300"
+                key={e.event_id}
+                data-testid={`activitylog-row-${e.event_id}`}
+                className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] items-start gap-2 border-b border-saw-grey-100 dark:border-saw-grey-800 px-4 py-2 last:border-b-0 text-body text-saw-grey-900 dark:text-saw-beige"
               >
-                <span role="columnheader">{t("eventlog.column.when")}</span>
-                <span role="columnheader">{t("eventlog.column.kind")}</span>
-                <span role="columnheader">{t("eventlog.column.summary")}</span>
-                <span role="columnheader">{t("eventlog.column.account")}</span>
-                <span role="columnheader">{t("eventlog.column.count")}</span>
+                <span role="cell" className="text-small">
+                  {formatDate(e.occurred_at)}
+                </span>
+                <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
+                  {t(`eventlog.kind.${e.kind}`)}
+                </span>
+                <span role="cell" className="text-small">
+                  <div>{e.summary}</div>
+                  {e.detail ? (
+                    <div className="text-saw-grey-600 dark:text-saw-grey-400">{e.detail}</div>
+                  ) : null}
+                  {e.path ? (
+                    <div className="text-saw-grey-500 dark:text-saw-grey-400 font-mono text-xs break-all">
+                      {e.path}
+                    </div>
+                  ) : null}
+                </span>
+                <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
+                  {e.aws_account_id_masked ?? "—"}
+                </span>
+                <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
+                  {e.item_count ?? "—"}
+                </span>
               </div>
-              {entries.map((e) => (
-                <div
-                  role="row"
-                  key={e.event_id}
-                  data-testid={`activitylog-row-${e.event_id}`}
-                  className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] items-start gap-2 border-b border-saw-grey-100 dark:border-saw-grey-800 px-4 py-2 last:border-b-0 text-body text-saw-grey-900 dark:text-saw-beige"
-                >
-                  <span role="cell" className="text-small">
-                    {formatDate(e.occurred_at)}
-                  </span>
-                  <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
-                    {t(`eventlog.kind.${e.kind}`)}
-                  </span>
-                  <span role="cell" className="text-small">
-                    <div>{e.summary}</div>
-                    {e.detail ? (
-                      <div className="text-saw-grey-600 dark:text-saw-grey-400">{e.detail}</div>
-                    ) : null}
-                    {e.path ? (
-                      <div className="text-saw-grey-500 dark:text-saw-grey-400 font-mono text-xs break-all">
-                        {e.path}
-                      </div>
-                    ) : null}
-                  </span>
-                  <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
-                    {e.aws_account_id_masked ?? "—"}
-                  </span>
-                  <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
-                    {e.item_count ?? "—"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
-    </main>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

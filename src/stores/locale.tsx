@@ -37,9 +37,15 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   // `window.__cloudsaw_dev` so QA can verify hot-switching and the
   // missing-key fallback without a production UI. Compiled out in
   // release builds via Vite's `import.meta.env.DEV` dead-code elimination.
+  //
+  // Merges into any existing `__cloudsaw_dev` object instead of
+  // overwriting it — PR #64 adds `seedDemoFindings` from App.tsx, and
+  // a locale change shouldn't clobber that.
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    (window as unknown as { __cloudsaw_dev?: unknown }).__cloudsaw_dev = {
+    const w = window as unknown as { __cloudsaw_dev?: Record<string, unknown> };
+    w.__cloudsaw_dev = {
+      ...w.__cloudsaw_dev,
       locale,
       setLocale,
       translate,

@@ -6,6 +6,12 @@
 // IPC payloads use plain serializable structs. AWS SDK types never cross this
 // boundary. See CLAUDE.md §4.1.
 
+// PR #64 — `dev_seed_demo_findings`. Compiles unconditionally so the
+// handler list in `lib.rs::run` can reference it; the body itself is
+// gated by `cfg(debug_assertions)` and rejects the call on release
+// builds.
+pub mod dev;
+
 use std::sync::Arc;
 
 use tauri::State;
