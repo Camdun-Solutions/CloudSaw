@@ -21,6 +21,8 @@
 // the no-script / no-remote-url / banner-present invariants on every
 // shape of report.
 
+use std::collections::BTreeMap;
+
 use chrono::SecondsFormat;
 
 use super::model::{
@@ -204,10 +206,104 @@ fn render_per_service_row(s: &mut String, row: &PerServiceTotals) {
 
 fn render_findings(s: &mut String, content: &ReportContent) {
     s.push_str("<section class=\"findings\"><h2>Findings</h2>");
+
+    // PR #56: group findings by service into collapsible <details>
+    // blocks. Service order matches `per_service` when it's populated
+    // (ranked by finding count) and falls back to first-seen order
+    // when it isn't. Findings inside each service preserve the input
+    // order — the aggregator already sorts them severity-first.
+    let mut by_service: BTreeMap<String, Vec<&FindingRow>> = BTreeMap::new();
+    let mut order: Vec<String> = Vec::new();
     for f in &content.findings {
-        render_finding(s, f);
+        if !by_service.contains_key(&f.service) {
+            order.push(f.service.clone());
+        }
+        by_service.entry(f.service.clone()).or_default().push(f);
+    }
+
+    // Override the alphabetic BTreeMap order with the per_service
+    // ranking when it's available. Services that appear in findings
+    // but not in per_service (shouldn't happen — same aggregation
+    // source — but defensive) trail at the bottom in first-seen order.
+    let ranked_order: Vec<String> = if content.per_service.is_empty() {
+        order
+    } else {
+        let mut out: Vec<String> = content
+            .per_service
+            .iter()
+            .map(|p| p.service.clone())
+            .filter(|svc| by_service.contains_key(svc))
+            .collect();
+        for svc in &order {
+            if !out.contains(svc) {
+                out.push(svc.clone());
+            }
+        }
+        out
+    };
+
+    for service in &ranked_order {
+        let Some(rows) = by_service.get(service) else {
+            continue;
+        };
+        render_service_group(s, service, rows);
     }
     s.push_str("</section>");
+}
+
+fn render_service_group(s: &mut String, service: &str, rows: &[&FindingRow]) {
+    // Severity tally for the summary line. Critical+High open by
+    // default so the user sees what matters without expanding; the
+    // rest stay closed for compact viewing.
+    let mut counts = SeverityCounts::empty();
+    for r in rows {
+        counts.bump(r.severity);
+    }
+    let open_by_default = counts.critical > 0 || counts.high > 0;
+
+    s.push_str("<details class=\"service-group\"");
+    if open_by_default {
+        s.push_str(" open");
+    }
+    s.push_str("><summary class=\"service-summary\"><span class=\"service-name\">");
+    push_text(s, service);
+    s.push_str("</span> <span class=\"service-count\">");
+    s.push_str(&rows.len().to_string());
+    s.push_str(if rows.len() == 1 {
+        " finding"
+    } else {
+        " findings"
+    });
+    s.push_str("</span>");
+    write_summary_pills(s, &counts);
+    s.push_str("</summary>");
+    for f in rows {
+        render_finding(s, f);
+    }
+    s.push_str("</details>");
+}
+
+fn write_summary_pills(s: &mut String, counts: &SeverityCounts) {
+    s.push_str("<span class=\"sev-tally\">");
+    for (count, class, label) in [
+        (counts.critical, "sev sev-critical", "C"),
+        (counts.high, "sev sev-high", "H"),
+        (counts.medium, "sev sev-medium", "M"),
+        (counts.low, "sev sev-low", "L"),
+        (counts.informational, "sev sev-informational", "I"),
+    ] {
+        if count == 0 {
+            continue;
+        }
+        s.push_str("<span class=\"");
+        s.push_str(class);
+        s.push_str(" sev-pill\">");
+        s.push_str(label);
+        s.push(' ');
+        s.push_str(&count.to_string());
+        s.push_str("</span>");
+    }
+    s.push_str("</span>");
 }
 
 fn render_finding(s: &mut String, f: &FindingRow) {
@@ -218,7 +314,21 @@ fn render_finding(s: &mut String, f: &FindingRow) {
         Severity::Low => "sev sev-low",
         Severity::Informational => "sev sev-informational",
     };
-    s.push_str("<article class=\"finding\">");
+    // PR #56: severity-colored left-border on each finding card. The
+    // border-color is driven by a per-severity modifier class on the
+    // <article> itself; the CSS handles the actual color. Same
+    // vocabulary as the inline `.sev` badge so the card and the badge
+    // agree on the color of the severity.
+    let card_class = match f.severity {
+        Severity::Critical => "finding finding-critical",
+        Severity::High => "finding finding-high",
+        Severity::Medium => "finding finding-medium",
+        Severity::Low => "finding finding-low",
+        Severity::Informational => "finding finding-informational",
+    };
+    s.push_str("<article class=\"");
+    s.push_str(card_class);
+    s.push_str("\">");
     s.push_str("<header><span class=\"");
     s.push_str(sev_class);
     s.push_str("\">");
@@ -261,15 +371,25 @@ fn render_finding(s: &mut String, f: &FindingRow) {
     );
     s.push_str("</p>");
 
-    if !f.remediation.trim().is_empty() {
-        s.push_str("<h4>Remediation</h4><pre class=\"remediation\">");
-        // KB articles are markdown — for the report we emit them as
-        // pre-formatted text so the source is faithful and there is
-        // NO chance of an inline `<script>` tag in the article body
-        // leaking through. The escape pass below guarantees the
-        // rendered HTML contains no `<`/`>` from the input.
-        push_text(s, &f.remediation);
-        s.push_str("</pre>");
+    let has_remediation = !f.remediation.trim().is_empty();
+    let has_terraform = !f.terraform_fix.trim().is_empty();
+    let has_aws_cli = !f.aws_cli_fix.trim().is_empty();
+    if has_remediation || has_terraform || has_aws_cli {
+        s.push_str("<h4>Remediation</h4>");
+        // PR #56: each remediation flavor renders as its own
+        // collapsible <details>. We can't use real tabs (no scripts
+        // allowed — Contract 15 §Constraints), so the closest fit is
+        // separate disclosures the reader can expand independently.
+        // The main remediation defaults open, variants default closed.
+        if has_remediation {
+            render_remediation_block(s, "Overview", &f.remediation, true);
+        }
+        if has_terraform {
+            render_remediation_block(s, "Terraform Fix", &f.terraform_fix, false);
+        }
+        if has_aws_cli {
+            render_remediation_block(s, "AWS CLI Fix", &f.aws_cli_fix, false);
+        }
     }
     if !f.compliance_lines.is_empty() {
         s.push_str("<h4>Compliance</h4><ul class=\"compliance\">");
@@ -295,6 +415,23 @@ fn render_finding(s: &mut String, f: &FindingRow) {
         }
     }
     s.push_str("</article>");
+}
+
+fn render_remediation_block(s: &mut String, label: &str, body: &str, open: bool) {
+    s.push_str("<details class=\"remediation-block\"");
+    if open {
+        s.push_str(" open");
+    }
+    s.push_str("><summary>");
+    push_text(s, label);
+    // KB articles are markdown — for the report we emit them as
+    // pre-formatted text so the source is faithful and there is
+    // NO chance of an inline `<script>` tag in the article body
+    // leaking through. The escape pass guarantees the rendered HTML
+    // contains no `<`/`>` from the input.
+    s.push_str("</summary><pre class=\"remediation\">");
+    push_text(s, body);
+    s.push_str("</pre></details>");
 }
 
 fn render_events(s: &mut String, content: &ReportContent) {
@@ -428,6 +565,8 @@ mod tests {
             first_seen_at: Utc::now(),
             last_seen_at: Utc::now(),
             remediation: "do this; <script>steal()</script>".into(),
+            terraform_fix: "resource \"aws_x\" { <script>alert(2)</script> }".into(),
+            aws_cli_fix: "aws s3 ls; <script>alert(3)</script>".into(),
             compliance_lines: vec![],
             resources: vec!["<img src=x onerror=1>".into()],
             truncated_extra: 0,
@@ -498,5 +637,108 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("****3333"));
         assert!(!html.contains("111122223333"));
+    }
+
+    fn finding_row(rule_key: &str, service: &str, severity: Severity) -> FindingRow {
+        FindingRow {
+            finding_id: rule_key.into(),
+            rule_key: rule_key.into(),
+            service: service.into(),
+            severity,
+            status: FindingStatus::Open,
+            description: format!("desc for {rule_key}"),
+            rationale: None,
+            checked_items: 1,
+            flagged_items: 1,
+            first_seen_at: Utc::now(),
+            last_seen_at: Utc::now(),
+            remediation: String::new(),
+            terraform_fix: String::new(),
+            aws_cli_fix: String::new(),
+            compliance_lines: vec![],
+            resources: vec![],
+            truncated_extra: 0,
+        }
+    }
+
+    #[test]
+    fn findings_group_into_per_service_details_blocks() {
+        let mut c = empty_content();
+        c.empty_state_note = None;
+        c.findings.push(finding_row("iam-a", "iam", Severity::High));
+        c.findings
+            .push(finding_row("iam-b", "iam", Severity::Medium));
+        c.findings.push(finding_row("s3-a", "s3", Severity::Low));
+        let html = render(&c);
+
+        // Each service gets a <details class="service-group">.
+        assert!(html.contains("<details class=\"service-group\""));
+        // The service name appears in the summary line — once per service.
+        assert_eq!(html.matches("class=\"service-name\">iam<").count(), 1);
+        assert_eq!(html.matches("class=\"service-name\">s3<").count(), 1);
+        // Service with a High finding opens by default; service with
+        // only Low does not.
+        let iam_idx = html.find("class=\"service-name\">iam<").unwrap();
+        let iam_open_marker = &html[..iam_idx];
+        let iam_open = iam_open_marker
+            .rfind("<details class=\"service-group\"")
+            .map(|p| html[p..iam_idx].contains(" open>"))
+            .unwrap_or(false);
+        assert!(iam_open, "iam service with High should open by default");
+    }
+
+    #[test]
+    fn remediation_renders_as_collapsible_variant_blocks() {
+        let mut c = empty_content();
+        c.empty_state_note = None;
+        let mut f = finding_row("iam-a", "iam", Severity::High);
+        f.remediation = "main fix copy".into();
+        f.terraform_fix = "resource \"aws_iam\" { mfa = true }".into();
+        f.aws_cli_fix = "aws iam update-policy".into();
+        c.findings.push(f);
+        let html = render(&c);
+
+        // All three variant disclosures present.
+        assert!(html.contains("<details class=\"remediation-block\""));
+        assert!(html.contains("<summary>Overview</summary>"));
+        assert!(html.contains("<summary>Terraform Fix</summary>"));
+        assert!(html.contains("<summary>AWS CLI Fix</summary>"));
+        // Bodies present.
+        assert!(html.contains("main fix copy"));
+        assert!(html.contains("aws iam update-policy"));
+        // Overview defaults open; variants do not (count " open>" inside
+        // remediation-block disclosures).
+        let opens = html
+            .matches("<details class=\"remediation-block\" open>")
+            .count();
+        assert_eq!(opens, 1, "only the Overview block should default open");
+    }
+
+    #[test]
+    fn finding_card_carries_severity_left_border_class() {
+        let mut c = empty_content();
+        c.empty_state_note = None;
+        c.findings
+            .push(finding_row("ec2-x", "ec2", Severity::Critical));
+        c.findings.push(finding_row("ec2-y", "ec2", Severity::Low));
+        let html = render(&c);
+        assert!(html.contains("class=\"finding finding-critical\""));
+        assert!(html.contains("class=\"finding finding-low\""));
+    }
+
+    #[test]
+    fn remediation_variants_omitted_when_empty() {
+        let mut c = empty_content();
+        c.empty_state_note = None;
+        // No remediation text at all → no Remediation header, no
+        // disclosure blocks. Check the BODY (the inlined CSS in
+        // <style> mentions "remediation-block" as a selector — that's
+        // not a renderer regression).
+        c.findings.push(finding_row("iam-a", "iam", Severity::High));
+        let html = render(&c);
+        let body_start = html.find("</style></head><body>").unwrap_or(0);
+        let body = &html[body_start..];
+        assert!(!body.contains("<h4>Remediation</h4>"));
+        assert!(!body.contains("class=\"remediation-block\""));
     }
 }

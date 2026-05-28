@@ -234,6 +234,18 @@ fn write_finding(
         write_text(doc, cur, bold, META_FONT_SIZE, "Remediation");
         write_text_wrapped(doc, cur, mono, META_FONT_SIZE, &f.remediation, 105);
     }
+    // PR #56: surface the remediation variants the HTML export shows
+    // as collapsible blocks. The PDF has no disclosure widget so they
+    // render as inline labeled sections — the user can skim past the
+    // variant they don't need.
+    if !f.terraform_fix.trim().is_empty() {
+        write_text(doc, cur, bold, META_FONT_SIZE, "Remediation (Terraform)");
+        write_text_wrapped(doc, cur, mono, META_FONT_SIZE, &f.terraform_fix, 105);
+    }
+    if !f.aws_cli_fix.trim().is_empty() {
+        write_text(doc, cur, bold, META_FONT_SIZE, "Remediation (AWS CLI)");
+        write_text_wrapped(doc, cur, mono, META_FONT_SIZE, &f.aws_cli_fix, 105);
+    }
     if !f.compliance_lines.is_empty() {
         write_text(doc, cur, bold, META_FONT_SIZE, "Compliance");
         for line in &f.compliance_lines {
