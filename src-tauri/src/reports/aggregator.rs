@@ -341,6 +341,22 @@ fn build_finding_row(
         .map(|a| mask_text(&a.remediation))
         .unwrap_or_default();
 
+    // PR #56: surface KB article remediation variants alongside the
+    // main remediation. The HTML export renders them as collapsible
+    // "Terraform Fix" / "AWS CLI Fix" blocks; the PDF appends them
+    // as labeled sections. Same mask + matched filter as the main
+    // remediation so the disclosure rule applies end-to-end.
+    let terraform_fix = article
+        .as_ref()
+        .filter(|a| a.matched)
+        .map(|a| mask_text(&a.terraform_fix))
+        .unwrap_or_default();
+    let aws_cli_fix = article
+        .as_ref()
+        .filter(|a| a.matched)
+        .map(|a| mask_text(&a.aws_cli_fix))
+        .unwrap_or_default();
+
     let compliance_lines: Vec<String> = match mapping {
         Some(m) => m
             .frameworks
@@ -374,6 +390,8 @@ fn build_finding_row(
         first_seen_at: f.first_seen_at,
         last_seen_at: f.last_seen_at,
         remediation,
+        terraform_fix,
+        aws_cli_fix,
         compliance_lines,
         resources,
         truncated_extra,

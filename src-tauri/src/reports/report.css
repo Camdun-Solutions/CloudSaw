@@ -35,10 +35,56 @@ th { background: #F3F4F6; font-weight: 600; }
 .account-id { color: #6B7280; font-family: ui-monospace, monospace; }
 .empty { background: #F3F4F6; padding: 12px 14px; border-radius: 6px;
          margin: 12px 0; }
-.finding { border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px 14px;
-           margin: 10px 0; }
+.finding { border: 1px solid #E5E7EB; border-left: 4px solid #E5E7EB;
+           border-radius: 6px; padding: 12px 14px; margin: 10px 0; }
+/* PR #56: severity-colored left border per finding card. Mirrors the
+   in-app FindingsView's color vocabulary so an exported report reads
+   the same as the on-screen UI. */
+.finding-critical { border-left-color: #1F1F1F; }
+.finding-high { border-left-color: #D7263D; }
+.finding-medium { border-left-color: #F58A1F; }
+.finding-low { border-left-color: #E5B43A; }
+.finding-informational { border-left-color: #9CA3AF; }
 .finding header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
                   margin-bottom: 6px; }
+
+/* PR #56: per-service collapsible group. Disclosure summary lays out
+   the service name, finding count, and severity tally on one line.
+   `cursor: pointer` makes the affordance obvious on hover. */
+.service-group { border: 1px solid #E5E7EB; border-radius: 6px; margin: 10px 0;
+                 padding: 4px 8px; background: #FAFAFA; }
+.service-group[open] { background: #FFFFFF; }
+.service-summary { padding: 8px 4px; cursor: pointer; display: flex;
+                   align-items: center; gap: 12px; flex-wrap: wrap;
+                   font-weight: 600; list-style: none; }
+.service-summary::-webkit-details-marker { display: none; }
+.service-summary::marker { content: ""; }
+.service-summary::before { content: "▸"; font-size: 12px; color: #6B7280;
+                            transition: transform 0.15s ease; display: inline-block; }
+.service-group[open] > .service-summary::before { transform: rotate(90deg); }
+.service-name { font-size: 16px; color: #1F1F1F; }
+.service-count { color: #6B7280; font-weight: 500; font-size: 13px; }
+.sev-tally { margin-left: auto; display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.sev-pill { font-size: 11px; letter-spacing: 0.02em; padding: 2px 8px;
+            border-radius: 10px; }
+
+/* PR #56: collapsible remediation flavor (Overview / Terraform Fix /
+   AWS CLI Fix). Stacked, each with its own disclosure. Cannot use
+   real tabs — no scripts allowed per Contract 15 §Constraints. */
+.remediation-block { margin: 6px 0; border: 1px solid #E5E7EB;
+                     border-radius: 4px; background: #FAFBFC; }
+.remediation-block > summary { padding: 6px 10px; cursor: pointer;
+                                font-weight: 600; font-size: 13px;
+                                color: #374151; list-style: none; }
+.remediation-block > summary::-webkit-details-marker { display: none; }
+.remediation-block > summary::marker { content: ""; }
+.remediation-block > summary::before { content: "▸"; font-size: 11px;
+                                        color: #6B7280; margin-right: 6px;
+                                        display: inline-block;
+                                        transition: transform 0.15s ease; }
+.remediation-block[open] > summary::before { transform: rotate(90deg); }
+.remediation-block > .remediation { margin: 0; border: 0; border-top: 1px solid #E5E7EB;
+                                     border-radius: 0 0 4px 4px; background: #F9FAFB; }
 .sev { font-weight: 700; font-size: 11px; letter-spacing: 0.04em;
        padding: 2px 6px; border-radius: 3px; color: #FFFFFF; }
 .sev-critical { background: #1F1F1F; }

@@ -111,6 +111,16 @@ pub struct FindingRow {
     pub last_seen_at: DateTime<Utc>,
     /// KB article body, already redacted. Empty when no matched article.
     pub remediation: String,
+    /// PR #56: Terraform-flavored fix (KB article's "Terraform Fix"
+    /// section), already redacted. Empty when no matched article or
+    /// when the article has no Terraform section. The HTML renderer
+    /// shows this as a collapsible block below the main remediation;
+    /// the PDF renderer appends it as a labeled section.
+    pub terraform_fix: String,
+    /// PR #56: AWS-CLI-flavored fix (KB article's "AWS CLI Fix"
+    /// section), already redacted. Same rendering rules as
+    /// `terraform_fix`.
+    pub aws_cli_fix: String,
     /// Compliance control mapping summary lines, one per framework.
     pub compliance_lines: Vec<String>,
     /// Resource paths the finding touches. Already masked to the
