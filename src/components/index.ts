@@ -7,6 +7,8 @@ export { default as ErrorReportDialog } from "./ErrorReportDialog";
 export { default as ExportReportDialog } from "./ExportReportDialog";
 export { default as LineChart } from "./LineChart";
 export { default as Logo } from "./Logo";
+export { default as MeatballMenu } from "./MeatballMenu";
+export type { MeatballMenuItem } from "./MeatballMenu";
 export { default as Modal } from "./Modal";
 export { default as PasswordField } from "./PasswordField";
 export { default as SafeMarkdown } from "./SafeMarkdown";

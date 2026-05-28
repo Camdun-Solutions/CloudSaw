@@ -165,6 +165,15 @@ pub async fn auth_test_profile(profile: String) -> Result<ProfileTestResult, App
     auth::test_profile(&profile).await.map_err(AppError::from)
 }
 
+/// PR #66 — write a new AWS CLI profile to `~/.aws/credentials` and
+/// `~/.aws/config`. The secret access key arrives inside `input`,
+/// is forwarded to `auth::create_profile`, and is dropped from the
+/// process when the function returns. No caching, no logging.
+#[tauri::command]
+pub fn auth_create_profile(input: auth::AddAwsProfileInput) -> Result<String, AppError> {
+    auth::create_profile(input).map_err(AppError::from)
+}
+
 // --- Multi-account (Contract 04) -----------------------------------------
 //
 // Every command validates inputs in the `accounts` module before touching

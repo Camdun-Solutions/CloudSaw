@@ -75,6 +75,7 @@ pub fn run() {
             ipc::auth_list_profiles,
             ipc::auth_get_caller_identity,
             ipc::auth_test_profile,
+            ipc::auth_create_profile,
             ipc::accounts_list,
             ipc::accounts_get,
             ipc::accounts_add,

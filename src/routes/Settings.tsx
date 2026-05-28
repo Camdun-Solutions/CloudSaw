@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { BackBreadcrumb, Button, Modal, PasswordField, Select, Switch } from "@/components";
+import { Button, Modal, PasswordField, Select, Switch } from "@/components";
 import { useAppearance } from "@/hooks/useAppearance";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
@@ -117,11 +117,6 @@ type Props = {
    * this to expose "Add another AWS account" and "Re-run the full
    * wizard" actions (Contract 14 §Expected Output). */
   onRerunOnboarding?: (startAt: "aws_account" | "language") => void;
-  /** Opens the standalone Profiles diagnostic view (~/.aws/config
-   * reader). Wired by App.tsx to `setRoute("profiles")`. PR #46
-   * moves Accounts into Settings — the embedded Accounts panel's
-   * "Open profiles" button forwards here. */
-  onOpenProfiles: () => void;
   /** Optional deep-link target. When set, Settings opens with the
    *  given left-nav section pre-selected instead of the default
    *  `app_lock`. PR #63 (scan-modal Settings CTAs) uses this to land
@@ -140,7 +135,6 @@ export default function Settings({
   onOpenSchedules,
   onOpenCustomReport,
   onRerunOnboarding,
-  onOpenProfiles,
   initialSection,
   initialSectionNonce,
 }: Props) {
@@ -250,16 +244,10 @@ export default function Settings({
       <div className="mx-auto max-w-7xl">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          {/* PR #49: back-arrow + breadcrumb replaces the old
-              "Close" text button. Lands the user on whatever
-              the parent route considered "home" (currently the
-              Home route, which becomes Dashboard in PR #50). */}
-          <BackBreadcrumb
-            destination={t("nav.dashboard")}
-            onBack={onClose}
-            data-testid="settings-back"
-          />
-          <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
+          {/* PR #66: BackBreadcrumb removed — TopNav already exposes
+              Dashboard/Findings/Settings, so the per-page back arrow
+              was redundant. */}
+          <h1 className="text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
             {t("nav.settings")}
           </h1>
           <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
@@ -400,7 +388,7 @@ export default function Settings({
           {t("accounts.subtitle")}
         </p>
         <div className="mt-4">
-          <Accounts embedded onOpenProfiles={onOpenProfiles} />
+          <Accounts embedded />
         </div>
       </section>
       )}

@@ -46,6 +46,20 @@ pub enum AuthError {
     /// message, never credential material.
     #[error("internal: {0}")]
     Internal(&'static str),
+
+    /// PR #66 — `auth_create_profile` rejected a duplicate. The
+    /// frontend pre-checks the loaded profile list before submit, so
+    /// this only fires on a race or when the name only collides in
+    /// `~/.aws/credentials` but not `~/.aws/config`.
+    #[error("aws profile already exists")]
+    DuplicateProfileName,
+
+    /// PR #66 — writing the new section to `~/.aws/credentials` or
+    /// `~/.aws/config` failed. The tag identifies which step
+    /// (`open`, `credentials_write`, `config_write`) without leaking
+    /// the underlying I/O error message.
+    #[error("aws config write failed: {0}")]
+    ConfigWriteFailed(&'static str),
 }
 
 impl AuthError {
@@ -59,6 +73,8 @@ impl AuthError {
             AuthError::SsoExpired => "aws_sso_expired",
             AuthError::PermissionDenied(_) => "aws_permission_denied",
             AuthError::Internal(_) => "internal_error",
+            AuthError::DuplicateProfileName => "aws_profile_already_exists",
+            AuthError::ConfigWriteFailed(_) => "aws_config_write_failed",
         }
     }
 }
@@ -74,6 +90,8 @@ impl From<AuthError> for AppError {
             AuthError::SsoExpired => AppError::AwsSsoExpired,
             AuthError::PermissionDenied(api) => AppError::AwsPermissionDenied(api),
             AuthError::Internal(tag) => AppError::Internal(format!("auth:{tag}")),
+            AuthError::DuplicateProfileName => AppError::AwsProfileAlreadyExists,
+            AuthError::ConfigWriteFailed(tag) => AppError::AwsConfigWriteFailed(tag),
         }
     }
 }

@@ -166,12 +166,17 @@ pub async fn test_profile(profile: &str) -> Result<ProfileTestResult, AuthError>
             reason: TestFailureReason::Timeout,
             api: Some("GetCallerIdentity"),
         }),
-        Err(AuthError::ConfigUnreadable) | Err(AuthError::Internal(_)) => {
-            Ok(ProfileTestResult::Failure {
-                reason: TestFailureReason::Other,
-                api: Some("GetCallerIdentity"),
-            })
-        }
+        Err(AuthError::ConfigUnreadable)
+        | Err(AuthError::Internal(_))
+        // PR #66: these variants only arise from create_profile and
+        // never from get_caller_identity, but the match must be
+        // exhaustive — bucket them with the generic "Other" failure
+        // so a future call-chain accident surfaces gracefully.
+        | Err(AuthError::DuplicateProfileName)
+        | Err(AuthError::ConfigWriteFailed(_)) => Ok(ProfileTestResult::Failure {
+            reason: TestFailureReason::Other,
+            api: Some("GetCallerIdentity"),
+        }),
     }
 }
 

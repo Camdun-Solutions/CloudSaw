@@ -69,6 +69,19 @@ export type ProfileTestResult =
   | { status: "success"; identity: CallerIdentity }
   | { status: "failure"; reason: TestFailureReason; api: string | null };
 
+/** PR #66: payload of `auth_create_profile`. The handler writes
+ *  `access_key_id` + `secret_access_key` to `~/.aws/credentials` and
+ *  `region` + `output_format` to `~/.aws/config`. Region + output are
+ *  optional — when omitted, the SDK / CLI falls back to its own
+ *  resolution (env var or another default). */
+export type AddAwsProfileInput = {
+  name: string;
+  access_key_id: string;
+  secret_access_key: string;
+  region?: string;
+  output_format?: string;
+};
+
 // --- Multi-account (Contract 04) -----------------------------------------
 
 export type Environment = "dev" | "staging" | "prod" | "other";
@@ -717,6 +730,22 @@ export const ipc = {
 
   authTestProfile(profile: string): Promise<ProfileTestResult> {
     return invoke<ProfileTestResult>("auth_test_profile", { profile });
+  },
+
+  /**
+   * PR #66 — Add a new AWS CLI profile by writing the supplied
+   * credentials and config directly to `~/.aws/credentials` and
+   * `~/.aws/config` (matching what `aws configure set ...` would do).
+   * CloudSaw briefly holds the secret in process memory to forward
+   * it to the Rust handler; it is not persisted by CloudSaw beyond
+   * that, not logged, and not transmitted anywhere.
+   *
+   * Returns the newly-written profile name on success. Rejects with
+   * AppError when the name fails validation, the profile already
+   * exists, or the AWS config directory cannot be written.
+   */
+  authCreateProfile(input: AddAwsProfileInput): Promise<string> {
+    return invoke<string>("auth_create_profile", { input });
   },
 
   // --- Multi-account ----------------------------------------------------
