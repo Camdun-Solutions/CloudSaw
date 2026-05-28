@@ -161,6 +161,10 @@ pub fn run() {
             ipc::report_preview_custom,
             ipc::report_get_settings,
             ipc::report_set_settings,
+            // PR #64 — local demo data seeder. Gated by
+            // `cfg(debug_assertions)` inside; release builds reject
+            // the call and there is no UI surface for it in release.
+            ipc::dev::dev_seed_demo_findings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

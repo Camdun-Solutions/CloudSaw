@@ -1252,6 +1252,41 @@ export const ipc = {
   reportSetSettings(settings: ReportSettings): Promise<void> {
     return invoke<void>("report_set_settings", { settings });
   },
+
+  /**
+   * PR #64 — DEV-ONLY: seed one synthetic finding per bundled
+   * knowledge-base article (cycling severities across the set) so a
+   * developer running `npm run tauri dev` against a fresh data root
+   * can exercise the Findings UI without a real AWS scan / a
+   * vendored ScoutSuite binary. The Rust handler gates its body
+   * on `cfg(debug_assertions)`; release builds reject the call.
+   *
+   * Exposed to the browser console as
+   * `window.__cloudsaw_dev.seedDemoFindings()` from `App.tsx` when
+   * `import.meta.env.DEV` is truthy. The JS-side hook is stripped
+   * from production bundles by Vite's dead-code elimination.
+   */
+  devSeedDemoFindings(awsAccountId: string): Promise<DemoSeedSummary> {
+    return invoke<DemoSeedSummary>("dev_seed_demo_findings", {
+      awsAccountId,
+    });
+  },
+};
+
+/** Mirror of the Rust `findings::ParseSummary` shape. Returned by
+ *  `devSeedDemoFindings` so the developer can sanity-check counts in
+ *  the browser console. */
+export type DemoSeedSummary = {
+  scan_id: string;
+  aws_account_id: string;
+  findings_total: number;
+  findings_inserted: number;
+  findings_updated: number;
+  findings_resolved: number;
+  resources_inserted: number;
+  resources_updated: number;
+  unknown_severity_count: number;
+  unknown_type_count: number;
 };
 
 export type Ipc = typeof ipc;
