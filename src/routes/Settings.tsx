@@ -13,6 +13,7 @@ import { useIpcError } from "@/hooks/useIpcError";
 import type { Appearance } from "@/lib/appearance";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Accounts from "@/routes/Accounts";
+import ActivityLog from "@/routes/ActivityLog";
 import {
   isScanNotificationsEnabled,
   setScanNotificationsEnabled,
@@ -110,7 +111,6 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
 type Props = {
   onClose: () => void;
   onOpenSchedules: () => void;
-  onOpenActivityLog: () => void;
   /** Open the custom-report builder (Contract 15B). */
   onOpenCustomReport?: () => void;
   /** Re-enter the onboarding wizard at a specific step. Settings uses
@@ -138,7 +138,6 @@ type Props = {
 export default function Settings({
   onClose,
   onOpenSchedules,
-  onOpenActivityLog,
   onOpenCustomReport,
   onRerunOnboarding,
   onOpenProfiles,
@@ -433,9 +432,7 @@ export default function Settings({
       </section>
       )}
 
-      {activeSection === "activity_log" && (
-        <ActivityLogSection onOpen={onOpenActivityLog} />
-      )}
+      {activeSection === "activity_log" && <ActivityLogSection />}
       {activeSection === "onboarding" && (
         <OnboardingSection onRerun={onRerunOnboarding} />
       )}
@@ -816,11 +813,11 @@ function OnboardingSection({
   );
 }
 
-function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
+function ActivityLogSection() {
   const t = useT();
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="mt-6 max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-activity_log"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -829,15 +826,7 @@ function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
       <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("eventlog.section_subtitle")}
       </p>
-      <div className="mt-4">
-        <Button
-          variant="secondary"
-          onClick={onOpen}
-          data-testid="settings-open-activitylog"
-        >
-          {t("eventlog.section_cta")}
-        </Button>
-      </div>
+      <ActivityLog />
     </section>
   );
 }
