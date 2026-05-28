@@ -55,7 +55,7 @@ export default function TopNav({ active, onNavigate, onLock }: Props) {
       // Fixed top-right so the menu stays put regardless of which
       // route is rendered below. `z-30` so it sits above page chrome
       // but BELOW modals (modal overlay is z-50 in `Modal.tsx`).
-      className="fixed right-4 top-3 z-30 flex items-center gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white/95 px-1.5 py-1 shadow-sm backdrop-blur"
+      className="fixed right-4 top-3 z-30 flex items-center gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white/95 dark:bg-saw-grey-dark/95 px-1.5 py-1 shadow-sm backdrop-blur"
       data-testid="top-nav"
     >
       {items.map((item) => {

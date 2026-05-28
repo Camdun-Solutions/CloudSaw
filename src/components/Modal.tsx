@@ -46,6 +46,31 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // QA FINDING-004: lock body scroll while any modal is open so the
+  // page underneath can't be scroll-jacked behind the dialog. Uses a
+  // window-level counter so stacked modals don't unlock prematurely
+  // when one of them closes — the body is only restored once the
+  // last modal unmounts. The counter is tagged on `window` rather
+  // than React state so it survives re-renders and stays correct
+  // across separately-mounted Modal instances.
+  useEffect(() => {
+    if (!open) return;
+    type CounterWindow = Window & { __cloudsawModalOpenCount?: number; __cloudsawModalPriorOverflow?: string };
+    const w = window as CounterWindow;
+    if ((w.__cloudsawModalOpenCount ?? 0) === 0) {
+      w.__cloudsawModalPriorOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
+    w.__cloudsawModalOpenCount = (w.__cloudsawModalOpenCount ?? 0) + 1;
+    return () => {
+      w.__cloudsawModalOpenCount = (w.__cloudsawModalOpenCount ?? 1) - 1;
+      if ((w.__cloudsawModalOpenCount ?? 0) <= 0) {
+        document.body.style.overflow = w.__cloudsawModalPriorOverflow ?? "";
+        w.__cloudsawModalOpenCount = 0;
+      }
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
