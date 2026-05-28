@@ -55,7 +55,7 @@ export default function TopNav({ active, onNavigate, onLock }: Props) {
       // Fixed top-right so the menu stays put regardless of which
       // route is rendered below. `z-30` so it sits above page chrome
       // but BELOW modals (modal overlay is z-50 in `Modal.tsx`).
-      className="fixed right-4 top-3 z-30 flex items-center gap-1 rounded-card border border-saw-grey-200 bg-saw-white/95 px-1.5 py-1 shadow-sm backdrop-blur"
+      className="fixed right-4 top-3 z-30 flex items-center gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white/95 px-1.5 py-1 shadow-sm backdrop-blur"
       data-testid="top-nav"
     >
       {items.map((item) => {
@@ -70,7 +70,7 @@ export default function TopNav({ active, onNavigate, onLock }: Props) {
             className={
               isActive
                 ? "rounded-card bg-saw-red px-3 py-1.5 text-small font-medium text-saw-white transition"
-                : "rounded-card px-3 py-1.5 text-small font-medium text-saw-grey-700 transition hover:bg-saw-grey-100 hover:text-saw-grey-900"
+                : "rounded-card px-3 py-1.5 text-small font-medium text-saw-grey-700 dark:text-saw-grey-300 transition hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-grey-900 dark:hover:text-saw-beige"
             }
           >
             {item.label}
@@ -80,7 +80,7 @@ export default function TopNav({ active, onNavigate, onLock }: Props) {
       {/* Visual divider between navigation and the action icon. */}
       <span
         aria-hidden="true"
-        className="mx-1 h-5 w-px bg-saw-grey-200"
+        className="mx-1 h-5 w-px bg-saw-grey-200 dark:bg-saw-grey-700"
       />
       {/* Lock-now icon. Aria-labeled with the existing
           `applock.settings.lock_now` key so screen readers
@@ -92,7 +92,7 @@ export default function TopNav({ active, onNavigate, onLock }: Props) {
         aria-label={t("applock.settings.lock_now")}
         title={t("applock.settings.lock_now")}
         data-testid="top-nav-lock"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-card text-saw-grey-700 transition hover:bg-saw-grey-100 hover:text-saw-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-card text-saw-grey-700 dark:text-saw-grey-300 transition hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
       >
         <svg
           aria-hidden="true"

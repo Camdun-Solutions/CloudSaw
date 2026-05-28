@@ -121,19 +121,19 @@ export default function ExportReportDialog({ scanId, onClose }: Props) {
           </Button>
         }
       >
-        <div className="flex flex-col gap-2 text-small text-saw-grey-800">
+        <div className="flex flex-col gap-2 text-small text-saw-grey-800 dark:text-saw-beige">
           <p>
             {t("report.export.success_body")
               .replace("{bytes}", outcome.bytes_written.toLocaleString())
               .replace("{path}", outcome.primary_path)}
           </p>
           {outcome.auto_export_path ? (
-            <p className="text-saw-grey-700">
+            <p className="text-saw-grey-700 dark:text-saw-grey-300">
               {t("report.export.auto_ok").replace("{path}", outcome.auto_export_path)}
             </p>
           ) : outcome.auto_export_failed ? (
             <p
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-saw-red"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-saw-red"
               data-testid="export-auto-failed"
             >
               {t("report.export.auto_failed")}
@@ -165,11 +165,11 @@ export default function ExportReportDialog({ scanId, onClose }: Props) {
         </>
       }
     >
-      <div className="flex flex-col gap-3 text-small text-saw-grey-800">
+      <div className="flex flex-col gap-3 text-small text-saw-grey-800 dark:text-saw-beige">
         <p>{t("report.export.body")}</p>
 
         <fieldset>
-          <legend className="text-saw-grey-900 font-medium">
+          <legend className="text-saw-grey-900 dark:text-saw-beige font-medium">
             {t("report.export.format_label")}
           </legend>
           <label className="mr-4">
@@ -203,11 +203,11 @@ export default function ExportReportDialog({ scanId, onClose }: Props) {
             data-testid="export-disclosure"
           />
           <span>
-            <span className="font-medium text-saw-grey-900">
+            <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
               {t("report.export.disclosure_label")}
             </span>
             <br />
-            <span className="text-xs text-saw-grey-600">
+            <span className="text-xs text-saw-grey-600 dark:text-saw-grey-400">
               {t("report.export.disclosure_hint")}
             </span>
           </span>
@@ -227,7 +227,7 @@ export default function ExportReportDialog({ scanId, onClose }: Props) {
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-saw-grey-900 font-medium">
+          <span className="text-saw-grey-900 dark:text-saw-beige font-medium">
             {t("report.export.path_label")}
           </span>
           <input
@@ -235,7 +235,7 @@ export default function ExportReportDialog({ scanId, onClose }: Props) {
             readOnly
             value={path}
             placeholder={t("report.export.path_placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="export-path"
           />
         </label>
@@ -243,7 +243,7 @@ export default function ExportReportDialog({ scanId, onClose }: Props) {
         {error ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-saw-red"
             data-testid="export-error"
           >
             {error}

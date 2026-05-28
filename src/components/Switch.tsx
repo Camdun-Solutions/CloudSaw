@@ -30,13 +30,13 @@ export default function Switch({
         <p
           className={[
             "text-body font-medium",
-            disabled ? "text-saw-grey-500" : "text-saw-grey-900",
+            disabled ? "text-saw-grey-500 dark:text-saw-grey-400" : "text-saw-grey-900 dark:text-saw-beige",
           ].join(" ")}
         >
           {label}
         </p>
         {help ? (
-          <p id={descId} className="mt-0.5 text-small text-saw-grey-500">
+          <p id={descId} className="mt-0.5 text-small text-saw-grey-500 dark:text-saw-grey-400">
             {help}
           </p>
         ) : null}
@@ -54,7 +54,7 @@ export default function Switch({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
           "focus-visible:ring-offset-2",
           disabled
-            ? "cursor-not-allowed bg-saw-grey-200"
+            ? "cursor-not-allowed bg-saw-grey-200 dark:bg-saw-grey-700"
             : checked
               ? "bg-saw-red"
               : "bg-saw-grey-300",

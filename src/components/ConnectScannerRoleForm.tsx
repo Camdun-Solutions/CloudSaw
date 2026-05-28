@@ -88,7 +88,7 @@ export default function ConnectScannerRoleForm({ awsAccountId, onConnected }: Pr
   if (state.kind === "loading_requirements") {
     return (
       <p
-        className="text-small text-saw-grey-700"
+        className="text-small text-saw-grey-700 dark:text-saw-grey-300"
         data-testid="scanner-role-form-loading"
       >
         {t("common.loading")}
@@ -100,7 +100,7 @@ export default function ConnectScannerRoleForm({ awsAccountId, onConnected }: Pr
     return (
       <div
         role="alert"
-        className="rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900"
+        className="rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900 dark:text-saw-beige"
         data-testid="scanner-role-form-requirements-failed"
       >
         {state.message}
@@ -111,13 +111,13 @@ export default function ConnectScannerRoleForm({ awsAccountId, onConnected }: Pr
   if (state.kind === "succeeded") {
     return (
       <div
-        className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-3 text-small text-saw-grey-800"
+        className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-3 py-3 text-small text-saw-grey-800 dark:text-saw-beige"
         data-testid="scanner-role-form-success"
       >
-        <p className="font-semibold text-saw-grey-900">
+        <p className="font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("scanner_role.success.title")}
         </p>
-        <p className="mt-1 text-saw-grey-700">
+        <p className="mt-1 text-saw-grey-700 dark:text-saw-grey-300">
           {t("scanner_role.success.body")
             .replace("{accountId}", awsAccountId)
             .replace("{roleArn}", state.result.role_arn)}
@@ -176,13 +176,13 @@ function RequirementsCard({
   const t = useT();
   return (
     <section
-      className="rounded-card border border-saw-grey-200 bg-saw-grey-50 p-4 text-small text-saw-grey-800"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-4 text-small text-saw-grey-800 dark:text-saw-beige"
       aria-labelledby="scanner-role-requirements-title"
       data-testid="scanner-role-requirements"
     >
       <h3
         id="scanner-role-requirements-title"
-        className="text-body font-semibold text-saw-grey-900"
+        className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige"
       >
         {t("scanner_role.requirements.title")}
       </h3>
@@ -235,10 +235,10 @@ function RequirementRow({
 
   return (
     <div className="flex flex-col gap-1">
-      <dt className="text-saw-grey-500">{label}</dt>
+      <dt className="text-saw-grey-500 dark:text-saw-grey-400">{label}</dt>
       <dd className="flex items-center gap-2">
         <code
-          className="flex-1 rounded bg-saw-white px-2 py-1 font-mono text-xs text-saw-grey-900 break-all"
+          className="flex-1 rounded bg-saw-white dark:bg-saw-grey-dark px-2 py-1 font-mono text-xs text-saw-grey-900 dark:text-saw-beige break-all"
           data-testid={testId}
         >
           {value}
@@ -246,7 +246,7 @@ function RequirementRow({
         <button
           type="button"
           onClick={copy}
-          className="rounded border border-saw-grey-200 px-2 py-1 text-xs text-saw-grey-700 hover:bg-saw-grey-100"
+          className="rounded border border-saw-grey-200 dark:border-saw-grey-700 px-2 py-1 text-xs text-saw-grey-700 dark:text-saw-grey-300 hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800"
           data-testid={`${testId}-copy`}
         >
           {copied
@@ -288,17 +288,17 @@ function RecipesAccordion({
 
   return (
     <section
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-4"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4"
       aria-labelledby="scanner-role-recipes-title"
       data-testid="scanner-role-recipes"
     >
       <h3
         id="scanner-role-recipes-title"
-        className="text-body font-semibold text-saw-grey-900"
+        className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige"
       >
         {t("scanner_role.recipes.title")}
       </h3>
-      <p className="mt-1 text-small text-saw-grey-700">
+      <p className="mt-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
         {t("scanner_role.recipes.body")}
       </p>
       <div className="mt-3 flex flex-col gap-2">
@@ -306,14 +306,14 @@ function RecipesAccordion({
           title={t("scanner_role.recipes.console.title")}
           testId="scanner-role-recipe-console"
         >
-          <ol className="ml-4 list-decimal text-small text-saw-grey-800">
+          <ol className="ml-4 list-decimal text-small text-saw-grey-800 dark:text-saw-beige">
             <li>{t("scanner_role.recipes.console.step1")}</li>
             <li>{t("scanner_role.recipes.console.step2")}</li>
             <li>{t("scanner_role.recipes.console.step3")}</li>
             <li>{t("scanner_role.recipes.console.step4")}</li>
             <li>{t("scanner_role.recipes.console.step5")}</li>
           </ol>
-          <p className="mt-3 text-small text-saw-grey-700">
+          <p className="mt-3 text-small text-saw-grey-700 dark:text-saw-grey-300">
             {t("scanner_role.recipes.console.trust_policy_label")}
           </p>
           <CodeBlock value={trustPolicyJson} />
@@ -323,7 +323,7 @@ function RecipesAccordion({
           title={t("scanner_role.recipes.terraform.title")}
           testId="scanner-role-recipe-terraform"
         >
-          <p className="text-small text-saw-grey-700">
+          <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
             {t("scanner_role.recipes.terraform.body")}
           </p>
           <CodeBlock
@@ -345,7 +345,7 @@ output "scanner_role_arn" {
           title={t("scanner_role.recipes.cloudformation.title")}
           testId="scanner-role-recipe-cloudformation"
         >
-          <p className="text-small text-saw-grey-700">
+          <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
             {t("scanner_role.recipes.cloudformation.body")}
           </p>
           <CodeBlock
@@ -380,7 +380,7 @@ Outputs:
           title={t("scanner_role.recipes.cli.title")}
           testId="scanner-role-recipe-cli"
         >
-          <p className="text-small text-saw-grey-700">
+          <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
             {t("scanner_role.recipes.cli.body")}
           </p>
           <CodeBlock
@@ -419,10 +419,10 @@ function RecipeDetails({
 }) {
   return (
     <details
-      className="rounded border border-saw-grey-200 bg-saw-grey-50"
+      className="rounded border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black"
       data-testid={testId}
     >
-      <summary className="cursor-pointer px-3 py-2 text-small font-semibold text-saw-grey-900">
+      <summary className="cursor-pointer px-3 py-2 text-small font-semibold text-saw-grey-900 dark:text-saw-beige">
         {title}
       </summary>
       <div className="px-3 py-3">{children}</div>
@@ -484,29 +484,29 @@ function ConnectForm({
 
   return (
     <section
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-4"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4"
       aria-labelledby="scanner-role-form-title"
       data-testid="scanner-role-form"
     >
       <h3
         id="scanner-role-form-title"
-        className="text-body font-semibold text-saw-grey-900"
+        className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige"
       >
         {t("scanner_role.form.title")}
       </h3>
-      <label className="mt-3 flex flex-col gap-1 text-small text-saw-grey-700">
+      <label className="mt-3 flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
         <span>{t("scanner_role.form.role_arn_label")}</span>
         <input
           type="text"
           value={roleArn}
           onChange={(e) => setRoleArn(e.target.value)}
           placeholder={t("scanner_role.form.role_arn_placeholder")}
-          className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 font-mono text-body text-saw-grey-900"
+          className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 font-mono text-body text-saw-grey-900 dark:text-saw-beige"
           data-testid="scanner-role-form-arn-input"
           disabled={submitting}
         />
       </label>
-      <fieldset className="mt-3 flex flex-col gap-1 text-small text-saw-grey-700">
+      <fieldset className="mt-3 flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
         <legend>{t("scanner_role.form.policy_variant_label")}</legend>
         <label className="flex items-center gap-2">
           <input
@@ -548,7 +548,7 @@ function ConnectForm({
       {errorMessage ? (
         <p
           role="alert"
-          className="mt-3 rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900"
+          className="mt-3 rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900 dark:text-saw-beige"
           data-testid="scanner-role-form-error"
         >
           {errorMessage}

@@ -2,6 +2,10 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  // PR #57: class-based dark mode. The <html> element gets a `dark`
+  // class set by useAppearance() based on the user's Settings →
+  // Appearance choice (light / dark / system).
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -24,6 +28,19 @@ const config: Config = {
           green: "#22A06B",
           black: "#0A0B0D",
           white: "#FFFFFF",
+          // PR #57: dark-mode palette. Per user spec: dark grey,
+          // beige, red, black.
+          //   - `grey-dark` is the dark-mode elevated-surface
+          //     background (cards, modals, nav bars) — sits one
+          //     step lighter than `black` so depth reads.
+          //   - `beige` is the dark-mode body text color — a warm
+          //     off-white that's gentler on the eyes than pure
+          //     white in a dark room.
+          //   - `black` (existing) is the dark-mode page background.
+          //   - `red` / `red-bold` (existing) carry through both
+          //     modes — accent doesn't shift.
+          "grey-dark": "#1A1B1F",
+          beige: "#E8DCC4",
           grey: {
             50: "#F7F8FA",
             100: "#EDEFF3",
@@ -50,28 +67,10 @@ const config: Config = {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       fontSize: {
-        // PR #55: weight + size step-up. The display + heading scale
-        // now ships its own fontWeight so headings render bold
-        // without callers having to remember `font-bold`. Body sizes
-        // stay weightless — Tailwind's `font-medium` (PR #55 base on
-        // <body>) carries them. Sizes themselves nudged up half a
-        // step on display/h1/h2 to match the heavier weight.
-        "display": [
-          "2.5rem",
-          { lineHeight: "2.75rem", letterSpacing: "-0.02em", fontWeight: "800" },
-        ],
-        "h1": [
-          "1.875rem",
-          { lineHeight: "2.25rem", letterSpacing: "-0.015em", fontWeight: "700" },
-        ],
-        "h2": [
-          "1.5rem",
-          { lineHeight: "2rem", letterSpacing: "-0.01em", fontWeight: "700" },
-        ],
-        "h3": [
-          "1.125rem",
-          { lineHeight: "1.5rem", fontWeight: "600" },
-        ],
+        "display": ["2.25rem", { lineHeight: "2.5rem", letterSpacing: "-0.02em" }],
+        "h1": ["1.75rem", { lineHeight: "2rem", letterSpacing: "-0.01em" }],
+        "h2": ["1.375rem", { lineHeight: "1.75rem" }],
+        "h3": ["1.125rem", { lineHeight: "1.5rem" }],
         "body": ["0.9375rem", { lineHeight: "1.5rem" }],
         "small": ["0.8125rem", { lineHeight: "1.25rem" }],
       },

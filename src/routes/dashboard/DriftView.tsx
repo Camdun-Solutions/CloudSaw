@@ -207,7 +207,7 @@ export default function DriftView({ account, scans }: Props) {
       {error ? (
         <p
           role="alert"
-          className="rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-2 text-body text-saw-grey-900"
+          className="rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-2 text-body text-saw-grey-900 dark:text-saw-beige"
         >
           {error}
         </p>
@@ -264,7 +264,7 @@ function DriftHeader({
   return (
     <div className="space-y-3">
       <h2 className="text-h2 font-semibold">{t("dashboard.drift.title")}</h2>
-      <p className="text-small text-saw-grey-600">
+      <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("dashboard.drift.subtitle").replace("{account}", account.label)}
       </p>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -299,13 +299,13 @@ function DriftGroup({
   const t = useT();
   return (
     <section
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-4"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4"
       data-testid={`drift-group-${testIdSuffix}`}
     >
       <header className="flex items-center justify-between">
-        <h3 className="text-body font-semibold text-saw-grey-900">{title}</h3>
+        <h3 className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">{title}</h3>
         <span
-          className="text-small text-saw-grey-600"
+          className="text-small text-saw-grey-600 dark:text-saw-grey-400"
           data-testid={`drift-count-${testIdSuffix}`}
         >
           {findings === null
@@ -317,7 +317,7 @@ function DriftGroup({
         </span>
       </header>
       {findings === null ? null : findings.length === 0 ? (
-        <p className="mt-3 text-small text-saw-grey-600">
+        <p className="mt-3 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("dashboard.drift.list.empty")}
         </p>
       ) : (
@@ -328,7 +328,7 @@ function DriftGroup({
               className="flex items-center gap-2 text-small"
             >
               <SeverityBadge severity={f.severity} size="sm" iconOnly />
-              <span className="truncate text-saw-grey-900">
+              <span className="truncate text-saw-grey-900 dark:text-saw-beige">
                 {f.dashboard_name || f.rule_key}
               </span>
             </li>

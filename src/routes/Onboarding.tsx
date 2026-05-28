@@ -153,8 +153,8 @@ export default function Onboarding({ onCompleted }: Props) {
 
   if (!state) {
     return (
-      <main className="min-h-full bg-saw-grey-50 flex items-center justify-center">
-        <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+      <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center">
+        <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
       </main>
     );
   }
@@ -164,16 +164,16 @@ export default function Onboarding({ onCompleted }: Props) {
   const total = STEPS.length;
 
   return (
-    <main className="min-h-full bg-saw-grey-50 px-6 py-10">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-6 py-10">
       <div className="mx-auto max-w-2xl">
         <header className="mb-6">
           <div className="flex items-center gap-3">
             <Logo size="md" />
             <div>
-              <h1 className="text-h1 font-semibold text-saw-grey-900">
+              <h1 className="text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
                 {t("onboarding.title")}
               </h1>
-              <p className="mt-1 text-small text-saw-grey-600">
+              <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
                 {t("onboarding.subtitle")}
               </p>
             </div>
@@ -184,7 +184,7 @@ export default function Onboarding({ onCompleted }: Props) {
         {topErr ? (
           <p
             role="alert"
-            className="mb-4 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="mb-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="onboarding-top-error"
           >
             {topErr}
@@ -245,7 +245,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
   return (
     <div className="mt-4">
       <div
-        className="text-xs text-saw-grey-600"
+        className="text-xs text-saw-grey-600 dark:text-saw-grey-400"
         data-testid="onboarding-progress-label"
       >
         {t("onboarding.progress")
@@ -253,7 +253,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
           .replace("{total}", String(total))}
       </div>
       <div
-        className="mt-1 h-2 rounded-full bg-saw-grey-200 overflow-hidden"
+        className="mt-1 h-2 rounded-full bg-saw-grey-200 dark:bg-saw-grey-700 overflow-hidden"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={total}
@@ -282,11 +282,11 @@ function StepCard({
 }) {
   return (
     <section
-      className="rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid={testId}
     >
-      <h2 className="text-h2 font-semibold text-saw-grey-900">{title}</h2>
-      <p className="mt-2 text-body text-saw-grey-700">{body}</p>
+      <h2 className="text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige">{title}</h2>
+      <p className="mt-2 text-body text-saw-grey-700 dark:text-saw-grey-300">{body}</p>
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -312,9 +312,9 @@ function CliBlock({
     );
   }
   return (
-    <div className="mt-3 rounded-card border border-saw-grey-200 bg-saw-grey-50 p-3 text-small">
+    <div className="mt-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-3 text-small">
       <div className="flex items-center justify-between">
-        <span className="text-saw-grey-700">{t("onboarding.cli_label")}</span>
+        <span className="text-saw-grey-700 dark:text-saw-grey-300">{t("onboarding.cli_label")}</span>
         <button
           type="button"
           onClick={copy}
@@ -325,7 +325,7 @@ function CliBlock({
         </button>
       </div>
       <pre
-        className="mt-2 overflow-auto rounded bg-saw-white p-2 font-mono text-xs text-saw-grey-900"
+        className="mt-2 overflow-auto rounded bg-saw-white dark:bg-saw-grey-dark p-2 font-mono text-xs text-saw-grey-900 dark:text-saw-beige"
         data-testid="onboarding-cli-block"
       >
         {lines.join("\n")}
@@ -493,7 +493,7 @@ function PasswordStep({
       title={t("onboarding.step.password.title")}
       body={t("onboarding.step.password.body")}
     >
-      <p className="text-small text-saw-grey-700 rounded-card bg-saw-grey-100 px-3 py-2">
+      <p className="text-small text-saw-grey-700 dark:text-saw-grey-300 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2">
         {t("applock.disclosure")}
       </p>
       {alreadySet ? (
@@ -665,10 +665,10 @@ function AwsAccountStep({
           <div className="font-medium text-saw-red">
             {t("onboarding.step.account.no_cli_title")}
           </div>
-          <p className="mt-1 text-saw-grey-800">
+          <p className="mt-1 text-saw-grey-800 dark:text-saw-beige">
             {t("onboarding.step.account.no_cli_body")}
           </p>
-          <ul className="mt-2 list-disc pl-5 text-xs text-saw-grey-700">
+          <ul className="mt-2 list-disc pl-5 text-xs text-saw-grey-700 dark:text-saw-grey-300">
             <li>{t("onboarding.step.account.no_cli_windows")}</li>
             <li>{t("onboarding.step.account.no_cli_macos")}</li>
             <li>{t("onboarding.step.account.no_cli_linux")}</li>
@@ -676,23 +676,23 @@ function AwsAccountStep({
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("accounts.add.label_field")}</span>
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="acme-dev"
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
               data-testid="onboarding-account-label"
             />
           </label>
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("accounts.add.profile_field")}</span>
             <select
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
               data-testid="onboarding-account-profile"
             >
               {profiles.map((p) => (
@@ -702,12 +702,12 @@ function AwsAccountStep({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("accounts.add.environment_field")}</span>
             <select
               value={environment}
               onChange={(e) => setEnvironment(e.target.value as Environment)}
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
               data-testid="onboarding-account-env"
             >
               <option value="dev">{t("accounts.env.dev")}</option>
@@ -846,21 +846,21 @@ function ScannerRoleStep({
     >
       {!activeAccount ? (
         <p
-          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="onboarding-scanner-role-no-account"
         >
           {t("onboarding.step.terraform.no_account_hint")}
         </p>
       ) : profileMissing ? (
         <p
-          className="rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900"
+          className="rounded-card border border-saw-red/40 bg-saw-red/5 px-3 py-2 text-small text-saw-grey-900 dark:text-saw-beige"
           data-testid="onboarding-scanner-role-profile-missing"
         >
           {t("onboarding.step.terraform.profile_missing_hint")}
         </p>
       ) : provisioned ? (
         <p
-          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="onboarding-scanner-role-completed"
         >
           {t("onboarding.step.terraform.completed")}
@@ -1008,7 +1008,7 @@ function BusinessContextStep({
         title={t("onboarding.step.context.title")}
         body={t("onboarding.step.context.body")}
       >
-        <p className="text-small text-saw-grey-600">{t("common.loading")}</p>
+        <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
       </StepCard>
     );
   }
@@ -1021,16 +1021,16 @@ function BusinessContextStep({
     >
       <div className="rounded-card border border-saw-red/30 bg-saw-red/5 p-3 text-small">
         <div className="font-medium text-saw-red">{t("ai.disclosure.title")}</div>
-        <div className="mt-1 text-saw-grey-800">{t("ai.disclosure.body")}</div>
+        <div className="mt-1 text-saw-grey-800 dark:text-saw-beige">{t("ai.disclosure.body")}</div>
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.provider.label")}</span>
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value as AiProvider | "")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="onboarding-ai-provider"
           >
             <option value="">{t("ai.provider.none")}</option>
@@ -1040,7 +1040,7 @@ function BusinessContextStep({
         </label>
 
         {provider !== "" ? (
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("ai.key.label")}</span>
             <input
               type="password"
@@ -1052,12 +1052,12 @@ function BusinessContextStep({
                   : t("ai.key.placeholder_openai")
               }
               autoComplete="off"
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
               data-testid="onboarding-ai-key"
             />
-            <span className="text-xs text-saw-grey-500">{t("ai.key.hint")}</span>
+            <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">{t("ai.key.hint")}</span>
             <p
-              className="text-small text-saw-grey-700"
+              className="text-small text-saw-grey-700 dark:text-saw-grey-300"
               data-testid="onboarding-ai-key-status"
             >
               {settings.key_connected
@@ -1079,25 +1079,25 @@ function BusinessContextStep({
           </label>
         ) : null}
 
-        <hr className="border-saw-grey-100" />
+        <hr className="border-saw-grey-100 dark:border-saw-grey-800" />
 
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("ai.context.title")}
           </div>
-          <div className="mt-1 text-small text-saw-grey-600">
+          <div className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
             {t("ai.context.subtitle")}
           </div>
         </div>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.industry")}</span>
           <input
             type="text"
             value={context.industry}
             onChange={(e) => setContext({ ...context, industry: e.target.value })}
             placeholder={t("ai.context.industry_placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="onboarding-ctx-industry"
           />
           {settings.flags.industry_identifying ? (
@@ -1110,7 +1110,7 @@ function BusinessContextStep({
           ) : null}
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.environment")}</span>
           <select
             value={context.environment_type}
@@ -1120,7 +1120,7 @@ function BusinessContextStep({
                 environment_type: e.target.value as EnvironmentType,
               })
             }
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="onboarding-ctx-env"
           >
             {envOptions.map((o) => (
@@ -1131,14 +1131,14 @@ function BusinessContextStep({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.compliance")}</span>
           <input
             type="text"
             value={complianceInput}
             onChange={(e) => setComplianceInput(e.target.value)}
             placeholder={t("ai.context.compliance_placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="onboarding-ctx-compliance"
           />
           {settings.flags.compliance_identifying ? (
@@ -1151,7 +1151,7 @@ function BusinessContextStep({
           ) : null}
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.risk")}</span>
           <select
             value={context.risk_tolerance}
@@ -1161,7 +1161,7 @@ function BusinessContextStep({
                 risk_tolerance: e.target.value as RiskTolerance,
               })
             }
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="onboarding-ctx-risk"
           >
             {riskOptions.map((o) => (
@@ -1172,7 +1172,7 @@ function BusinessContextStep({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.team")}</span>
           <select
             value={context.team_size}
@@ -1182,7 +1182,7 @@ function BusinessContextStep({
                 team_size: e.target.value as TeamSize,
               })
             }
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="onboarding-ctx-team"
           >
             {teamOptions.map((o) => (
@@ -1319,26 +1319,26 @@ function FirstScanStep({
       body={t("onboarding.step.scan.body")}
     >
       {!active ? (
-        <p className="text-small text-saw-grey-700">
+        <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
           {t("onboarding.step.terraform.no_account_hint")}
         </p>
       ) : hasTerminalScan ? (
         <p
-          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="onboarding-scan-completed-hint"
         >
           {t("onboarding.step.scan.completed_hint")}
         </p>
       ) : !canScan ? (
         <p
-          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="onboarding-scan-role-missing-hint"
         >
           {t("onboarding.step.scan.role_missing_hint")}
         </p>
       ) : (
         <p
-          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="onboarding-scan-ready-hint"
         >
           {t("onboarding.step.scan.ready_hint")}

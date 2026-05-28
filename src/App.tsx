@@ -10,6 +10,7 @@ import {
 } from "@/components";
 import { ScanModalProvider, SCAN_FINISHED_EVENT } from "@/contexts/ScanModalContext";
 import { notifyScanComplete } from "@/lib/scanNotifications";
+import { useAppearance } from "@/hooks/useAppearance";
 import { useT } from "@/hooks/useT";
 // PR #46: Accounts is no longer a top-level route — it's an
 // embedded section inside Settings. App.tsx doesn't render it
@@ -67,6 +68,12 @@ function topNavActive(route: Route): TopNavRoute | null {
 
 export default function App() {
   const t = useT();
+  // PR #57: keep `<html class="dark">` in sync with the user's
+  // Settings → Appearance choice + the OS prefers-color-scheme media
+  // query when in "system" mode. The hook itself does not return any
+  // render-affecting state at the root; Settings reads it via its own
+  // `useAppearance()` invocation to drive the radio control.
+  useAppearance();
   const { status, state, error, refresh } = useLock();
   const [route, setRoute] = useState<Route>("home");
   // Manual-open path for the error dialog. Wired into the lock-load
@@ -123,8 +130,8 @@ export default function App() {
 
   if (status === "loading" || onboardingLoading) {
     return (
-      <main className="min-h-full bg-saw-grey-50 flex items-center justify-center">
-        <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+      <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center">
+        <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
       </main>
     );
   }
@@ -132,11 +139,11 @@ export default function App() {
   if (status === "error" || !state) {
     return (
       <>
-        <main className="min-h-full bg-saw-grey-50 flex items-center justify-center px-6 py-12">
+        <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center px-6 py-12">
           <div className="max-w-md text-center">
             <p
               role="alert"
-              className="rounded-card bg-saw-white border border-saw-grey-200 px-4 py-3 text-body text-saw-red"
+              className="rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 px-4 py-3 text-body text-saw-red"
             >
               {error ?? t("common.error_generic")}
             </p>
@@ -144,14 +151,14 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => void refresh()}
-                className="text-small text-saw-grey-700 underline underline-offset-2"
+                className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
               >
                 {t("common.confirm")}
               </button>
               <button
                 type="button"
                 onClick={() => openReport(error ?? undefined)}
-                className="text-small text-saw-grey-700 underline underline-offset-2"
+                className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
                 data-testid="lock-error-report"
               >
                 {t("errordialog.file_bug")}
@@ -217,11 +224,11 @@ export default function App() {
       <ErrorBoundary
         fallback={({ errorMessage, clear }) => (
         <>
-          <main className="min-h-full bg-saw-grey-50 flex items-center justify-center px-6 py-12">
+          <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center px-6 py-12">
             <div className="max-w-md text-center">
               <p
                 role="alert"
-                className="rounded-card bg-saw-white border border-saw-grey-200 px-4 py-3 text-body text-saw-red"
+                className="rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 px-4 py-3 text-body text-saw-red"
                 data-testid="render-error-message"
               >
                 {errorMessage}
@@ -230,14 +237,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={clear}
-                  className="text-small text-saw-grey-700 underline underline-offset-2"
+                  className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
                 >
                   {t("errordialog.dismiss")}
                 </button>
                 <button
                   type="button"
                   onClick={() => openReport(errorMessage)}
-                  className="text-small text-saw-grey-700 underline underline-offset-2"
+                  className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
                   data-testid="render-error-report"
                 >
                   {t("errordialog.file_bug")}

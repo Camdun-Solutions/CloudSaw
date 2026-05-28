@@ -13,24 +13,33 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-card font-semibold " +
+  "inline-flex items-center justify-center gap-2 rounded-card font-medium " +
   "transition-colors disabled:cursor-not-allowed disabled:opacity-60 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange " +
-  "focus-visible:ring-offset-2 focus-visible:ring-offset-saw-grey-50";
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-saw-grey-50 " +
+  "dark:focus-visible:ring-offset-saw-black";
 
 const variants: Record<Variant, string> = {
   // PR #55: primary CTAs use the bolder saw-red-bold token so the
   // dominant action reads as the strongest element on the page.
-  // Hover/active states stay on the standard saw-red ramp.
+  // Hover/active states stay on the standard saw-red ramp. PR #57:
+  // saw-red carries through both modes — accent doesn't shift in
+  // dark mode.
   primary:
     "bg-saw-red-bold text-saw-white hover:bg-saw-red active:bg-saw-red/90",
+  // PR #57: dark-mode secondary surface — beige text on grey-dark
+  // panel, with the same border + hover ramp inverted.
   secondary:
     "bg-saw-white text-saw-grey-900 border border-saw-grey-300 " +
-    "hover:bg-saw-grey-100 active:bg-saw-grey-200",
+    "hover:bg-saw-grey-100 active:bg-saw-grey-200 " +
+    "dark:bg-saw-grey-dark dark:text-saw-beige dark:border-saw-grey-700 " +
+    "dark:hover:bg-saw-grey-800 dark:active:bg-saw-grey-900",
   ghost:
-    "bg-transparent text-saw-grey-700 hover:bg-saw-grey-100 active:bg-saw-grey-200",
+    "bg-transparent text-saw-grey-700 hover:bg-saw-grey-100 active:bg-saw-grey-200 " +
+    "dark:text-saw-beige dark:hover:bg-saw-grey-800 dark:active:bg-saw-grey-900",
   danger:
-    "bg-saw-grey-900 text-saw-white hover:bg-saw-black active:bg-saw-black/90",
+    "bg-saw-grey-900 text-saw-white hover:bg-saw-black active:bg-saw-black/90 " +
+    "dark:bg-saw-black dark:hover:bg-saw-grey-900",
 };
 
 const sizes: Record<Size, string> = {

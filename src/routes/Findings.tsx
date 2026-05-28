@@ -299,8 +299,8 @@ export default function Findings({ onBack }: Props) {
   // --- Render ------------------------------------------------------------
 
   return (
-    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
-      <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
+      <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
         <BackBreadcrumb
           destination={t("nav.dashboard")}
           onBack={onBack}
@@ -312,7 +312,7 @@ export default function Findings({ onBack }: Props) {
             <h1 className="text-h2 font-semibold tracking-tight">
               {t("findings.page.title")}
             </h1>
-            <p className="text-small text-saw-grey-500">
+            <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
               {t("findings.page.subtitle")}
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function Findings({ onBack }: Props) {
 
       <section className="mx-auto max-w-7xl px-8 py-8">
         {accounts === null ? (
-          <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+          <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
         ) : accounts.length === 0 ? (
           <EmptyState
             title={t("findings.empty.no_accounts.title")}
@@ -372,14 +372,14 @@ export default function Findings({ onBack }: Props) {
                 onChange={setStatus}
                 data-testid="findings-filter-status"
               />
-              <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+              <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
                 <span>{t("findings.filter.search")}</span>
                 <input
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t("findings.filter.search_placeholder")}
-                  className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+                  className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
                   data-testid="findings-filter-search"
                 />
               </label>
@@ -388,7 +388,7 @@ export default function Findings({ onBack }: Props) {
             {error ? (
               <p
                 role="alert"
-                className="mt-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900"
+                className="mt-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900 dark:text-saw-beige"
                 data-testid="findings-error"
               >
                 {error}
@@ -450,22 +450,22 @@ function ServiceGroup({
   return (
     <details
       open={openByDefault}
-      className="rounded-card border border-saw-grey-200 bg-saw-white overflow-hidden"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark overflow-hidden"
       data-testid="findings-service-group"
     >
-      <summary className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-saw-grey-50">
-        <span className="text-h3 font-semibold text-saw-grey-900">
+      <summary className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800">
+        <span className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {service}
         </span>
         <Badge tone="neutral">
           {t("findings.group.count").replace("{count}", String(items.length))}
         </Badge>
         <SeverityBadge severity={worst} />
-        <span className="ml-auto text-xs text-saw-grey-500">
+        <span className="ml-auto text-xs text-saw-grey-500 dark:text-saw-grey-400">
           {t("findings.group.toggle_hint")}
         </span>
       </summary>
-      <ul className="divide-y divide-saw-grey-100">
+      <ul className="divide-y divide-saw-grey-100 dark:divide-saw-grey-800">
         {items.map((f) => (
           <FindingRow
             key={f.finding_id}
@@ -492,21 +492,21 @@ function FindingRow({
   const borderClass = severityBorder(finding.severity, finding.status);
   return (
     <li
-      className={`border-l-4 ${borderClass} bg-saw-white`}
+      className={`border-l-4 ${borderClass} bg-saw-white dark:bg-saw-grey-dark`}
       data-testid="finding-row"
     >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-saw-grey-50"
+        className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800"
       >
         <SeverityBadge severity={finding.severity} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-small font-medium text-saw-grey-900 truncate">
+          <span className="text-small font-medium text-saw-grey-900 dark:text-saw-beige truncate">
             {finding.dashboard_name ?? finding.rule_key}
           </span>
-          <span className="text-xs text-saw-grey-500">
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
             {finding.flagged_items}/{finding.checked_items}{" "}
             {t("findings.row.affected_label")}
           </span>
@@ -516,7 +516,7 @@ function FindingRow({
         </Badge>
       </button>
       {expanded ? (
-        <div className="border-t border-saw-grey-100 bg-saw-grey-50 px-4 py-4">
+        <div className="border-t border-saw-grey-100 dark:border-saw-grey-800 bg-saw-grey-50 dark:bg-saw-black px-4 py-4">
           {/* FindingDetailPanel re-used as-is from the legacy
               FindingsView. Renders KB article, AI suggestion
               button, GitHub ticket linking, resources, control

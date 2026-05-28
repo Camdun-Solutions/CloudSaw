@@ -99,31 +99,31 @@ export default function ActivityLog({ onBack }: Props) {
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 px-8 py-10">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
       <header className="mb-6">
         <BackBreadcrumb
           destination={t("nav.settings")}
           onBack={onBack}
           data-testid="activitylog-back"
         />
-        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
+        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("eventlog.title")}
         </h1>
-        <p className="mt-1 text-small text-saw-grey-600">
+        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("eventlog.subtitle")}
         </p>
       </header>
 
-      <section className="max-w-5xl rounded-card bg-saw-white border border-saw-grey-200 p-6">
+      <section className="max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6">
         <div className="mb-4 flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("eventlog.search.placeholder")}</span>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("eventlog.search.placeholder")}
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 min-w-[18rem]"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige min-w-[18rem]"
               data-testid="activitylog-search"
             />
           </label>
@@ -169,7 +169,7 @@ export default function ActivityLog({ onBack }: Props) {
         {loadError ? (
           <p
             role="alert"
-            className="mb-3 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
           >
             {loadError}
           </p>
@@ -177,7 +177,7 @@ export default function ActivityLog({ onBack }: Props) {
         {toast ? (
           <p
             role="status"
-            className="mb-3 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            className="mb-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="activitylog-toast"
           >
             {toast}
@@ -185,7 +185,7 @@ export default function ActivityLog({ onBack }: Props) {
         ) : null}
 
         {entries === null ? (
-          <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+          <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
         ) : entries.length === 0 ? (
           <EmptyState
             title={t("eventlog.empty.title")}
@@ -193,7 +193,7 @@ export default function ActivityLog({ onBack }: Props) {
           />
         ) : (
           <>
-            <p className="mb-2 text-small text-saw-grey-600">
+            <p className="mb-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
               {t("eventlog.count_total").replace(
                 "{count}",
                 String(count ?? entries.length),
@@ -202,11 +202,11 @@ export default function ActivityLog({ onBack }: Props) {
             <div
               role="table"
               aria-label={t("eventlog.title")}
-              className="rounded-card border border-saw-grey-200 overflow-hidden"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 overflow-hidden"
             >
               <div
                 role="row"
-                className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] gap-2 border-b border-saw-grey-200 bg-saw-grey-50 px-4 py-2 text-small font-medium text-saw-grey-700"
+                className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] gap-2 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2 text-small font-medium text-saw-grey-700 dark:text-saw-grey-300"
               >
                 <span role="columnheader">{t("eventlog.column.when")}</span>
                 <span role="columnheader">{t("eventlog.column.kind")}</span>
@@ -219,29 +219,29 @@ export default function ActivityLog({ onBack }: Props) {
                   role="row"
                   key={e.event_id}
                   data-testid={`activitylog-row-${e.event_id}`}
-                  className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] items-start gap-2 border-b border-saw-grey-100 px-4 py-2 last:border-b-0 text-body text-saw-grey-900"
+                  className="grid grid-cols-[1.2fr_1.2fr_3fr_0.9fr_0.5fr] items-start gap-2 border-b border-saw-grey-100 dark:border-saw-grey-800 px-4 py-2 last:border-b-0 text-body text-saw-grey-900 dark:text-saw-beige"
                 >
                   <span role="cell" className="text-small">
                     {formatDate(e.occurred_at)}
                   </span>
-                  <span role="cell" className="text-small text-saw-grey-700">
+                  <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
                     {t(`eventlog.kind.${e.kind}`)}
                   </span>
                   <span role="cell" className="text-small">
                     <div>{e.summary}</div>
                     {e.detail ? (
-                      <div className="text-saw-grey-600">{e.detail}</div>
+                      <div className="text-saw-grey-600 dark:text-saw-grey-400">{e.detail}</div>
                     ) : null}
                     {e.path ? (
-                      <div className="text-saw-grey-500 font-mono text-xs break-all">
+                      <div className="text-saw-grey-500 dark:text-saw-grey-400 font-mono text-xs break-all">
                         {e.path}
                       </div>
                     ) : null}
                   </span>
-                  <span role="cell" className="text-small text-saw-grey-700">
+                  <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
                     {e.aws_account_id_masked ?? "—"}
                   </span>
-                  <span role="cell" className="text-small text-saw-grey-700">
+                  <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
                     {e.item_count ?? "—"}
                   </span>
                 </div>

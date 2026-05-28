@@ -36,7 +36,7 @@ const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
       <div className={`flex flex-col gap-1.5 ${className}`}>
         <label
           htmlFor={inputId}
-          className="text-small font-medium text-saw-grey-700"
+          className="text-small font-medium text-saw-grey-700 dark:text-saw-grey-300"
         >
           {label}
         </label>
@@ -50,12 +50,12 @@ const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : hint ? hintId : undefined}
             className={[
-              "block w-full rounded-card border bg-saw-white px-3 py-2 pr-16 text-body",
-              "text-saw-grey-900 placeholder:text-saw-grey-400",
+              "block w-full rounded-card border bg-saw-white dark:bg-saw-grey-dark px-3 py-2 pr-16 text-body",
+              "text-saw-grey-900 dark:text-saw-beige placeholder:text-saw-grey-400",
               "focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1",
               error
                 ? "border-saw-red focus:ring-saw-red"
-                : "border-saw-grey-300",
+                : "border-saw-grey-300 dark:border-saw-grey-700",
             ].join(" ")}
             {...rest}
           />
@@ -65,7 +65,7 @@ const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
             aria-pressed={revealed}
             className={[
               "absolute inset-y-0 right-0 flex items-center px-3 text-small font-medium",
-              "text-saw-grey-600 hover:text-saw-grey-900",
+              "text-saw-grey-600 dark:text-saw-grey-400 hover:text-saw-grey-900 dark:hover:text-saw-beige",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
             ].join(" ")}
           >
@@ -77,7 +77,7 @@ const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(
             {error}
           </p>
         ) : hint ? (
-          <p id={hintId} className="text-small text-saw-grey-500">
+          <p id={hintId} className="text-small text-saw-grey-500 dark:text-saw-grey-400">
             {hint}
           </p>
         ) : null}

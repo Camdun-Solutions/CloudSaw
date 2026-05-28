@@ -11,11 +11,15 @@
 
   body {
     font-feature-settings: "ss01", "cv11";
-    /* PR #55: bump base weight 400 → 500. Tailwind's headings carry
-       their own weight (set in tailwind.config.ts fontSize tokens),
-       so this only affects body copy. Gives the app a more
-       confident, less-airy default voice. */
-    font-weight: 500;
+  }
+
+  /* PR #57: dark-mode page background hook. Components carry their
+     own dark: variants for surfaces (bg-saw-white → bg-saw-grey-dark
+     etc.); this just ensures the very-outer document area follows
+     suit when the user picks Dark in Settings → Appearance. */
+  html.dark body {
+    background-color: theme("colors.saw.black");
+    color: theme("colors.saw.beige");
   }
 
   :focus-visible {

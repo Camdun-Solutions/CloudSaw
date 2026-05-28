@@ -34,7 +34,7 @@ export default function Select<V extends string>({
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <label
         htmlFor={selectId}
-        className="text-small font-medium text-saw-grey-700"
+        className="text-small font-medium text-saw-grey-700 dark:text-saw-grey-300"
       >
         {label}
       </label>
@@ -44,8 +44,8 @@ export default function Select<V extends string>({
         onChange={(e) => onChange(e.target.value as V)}
         aria-describedby={description ? descId : undefined}
         className={[
-          "block w-full rounded-card border border-saw-grey-300 bg-saw-white px-3 py-2",
-          "text-body text-saw-grey-900",
+          "block w-full rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2",
+          "text-body text-saw-grey-900 dark:text-saw-beige",
           "focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1",
         ].join(" ")}
         {...rest}
@@ -57,7 +57,7 @@ export default function Select<V extends string>({
         ))}
       </select>
       {description ? (
-        <p id={descId} className="text-small text-saw-grey-500">
+        <p id={descId} className="text-small text-saw-grey-500 dark:text-saw-grey-400">
           {description}
         </p>
       ) : null}

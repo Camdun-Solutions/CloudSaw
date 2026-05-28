@@ -88,8 +88,8 @@ export default function LineChart({
   const baseline = PADDING.top + innerH;
 
   return (
-    <figure className="rounded-card border border-saw-grey-200 bg-saw-white p-4">
-      <figcaption className="text-small font-medium text-saw-grey-700">
+    <figure className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4">
+      <figcaption className="text-small font-medium text-saw-grey-700 dark:text-saw-grey-300">
         {ariaTitle}
       </figcaption>
       <svg
@@ -170,7 +170,7 @@ export default function LineChart({
         ) : null}
       </svg>
       {/* Legend + SR table */}
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-small text-saw-grey-700">
+      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
         {series.map((s) => (
           <li key={s.id} className="inline-flex items-center gap-2">
             <span
@@ -188,7 +188,7 @@ export default function LineChart({
         ))}
       </ul>
       {allPoints.length === 0 ? (
-        <p className="mt-2 text-small text-saw-grey-500">
+        <p className="mt-2 text-small text-saw-grey-500 dark:text-saw-grey-400">
           {/* Visible empty hint, intentionally not localized inline — the
               parent screen passes already-localized data. */}
         </p>
