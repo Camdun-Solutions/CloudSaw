@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "cloudsaw"
-version = "2026.5.17"
+version = "2026.5.18"
 dependencies = [
  "argon2",
  "aws-config",

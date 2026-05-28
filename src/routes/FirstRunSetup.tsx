@@ -50,18 +50,18 @@ export default function FirstRunSetup() {
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md rounded-card bg-saw-white p-8 shadow-sm border border-saw-grey-200">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-md rounded-card bg-saw-white dark:bg-saw-grey-dark p-8 shadow-sm border border-saw-grey-200 dark:border-saw-grey-700">
         <div className="flex items-center gap-3">
           <Logo size="sm" />
-          <h1 className="text-h2 font-semibold text-saw-grey-900">
+          <h1 className="text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige">
             {t("applock.setup.title")}
           </h1>
         </div>
-        <p className="mt-4 text-body text-saw-grey-700">
+        <p className="mt-4 text-body text-saw-grey-700 dark:text-saw-grey-300">
           {t("applock.setup.subtitle")}
         </p>
-        <p className="mt-3 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700">
+        <p className="mt-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
           {t("applock.disclosure")}
         </p>
 
@@ -94,7 +94,7 @@ export default function FirstRunSetup() {
           {error ? (
             <p
               role="alert"
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             >
               {error}
             </p>

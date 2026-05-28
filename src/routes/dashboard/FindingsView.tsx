@@ -177,7 +177,7 @@ export default function FindingsView({ scanId, onBack }: Props) {
       />
 
       <p
-        className="text-small text-saw-grey-600"
+        className="text-small text-saw-grey-600 dark:text-saw-grey-400"
         data-testid="findings-match-count"
       >
         {t("dashboard.findings.filter.match_count")
@@ -224,7 +224,7 @@ function FilterBar({
 }: FilterBarProps) {
   const t = useT();
   return (
-    <div className="rounded-card border border-saw-grey-200 bg-saw-white p-4">
+    <div className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <Select<SevFilter>
           label={t("dashboard.findings.filter.severity")}
@@ -292,7 +292,7 @@ function FindingsList({
   const t = useT();
   if (loading) {
     return (
-      <div className="rounded-card border border-saw-grey-200 bg-saw-white px-4 py-8 text-center text-body text-saw-grey-600">
+      <div className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-8 text-center text-body text-saw-grey-600 dark:text-saw-grey-400">
         {t("common.loading")}
       </div>
     );
@@ -315,7 +315,7 @@ function FindingsList({
   }
   return (
     <div
-      className="rounded-card border border-saw-grey-200 bg-saw-white"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark"
       data-testid="findings-list"
     >
       <VirtualList<Finding>
@@ -358,22 +358,22 @@ function FindingRow({
       aria-selected={selected}
       data-testid={`finding-row-${finding.finding_id}`}
       className={[
-        "w-full text-left flex items-center gap-3 px-4 py-3 border-b border-saw-grey-100 last:border-b-0",
+        "w-full text-left flex items-center gap-3 px-4 py-3 border-b border-saw-grey-100 dark:border-saw-grey-800 last:border-b-0",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
-        selected ? "bg-saw-grey-100" : "bg-saw-white hover:bg-saw-grey-50",
+        selected ? "bg-saw-grey-100 dark:bg-saw-grey-800" : "bg-saw-white dark:bg-saw-grey-dark hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800",
       ].join(" ")}
       style={{ height: ROW_HEIGHT }}
     >
       <SeverityBadge severity={finding.severity} size="sm" />
       <span className="flex-1 min-w-0">
-        <span className="block truncate text-body font-medium text-saw-grey-900">
+        <span className="block truncate text-body font-medium text-saw-grey-900 dark:text-saw-beige">
           {title}
         </span>
-        <span className="block truncate text-small text-saw-grey-600">
+        <span className="block truncate text-small text-saw-grey-600 dark:text-saw-grey-400">
           {service} · {finding.flagged_items}/{finding.checked_items}
         </span>
       </span>
-      <span className="text-small text-saw-grey-700 whitespace-nowrap">
+      <span className="text-small text-saw-grey-700 dark:text-saw-grey-300 whitespace-nowrap">
         {finding.status === "open"
           ? t("dashboard.status.open")
           : t("dashboard.status.resolved")}
@@ -496,7 +496,7 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
   if (!findingId) {
     return (
       <div
-        className="rounded-card border border-dashed border-saw-grey-300 bg-saw-white px-6 py-12 text-center text-body text-saw-grey-600"
+        className="rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-6 py-12 text-center text-body text-saw-grey-600 dark:text-saw-grey-400"
         data-testid="finding-detail-empty"
       >
         {t("dashboard.findings.detail.no_selection")}
@@ -512,7 +512,7 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
 
   if (!detail || !article || !mapping) {
     return (
-      <div className="rounded-card border border-saw-grey-200 bg-saw-white px-4 py-8 text-center text-body text-saw-grey-600">
+      <div className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-8 text-center text-body text-saw-grey-600 dark:text-saw-grey-400">
         {t("common.loading")}
       </div>
     );
@@ -525,26 +525,26 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
       aria-label={t("dashboard.findings.detail.heading")}
       data-testid="finding-detail-panel"
     >
-      <div className="rounded-card border border-saw-grey-200 bg-saw-white p-5">
+      <div className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-5">
         <div className="flex items-start gap-3">
           <SeverityBadge severity={detail.finding.severity} />
           <div className="min-w-0">
-            <h3 className="text-h2 font-semibold text-saw-grey-900">
+            <h3 className="text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige">
               {article.matched
                 ? article.title
                 : detail.finding.dashboard_name || detail.finding.rule_key}
             </h3>
-            <p className="mt-1 text-small text-saw-grey-600">
+            <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
               {detail.finding.rule_key}{" "}
               {!article.matched ? (
                 <span
-                  className="ml-2 rounded-full bg-saw-grey-100 px-2 py-0.5 text-saw-grey-700"
+                  className="ml-2 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-saw-grey-700 dark:text-saw-grey-300"
                   data-testid="kb-unmatched-tag"
                 >
                   {t("dashboard.findings.unmatched_label")}
                 </span>
               ) : (
-                <span className="ml-2 rounded-full bg-saw-grey-100 px-2 py-0.5 text-saw-grey-700">
+                <span className="ml-2 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-saw-grey-700 dark:text-saw-grey-300">
                   {article.source === "bundled"
                     ? t("dashboard.findings.detail.section.kb_source.bundled")
                     : t("dashboard.findings.detail.section.kb_source.remote")}
@@ -625,12 +625,12 @@ function AiSuggestionBlock({
 
   return (
     <div
-      className="mt-5 rounded-card border border-dashed border-saw-grey-300 bg-saw-grey-50 p-4"
+      className="mt-5 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-4"
       data-testid="ai-suggestion-block"
     >
       <div className="flex items-center justify-between">
         <div>
-          <span className="rounded-full bg-saw-grey-200 px-2 py-0.5 text-xs font-medium text-saw-grey-800">
+          <span className="rounded-full bg-saw-grey-200 dark:bg-saw-grey-700 px-2 py-0.5 text-xs font-medium text-saw-grey-800 dark:text-saw-beige">
             {t("ai.suggestion.label")}
           </span>
         </div>
@@ -645,7 +645,7 @@ function AiSuggestionBlock({
       </div>
       {!ready ? (
         <p
-          className="mt-2 text-small text-saw-grey-600"
+          className="mt-2 text-small text-saw-grey-600 dark:text-saw-grey-400"
           data-testid="ai-suggestion-disabled-hint"
         >
           {t("ai.suggestion.disabled_hint")}
@@ -654,7 +654,7 @@ function AiSuggestionBlock({
       {aiError ? (
         <p
           role="alert"
-          className="mt-2 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+          className="mt-2 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
           data-testid="ai-suggestion-error"
         >
           {aiError}
@@ -662,22 +662,22 @@ function AiSuggestionBlock({
       ) : null}
       {suggestion ? (
         <div className="mt-3" data-testid="ai-suggestion-result">
-          <p className="text-xs text-saw-grey-600">
+          <p className="text-xs text-saw-grey-600 dark:text-saw-grey-400">
             {t("ai.suggestion.disclaimer")}
           </p>
-          <p className="mt-1 text-xs text-saw-grey-600">
+          <p className="mt-1 text-xs text-saw-grey-600 dark:text-saw-grey-400">
             {t("ai.suggestion.placeholders_note")}
           </p>
-          <div className="mt-3 rounded-card bg-saw-white border border-saw-grey-200 p-3">
+          <div className="mt-3 rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-3">
             {suggestion.suggestion_markdown.trim().length > 0 ? (
               <SafeMarkdown markdown={suggestion.suggestion_markdown} />
             ) : (
-              <p className="text-small text-saw-grey-600">
+              <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
                 {t("ai.suggestion.empty")}
               </p>
             )}
           </div>
-          <div className="mt-2 text-xs text-saw-grey-500">
+          <div className="mt-2 text-xs text-saw-grey-500 dark:text-saw-grey-400">
             {t("ai.suggestion.model")}: {suggestion.provider} · {suggestion.model}
             {suggestion.usage_input_tokens !== null &&
             suggestion.usage_output_tokens !== null ? (
@@ -711,10 +711,10 @@ function FindingTicketRow({
   if (ticket) {
     return (
       <div
-        className="mt-3 rounded-card bg-saw-grey-50 border border-saw-grey-200 px-3 py-2 text-small flex items-center justify-between"
+        className="mt-3 rounded-card bg-saw-grey-50 dark:bg-saw-black border border-saw-grey-200 dark:border-saw-grey-700 px-3 py-2 text-small flex items-center justify-between"
         data-testid="finding-ticket-linked"
       >
-        <span className="text-saw-grey-900 font-mono">
+        <span className="text-saw-grey-900 dark:text-saw-beige font-mono">
           {t("findingticket.linked")
             .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
             .replace("{n}", String(ticket.issue_number))}
@@ -723,7 +723,7 @@ function FindingTicketRow({
           href={ticket.issue_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-small text-saw-grey-700 underline underline-offset-2"
+          className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
           data-testid="finding-ticket-link"
         >
           {t("findingticket.linked_view")}
@@ -743,7 +743,7 @@ function FindingTicketRow({
         {t("findingticket.cta")}
       </Button>
       {!findingsRepoConfigured ? (
-        <p className="mt-1 text-xs text-saw-grey-500" data-testid="finding-create-ticket-hint">
+        <p className="mt-1 text-xs text-saw-grey-500 dark:text-saw-grey-400" data-testid="finding-create-ticket-hint">
           {t("github.findings_repo.none")}
         </p>
       ) : null}
@@ -805,9 +805,9 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
             s.key === "risk" ||
             s.key === "remediation"
           }
-          className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-4 py-2"
+          className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
         >
-          <summary className="cursor-pointer text-body font-medium text-saw-grey-900">
+          <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
             {s.title}
           </summary>
           <SafeMarkdown
@@ -820,9 +820,9 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
       {extras.map(([h, body]) => (
         <details
           key={`extra-${h}`}
-          className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-4 py-2"
+          className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
         >
-          <summary className="cursor-pointer text-body font-medium text-saw-grey-900">
+          <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
             {h}
           </summary>
           <SafeMarkdown markdown={body} className="mt-2" />
@@ -835,14 +835,14 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
 function NoArticleBlock({ finding }: { finding: Finding }) {
   const t = useT();
   return (
-    <div className="mt-4 rounded-card border border-dashed border-saw-grey-300 bg-saw-grey-50 px-4 py-4">
-      <h4 className="text-body font-semibold text-saw-grey-900">
+    <div className="mt-4 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-4">
+      <h4 className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.findings.detail.no_article.title")}
       </h4>
-      <p className="mt-1 text-body text-saw-grey-700">
+      <p className="mt-1 text-body text-saw-grey-700 dark:text-saw-grey-300">
         {t("dashboard.findings.detail.no_article.body")}
       </p>
-      <div className="mt-3 space-y-2 text-small text-saw-grey-700">
+      <div className="mt-3 space-y-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
         <p>
           <strong>{t("dashboard.findings.detail.section.description")}:</strong>{" "}
           {finding.description}
@@ -874,14 +874,14 @@ function ResourceList({ detail }: { detail: FindingDetail }) {
   return (
     <details
       open
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-5"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-5"
     >
-      <summary className="cursor-pointer text-body font-semibold text-saw-grey-900">
+      <summary className="cursor-pointer text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.findings.detail.resources_title")} (
         {detail.resources.length})
       </summary>
       {detail.resources.length === 0 ? (
-        <p className="mt-2 text-small text-saw-grey-600">
+        <p className="mt-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("dashboard.findings.detail.resources.empty")}
         </p>
       ) : (
@@ -889,12 +889,12 @@ function ResourceList({ detail }: { detail: FindingDetail }) {
           {detail.resources.map((r) => (
             <li
               key={r.resource_path}
-              className="font-mono text-small text-saw-grey-800 break-all"
+              className="font-mono text-small text-saw-grey-800 dark:text-saw-beige break-all"
             >
               {r.resource_path}
               {r.invalid ? (
                 <span
-                  className="ml-2 rounded-full bg-saw-orange/10 px-2 py-0.5 text-saw-grey-900"
+                  className="ml-2 rounded-full bg-saw-orange/10 px-2 py-0.5 text-saw-grey-900 dark:text-saw-beige"
                   data-testid="resource-invalid"
                 >
                   {t("dashboard.findings.detail.resources.invalid")}
@@ -914,15 +914,15 @@ function MappingList({ mapping }: { mapping: ControlMapping }) {
   return (
     <details
       open
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-5"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-5"
       data-testid="mappings-block"
     >
-      <summary className="cursor-pointer text-body font-semibold text-saw-grey-900">
+      <summary className="cursor-pointer text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.findings.detail.mappings.title")}
       </summary>
       {entries.length === 0 ? (
         <div
-          className="mt-2 rounded-card border border-dashed border-saw-grey-300 px-4 py-3 text-small text-saw-grey-600"
+          className="mt-2 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 px-4 py-3 text-small text-saw-grey-600 dark:text-saw-grey-400"
           data-testid="mappings-empty"
         >
           <strong>
@@ -934,14 +934,14 @@ function MappingList({ mapping }: { mapping: ControlMapping }) {
         <div className="mt-2 space-y-3">
           {entries.map(([fw, controls]) => (
             <div key={fw}>
-              <h4 className="text-small font-semibold uppercase tracking-wide text-saw-grey-600">
+              <h4 className="text-small font-semibold uppercase tracking-wide text-saw-grey-600 dark:text-saw-grey-400">
                 {fw}
               </h4>
               <ul className="mt-1 space-y-1">
                 {controls.map((c) => (
                   <li
                     key={`${fw}-${c.control_id}`}
-                    className="text-small text-saw-grey-800"
+                    className="text-small text-saw-grey-800 dark:text-saw-beige"
                     data-testid={`mapping-${fw}-${c.control_id}`}
                   >
                     <span className="font-mono">{c.control_id}</span>{" "}
@@ -977,10 +977,10 @@ function ErrorRow({
       className="rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3"
       data-testid="findings-error"
     >
-      <p className="text-body text-saw-grey-900">
+      <p className="text-body text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.findings.detail.error").replace("{code}", code)}
       </p>
-      <p className="mt-1 text-small text-saw-grey-700">{message}</p>
+      <p className="mt-1 text-small text-saw-grey-700 dark:text-saw-grey-300">{message}</p>
       <div className="mt-2 flex items-center gap-3">
         <button
           type="button"
@@ -993,7 +993,7 @@ function ErrorRow({
               () => {},
             );
           }}
-          className="text-small text-saw-grey-700 underline underline-offset-2"
+          className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
           data-testid="findings-error-copy"
         >
           {copied
@@ -1003,7 +1003,7 @@ function ErrorRow({
         <button
           type="button"
           onClick={onRetry}
-          className="text-small text-saw-grey-700 underline underline-offset-2"
+          className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
         >
           {t("common.confirm")}
         </button>

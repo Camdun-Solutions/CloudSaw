@@ -160,7 +160,7 @@ export default function ErrorReportDialog({
         </>
       }
     >
-      <div className="flex flex-col gap-3 text-small text-saw-grey-800">
+      <div className="flex flex-col gap-3 text-small text-saw-grey-800 dark:text-saw-beige">
         <p>{t("errordialog.subtitle")}</p>
 
         <label className="flex flex-col gap-1">
@@ -170,21 +170,21 @@ export default function ErrorReportDialog({
             onChange={(e) => setNotes(e.target.value)}
             placeholder={t("errordialog.notes_placeholder")}
             rows={4}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="errordialog-notes"
           />
         </label>
 
         {settings ? (
           <div
-            className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-2 text-small text-saw-grey-700"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="errordialog-security-note"
           >
             <p>
               {t("errordialog.security_note").replace("{email}", settings.security_contact)}
             </p>
             <div className="mt-1 flex items-center gap-2">
-              <span className="font-mono text-saw-grey-900">
+              <span className="font-mono text-saw-grey-900 dark:text-saw-beige">
                 {settings.security_contact}
               </span>
               <button
@@ -202,7 +202,7 @@ export default function ErrorReportDialog({
         {err ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
           >
             {err}
           </p>

@@ -159,8 +159,8 @@ export default function Dashboard({
 
   if (!loaded) {
     return (
-      <main className="min-h-full bg-saw-grey-50 flex items-center justify-center">
-        <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+      <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center">
+        <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
       </main>
     );
   }
@@ -185,7 +185,7 @@ export default function Dashboard({
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
       <HardDeleteDialog
         target={deleteTarget}
         account={account}
@@ -197,14 +197,14 @@ export default function Dashboard({
         scanId={exportTargetScanId}
         onClose={() => setExportTargetScanId(null)}
       />
-      <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+      <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
         <div className="flex items-center gap-3">
           <Logo size="sm" />
           <div className="flex flex-col">
             <h1 className="text-h2 font-semibold tracking-tight">
               {t("dashboard.title")}
             </h1>
-            <p className="text-small text-saw-grey-500">
+            <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
               {t("dashboard.subtitle")}
             </p>
           </div>
@@ -250,7 +250,7 @@ export default function Dashboard({
                   "rounded-card px-3 py-1.5 text-small font-medium transition-colors",
                   selected
                     ? "bg-saw-grey-900 text-saw-white"
-                    : "bg-transparent text-saw-grey-700 hover:bg-saw-grey-100",
+                    : "bg-transparent text-saw-grey-700 dark:text-saw-grey-300 hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800",
                 ].join(" ")}
               >
                 {t(`dashboard.tab.${id}`)}
@@ -264,7 +264,7 @@ export default function Dashboard({
         {loadError ? (
           <div
             role="alert"
-            className="mb-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900"
+            className="mb-4 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="dashboard-error"
           >
             {loadError}
@@ -273,7 +273,7 @@ export default function Dashboard({
               <button
                 type="button"
                 onClick={() => onOpenReport(loadError)}
-                className="ml-3 text-small text-saw-grey-700 underline underline-offset-2"
+                className="ml-3 text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
                 data-testid="dashboard-report-error"
               >
                 {t("errordialog.file_bug")}
@@ -360,7 +360,7 @@ function ScansView({
   const chartSeries = useChartSeriesFromScans(scans ?? [], scanCounts);
 
   if (scans === null) {
-    return <p className="text-body text-saw-grey-600">{t("common.loading")}</p>;
+    return <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>;
   }
 
   if (scans.length === 0) {
@@ -395,14 +395,14 @@ function ScansView({
           {t("dashboard.scans.new_scan_cta")}
         </Button>
       </div>
-      <p className="text-small text-saw-grey-600">
+      <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("dashboard.scans.subtitle").replace("{account}", account.label)}
       </p>
 
       {deleteToast ? (
         <p
           role="status"
-          className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="dashboard-delete-toast"
           onClick={onDismissToast}
         >
@@ -418,11 +418,11 @@ function ScansView({
       <div
         role="table"
         aria-label={t("dashboard.scans.title")}
-        className="rounded-card border border-saw-grey-200 bg-saw-white overflow-hidden"
+        className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark overflow-hidden"
       >
         <div
           role="row"
-          className="grid grid-cols-[1.4fr_1fr_1fr_1.2fr_1.6fr_0.8fr] gap-2 border-b border-saw-grey-200 bg-saw-grey-50 px-4 py-2 text-small font-medium text-saw-grey-700"
+          className="grid grid-cols-[1.4fr_1fr_1fr_1.2fr_1.6fr_0.8fr] gap-2 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2 text-small font-medium text-saw-grey-700 dark:text-saw-grey-300"
         >
           <span role="columnheader">
             {t("dashboard.scans.column.started_at")}
@@ -450,12 +450,12 @@ function ScansView({
               role="row"
               key={s.scan_id}
               data-testid={`scan-row-${s.scan_id}`}
-              className="grid grid-cols-[1.4fr_1fr_1fr_1.2fr_1.6fr_0.8fr] items-center gap-2 border-b border-saw-grey-100 px-4 py-3 last:border-b-0"
+              className="grid grid-cols-[1.4fr_1fr_1fr_1.2fr_1.6fr_0.8fr] items-center gap-2 border-b border-saw-grey-100 dark:border-saw-grey-800 px-4 py-3 last:border-b-0"
             >
-              <span role="cell" className="text-body text-saw-grey-900">
+              <span role="cell" className="text-body text-saw-grey-900 dark:text-saw-beige">
                 {formatDate(s.started_at)}
               </span>
-              <span role="cell" className="text-small text-saw-grey-700">
+              <span role="cell" className="text-small text-saw-grey-700 dark:text-saw-grey-300">
                 {showId(s.aws_account_id)}
               </span>
               <span role="cell">
@@ -493,7 +493,7 @@ function ScansView({
                     </Button>
                   </>
                 ) : (
-                  <span className="text-small text-saw-grey-500">
+                  <span className="text-small text-saw-grey-500 dark:text-saw-grey-400">
                     {t("dashboard.scans.severity.unavailable")}
                   </span>
                 )}
@@ -532,7 +532,7 @@ function SeverityCounts({
   const t = useT();
   if (!counts) {
     return (
-      <span className="text-small text-saw-grey-500">
+      <span className="text-small text-saw-grey-500 dark:text-saw-grey-400">
         {t("dashboard.scans.severity.loading")}
       </span>
     );
@@ -540,7 +540,7 @@ function SeverityCounts({
   const total = SEVERITY_ORDER.reduce((acc, s) => acc + (counts[s] ?? 0), 0);
   if (total === 0) {
     return (
-      <span className="text-small text-saw-grey-600">
+      <span className="text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("dashboard.scans.severity.zero")}
       </span>
     );
@@ -551,7 +551,7 @@ function SeverityCounts({
         (counts[sev] ?? 0) > 0 ? (
           <span
             key={sev}
-            className="inline-flex items-center gap-1 rounded-full bg-saw-grey-100 px-2 py-0.5 text-small text-saw-grey-800"
+            className="inline-flex items-center gap-1 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-small text-saw-grey-800 dark:text-saw-beige"
             data-testid={`scan-sev-${sev}`}
             aria-label={`${t(`dashboard.severity.${sev}`)}: ${counts[sev]}`}
           >
@@ -642,7 +642,7 @@ function CopyDiagnostic({ info }: { info: string }) {
           },
         );
       }}
-      className="ml-3 inline text-small text-saw-grey-700 underline underline-offset-2 hover:text-saw-grey-900"
+      className="ml-3 inline text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2 hover:text-saw-grey-900 dark:hover:text-saw-beige"
       data-testid="dashboard-copy-diagnostic"
     >
       {copied
@@ -731,7 +731,7 @@ function HardDeleteDialog({
             .replace("{account}", account ? `${account.label} · ${showId(target.aws_account_id)}` : showId(target.aws_account_id))}
         </p>
         <p className="text-small text-saw-red">{t("delete.scan.warning")}</p>
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("delete.scan.confirm_label")}</span>
           <input
             type="text"
@@ -739,7 +739,7 @@ function HardDeleteDialog({
             onChange={(e) => setConfirmation(e.target.value)}
             placeholder={t("delete.scan.confirm_placeholder")}
             autoFocus
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="hard-delete-input"
           />
         </label>
@@ -752,7 +752,7 @@ function HardDeleteDialog({
         {err ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
           >
             {err}
           </p>

@@ -77,15 +77,15 @@ export default function UnlockScreen() {
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md rounded-card bg-saw-white p-8 shadow-sm border border-saw-grey-200">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-md rounded-card bg-saw-white dark:bg-saw-grey-dark p-8 shadow-sm border border-saw-grey-200 dark:border-saw-grey-700">
         <div className="flex items-center gap-3">
           <Logo size="sm" />
-          <h1 className="text-h2 font-semibold text-saw-grey-900">
+          <h1 className="text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige">
             {t("applock.unlock.title")}
           </h1>
         </div>
-        <p className="mt-4 text-body text-saw-grey-700">
+        <p className="mt-4 text-body text-saw-grey-700 dark:text-saw-grey-300">
           {t("applock.unlock.subtitle")}
         </p>
 
@@ -103,7 +103,7 @@ export default function UnlockScreen() {
           {error ? (
             <p
               role="alert"
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
               data-testid="unlock-error"
             >
               {error}
@@ -138,7 +138,7 @@ export default function UnlockScreen() {
         <div className="mt-6 flex items-center justify-between text-small">
           <button
             type="button"
-            className="text-saw-grey-600 hover:text-saw-grey-900 underline decoration-saw-grey-400 underline-offset-2 disabled:no-underline disabled:text-saw-grey-400 disabled:cursor-not-allowed"
+            className="text-saw-grey-600 dark:text-saw-grey-400 hover:text-saw-grey-900 dark:hover:text-saw-beige underline decoration-saw-grey-400 underline-offset-2 disabled:no-underline disabled:text-saw-grey-400 disabled:cursor-not-allowed"
             onClick={() => setRecoveryOpen(true)}
             disabled={!recoveryAvailable}
             title={

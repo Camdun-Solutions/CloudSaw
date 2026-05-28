@@ -202,7 +202,7 @@ export default function ScanProgressModal({
         {error ? (
           <p
             role="alert"
-            className="mt-3 rounded-card border border-saw-grey-200 bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="mt-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="scanner-picker-error"
           >
             {error}
@@ -227,7 +227,7 @@ export default function ScanProgressModal({
       })}
     >
       <div className="flex flex-col gap-4">
-        <p className="text-small text-saw-grey-600">
+        <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("scanner.scan.subtitle").replace("{label}", account.label)}
         </p>
 
@@ -245,7 +245,7 @@ export default function ScanProgressModal({
         {error ? (
           <p
             role="alert"
-            className="rounded-card border border-saw-grey-200 bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="scanner-error"
           >
             {error}
@@ -393,7 +393,7 @@ function AccountPicker({
   if (accounts === null) {
     return (
       <p
-        className="text-small text-saw-grey-600"
+        className="text-small text-saw-grey-600 dark:text-saw-grey-400"
         data-testid="scanner-picker-loading"
       >
         {t("scanner.picker.loading")}
@@ -414,7 +414,7 @@ function AccountPicker({
 
   return (
     <div className="flex flex-col gap-2" data-testid="scanner-picker">
-      <p className="text-small text-saw-grey-600">
+      <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("scanner.picker.subtitle")}
       </p>
       <ul className="flex flex-col gap-2">
@@ -427,13 +427,13 @@ function AccountPicker({
                 disabled={disabled}
                 onClick={() => onPick(a)}
                 data-testid="scanner-picker-row"
-                className="flex w-full items-center justify-between gap-3 rounded-card border border-saw-grey-200 bg-saw-white px-4 py-3 text-left transition hover:border-saw-red hover:bg-saw-grey-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-saw-grey-200 disabled:hover:bg-saw-white"
+                className="flex w-full items-center justify-between gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 text-left transition hover:border-saw-red hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-saw-grey-200 disabled:hover:bg-saw-white"
               >
                 <div className="flex flex-col">
-                  <span className="font-medium text-saw-grey-900">
+                  <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
                     {a.label}
                   </span>
-                  <span className="font-mono text-xs text-saw-grey-500">
+                  <span className="font-mono text-xs text-saw-grey-500 dark:text-saw-grey-400">
                     {a.aws_account_id} · {a.profile_name}
                   </span>
                 </div>
@@ -454,12 +454,12 @@ function AccountPicker({
 function AccountSummary({ account }: { account: Account }) {
   const t = useT();
   return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-card bg-saw-grey-50 px-4 py-3 text-small">
-      <dt className="text-saw-grey-500">{t("accounts.row.profile")}</dt>
+    <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-card bg-saw-grey-50 dark:bg-saw-black px-4 py-3 text-small">
+      <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.profile")}</dt>
       <dd className="font-mono">{account.profile_name}</dd>
-      <dt className="text-saw-grey-500">{t("accounts.row.account_id")}</dt>
+      <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.account_id")}</dt>
       <dd className="font-mono">{account.aws_account_id}</dd>
-      <dt className="text-saw-grey-500">{t("accounts.row.role_status")}</dt>
+      <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.role_status")}</dt>
       <dd>
         {account.role_provisioned
           ? t("accounts.row.role_provisioned")
@@ -484,7 +484,7 @@ function DetectionSection({ phase }: { phase: Phase }) {
   if (phase.kind === "detecting" || availability === null) {
     return (
       <p
-        className="text-small text-saw-grey-600"
+        className="text-small text-saw-grey-600 dark:text-saw-grey-400"
         data-testid="scanner-detect-state"
       >
         {t("scanner.detect.checking")}
@@ -496,7 +496,7 @@ function DetectionSection({ phase }: { phase: Phase }) {
     const shortSha = availability.sha256.slice(0, 12);
     return (
       <p
-        className="flex items-center gap-2 text-small text-saw-grey-700"
+        className="flex items-center gap-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
         data-testid="scanner-detect-state"
       >
         <Badge tone="success">
@@ -510,13 +510,13 @@ function DetectionSection({ phase }: { phase: Phase }) {
     return (
       <div
         role="alert"
-        className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-2"
+        className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-3 py-2"
         data-testid="scanner-detect-state"
       >
-        <p className="text-small font-medium text-saw-grey-800">
+        <p className="text-small font-medium text-saw-grey-800 dark:text-saw-beige">
           {t("scanner.detect.missing.title")}
         </p>
-        <p className="mt-1 text-small text-saw-grey-700">
+        <p className="mt-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           {t("scanner.detect.missing.body")}
         </p>
       </div>
@@ -526,13 +526,13 @@ function DetectionSection({ phase }: { phase: Phase }) {
   return (
     <div
       role="alert"
-      className="rounded-card border border-saw-grey-200 bg-saw-grey-100 px-3 py-2"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2"
       data-testid="scanner-detect-state"
     >
       <p className="text-small font-medium text-saw-red">
         {t("scanner.detect.integrity.title")}
       </p>
-      <p className="mt-1 text-small text-saw-grey-800">
+      <p className="mt-1 text-small text-saw-grey-800 dark:text-saw-beige">
         {t("scanner.detect.integrity.body")}
       </p>
     </div>
@@ -561,7 +561,7 @@ function ScanRecordSection({
   }, [record.scan_id, handleIpcError]);
   return (
     <div className="flex flex-col gap-3" data-testid="scanner-progress">
-      <h3 className="text-small font-semibold text-saw-grey-800">
+      <h3 className="text-small font-semibold text-saw-grey-800 dark:text-saw-beige">
         {t("scanner.scan.progress_title")}
       </h3>
 
@@ -575,20 +575,20 @@ function ScanRecordSection({
       </div>
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-small">
-        <dt className="text-saw-grey-500">
+        <dt className="text-saw-grey-500 dark:text-saw-grey-400">
           {t("scanner.scan.session_label")}
         </dt>
         <dd
-          className="font-mono text-saw-grey-700"
+          className="font-mono text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="scanner-session-name"
         >
           {record.role_session_name}
         </dd>
-        <dt className="text-saw-grey-500">{t("scanner.scan.started_at")}</dt>
+        <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("scanner.scan.started_at")}</dt>
         <dd>{formatTs(record.started_at)}</dd>
         {includeFinishedAt && record.finished_at ? (
           <>
-            <dt className="text-saw-grey-500">
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">
               {t("scanner.scan.finished_at")}
             </dt>
             <dd>{formatTs(record.finished_at)}</dd>
@@ -596,7 +596,7 @@ function ScanRecordSection({
         ) : null}
         {record.warning_code ? (
           <>
-            <dt className="text-saw-grey-500">
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">
               {t("scanner.scan.warning_label")}
             </dt>
             <dd data-testid="scanner-warning-code">
@@ -606,7 +606,7 @@ function ScanRecordSection({
         ) : null}
         {record.failure_code ? (
           <>
-            <dt className="text-saw-grey-500">
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">
               {t("scanner.scan.failure_label")}
             </dt>
             <dd className="text-saw-red" data-testid="scanner-failure-code">
@@ -618,7 +618,7 @@ function ScanRecordSection({
 
       {record.failure_code ? (
         <div
-          className="rounded-card border border-saw-red-100 bg-saw-red-50/40 px-3 py-2 text-small text-saw-grey-800"
+          className="rounded-card border border-saw-red-100 bg-saw-red-50/40 px-3 py-2 text-small text-saw-grey-800 dark:text-saw-beige"
           data-testid="scanner-failure-detail"
         >
           <p>{t("scanner.scan.failure_hint")}</p>
@@ -640,7 +640,7 @@ function ScanRecordSection({
       {record.status === "complete" ||
       record.status === "complete_with_warnings" ? (
         <p
-          className="rounded-card bg-saw-grey-50 px-3 py-2 text-small text-saw-grey-800"
+          className="rounded-card bg-saw-grey-50 dark:bg-saw-black px-3 py-2 text-small text-saw-grey-800 dark:text-saw-beige"
           data-testid="scanner-handoff"
         >
           {t("scanner.scan.handoff")}

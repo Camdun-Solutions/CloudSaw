@@ -84,66 +84,66 @@ export default function CustomReport({ onBack }: Props) {
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 px-8 py-10">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
       <header className="mb-6">
         <BackBreadcrumb
           destination={t("nav.settings")}
           onBack={onBack}
           data-testid="custom-report-back"
         />
-        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
+        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("report.custom.title")}
         </h1>
-        <p className="mt-1 text-small text-saw-grey-600">
+        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("report.custom.body")}
         </p>
       </header>
 
-      <section className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6">
+      <section className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+            <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
               <span>{t("report.custom.start")}</span>
               <input
                 type="date"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+                className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
                 data-testid="custom-report-start"
               />
             </label>
-            <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+            <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
               <span>{t("report.custom.end")}</span>
               <input
                 type="date"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+                className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
                 data-testid="custom-report-end"
               />
             </label>
           </div>
 
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("report.custom.account_scope")}</span>
             <textarea
               value={scopeRaw}
               onChange={(e) => setScopeRaw(e.target.value)}
               placeholder={t("report.custom.account_scope_placeholder")}
               rows={3}
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
               data-testid="custom-report-scope"
             />
-            <span className="text-xs text-saw-grey-500">
+            <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
               {t("report.custom.empty_scope_hint")}
             </span>
           </label>
 
           <fieldset>
-            <legend className="text-saw-grey-900 font-medium text-small">
+            <legend className="text-saw-grey-900 dark:text-saw-beige font-medium text-small">
               {t("report.export.format_label")}
             </legend>
-            <label className="mr-4 text-small text-saw-grey-700">
+            <label className="mr-4 text-small text-saw-grey-700 dark:text-saw-grey-300">
               <input
                 type="radio"
                 name="custom-report-format"
@@ -153,7 +153,7 @@ export default function CustomReport({ onBack }: Props) {
               />{" "}
               {t("report.export.format.html")}
             </label>
-            <label className="text-small text-saw-grey-700">
+            <label className="text-small text-saw-grey-700 dark:text-saw-grey-300">
               <input
                 type="radio"
                 name="custom-report-format"
@@ -165,7 +165,7 @@ export default function CustomReport({ onBack }: Props) {
             </label>
           </fieldset>
 
-          <label className="flex items-start gap-2 text-small text-saw-grey-700">
+          <label className="flex items-start gap-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <input
               type="checkbox"
               checked={showFullIds}
@@ -174,11 +174,11 @@ export default function CustomReport({ onBack }: Props) {
               data-testid="custom-report-disclosure"
             />
             <span>
-              <span className="font-medium text-saw-grey-900">
+              <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
                 {t("report.export.disclosure_label")}
               </span>
               <br />
-              <span className="text-xs text-saw-grey-600">
+              <span className="text-xs text-saw-grey-600 dark:text-saw-grey-400">
                 {t("report.export.disclosure_hint")}
               </span>
             </span>
@@ -200,7 +200,7 @@ export default function CustomReport({ onBack }: Props) {
           {error ? (
             <p
               role="alert"
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
               data-testid="custom-report-error"
             >
               {error}
@@ -208,7 +208,7 @@ export default function CustomReport({ onBack }: Props) {
           ) : null}
           {outcome ? (
             <div
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
               data-testid="custom-report-outcome"
             >
               <p>

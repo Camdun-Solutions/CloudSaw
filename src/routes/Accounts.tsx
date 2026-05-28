@@ -139,14 +139,14 @@ export default function Accounts({
   // configured-accounts list. In standalone mode (legacy route),
   // the original full-page header renders unchanged.
   const standaloneHeader = (
-    <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+    <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
       <div className="flex items-center gap-3">
         <Logo size="sm" />
         <div className="flex flex-col">
           <h1 className="text-h2 font-semibold tracking-tight">
             {t("accounts.title")}
           </h1>
-          <p className="text-small text-saw-grey-500">
+          <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
             {t("accounts.subtitle")}
           </p>
         </div>
@@ -226,7 +226,7 @@ export default function Accounts({
             <h2 className="text-h3 font-semibold tracking-tight">
               {t("accounts.section.configured")}
             </h2>
-            <p className="mt-1 max-w-2xl text-small text-saw-grey-600">
+            <p className="mt-1 max-w-2xl text-small text-saw-grey-600 dark:text-saw-grey-400">
               {t("accounts.section.configured_hint")}
             </p>
           </div>
@@ -239,13 +239,13 @@ export default function Accounts({
           </Button>
         </div>
 
-        <label className="mt-4 inline-flex items-center gap-2 text-small text-saw-grey-600">
+        <label className="mt-4 inline-flex items-center gap-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
           <input
             type="checkbox"
             checked={display.reveal_full_ids}
             onChange={(e) => void onToggleReveal(e.target.checked)}
             data-testid="accounts-reveal-toggle"
-            className="h-4 w-4 rounded border-saw-grey-300"
+            className="h-4 w-4 rounded border-saw-grey-300 dark:border-saw-grey-700"
           />
           {t("accounts.reveal_toggle.label")}
         </label>
@@ -253,7 +253,7 @@ export default function Accounts({
         {loadError ? (
           <p
             role="alert"
-            className="mt-6 rounded-card border border-saw-grey-200 bg-saw-white px-4 py-3 text-body text-saw-red"
+            className="mt-6 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 text-body text-saw-red"
             data-testid="accounts-load-error"
           >
             {loadError}
@@ -262,7 +262,7 @@ export default function Accounts({
 
         <div className="mt-6" data-testid="accounts-list">
           {accounts === null ? (
-            <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+            <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
           ) : accounts.length === 0 ? (
             <EmptyState
               title={t("accounts.empty.title")}
@@ -279,7 +279,7 @@ export default function Accounts({
             />
           ) : (
             <ul
-              className="divide-y divide-saw-grey-200 rounded-card border border-saw-grey-200 bg-saw-white"
+              className="divide-y divide-saw-grey-200 dark:divide-saw-grey-700 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark"
               data-testid="accounts-rows"
             >
               {accounts.map((a) => (
@@ -400,7 +400,7 @@ export default function Accounts({
     return body;
   }
   return (
-    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
       {standaloneHeader}
       {body}
     </main>
@@ -467,7 +467,7 @@ function AccountRow({
           {profileMissing ? (
             <p
               role="alert"
-              className="mt-2 rounded-card bg-saw-grey-50 px-3 py-2 text-small text-saw-grey-700"
+              className="mt-2 rounded-card bg-saw-grey-50 dark:bg-saw-black px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
               data-testid={`account-invalid-hint-${account.aws_account_id}`}
             >
               {t("accounts.row.profile_missing_hint").replace(
@@ -476,23 +476,23 @@ function AccountRow({
               )}
             </p>
           ) : null}
-          <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-small text-saw-grey-600">
-            <dt className="text-saw-grey-500">{t("accounts.row.profile")}</dt>
+          <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-small text-saw-grey-600 dark:text-saw-grey-400">
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.profile")}</dt>
             <dd className="font-mono">{account.profile_name}</dd>
-            <dt className="text-saw-grey-500">{t("accounts.row.account_id")}</dt>
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.account_id")}</dt>
             <dd
               className="font-mono"
               data-testid={`account-id-${account.aws_account_id}`}
             >
               {displayedId}
             </dd>
-            <dt className="text-saw-grey-500">{t("accounts.row.role_status")}</dt>
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.role_status")}</dt>
             <dd>
               {account.role_provisioned
                 ? t("accounts.row.role_provisioned")
                 : t("accounts.row.role_not_provisioned")}
             </dd>
-            <dt className="text-saw-grey-500">{t("accounts.row.last_scan")}</dt>
+            <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.last_scan")}</dt>
             <dd>
               {account.last_scan_at
                 ? formatTs(account.last_scan_at)
@@ -670,12 +670,12 @@ function AddAccountModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-small text-saw-grey-600">
+        <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("accounts.add.explainer")}
         </p>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-small font-medium text-saw-grey-700">
+          <span className="text-small font-medium text-saw-grey-700 dark:text-saw-grey-300">
             {t("accounts.add.label_field")}
           </span>
           <input
@@ -684,9 +684,9 @@ function AddAccountModal({
             onChange={(e) => setLabel(e.target.value)}
             data-testid="accounts-add-label"
             maxLength={64}
-            className="block w-full rounded-card border border-saw-grey-300 bg-saw-white px-3 py-2 text-body text-saw-grey-900 focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
+            className="block w-full rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
           />
-          <span className="text-small text-saw-grey-500">
+          <span className="text-small text-saw-grey-500 dark:text-saw-grey-400">
             {t("accounts.add.label_hint")}
           </span>
         </label>
@@ -694,7 +694,7 @@ function AddAccountModal({
         {profilesLoaded && profiles.length === 0 ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-50 px-3 py-2 text-small text-saw-grey-700"
+            className="rounded-card bg-saw-grey-50 dark:bg-saw-black px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="accounts-add-no-profiles"
           >
             {t("accounts.add.no_profiles")}
@@ -727,7 +727,7 @@ function AddAccountModal({
         {error ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="accounts-add-error"
           >
             {error}
@@ -853,12 +853,12 @@ function EditAccountModal({
     >
       {target ? (
         <div className="flex flex-col gap-4">
-          <p className="text-small text-saw-grey-600">
+          <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
             {t("accounts.edit.explainer")}
           </p>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-small font-medium text-saw-grey-700">
+            <span className="text-small font-medium text-saw-grey-700 dark:text-saw-grey-300">
               {t("accounts.add.label_field")}
             </span>
             <input
@@ -867,7 +867,7 @@ function EditAccountModal({
               onChange={(e) => setLabel(e.target.value)}
               data-testid="accounts-edit-label"
               maxLength={64}
-              className="block w-full rounded-card border border-saw-grey-300 bg-saw-white px-3 py-2 text-body text-saw-grey-900 focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
+              className="block w-full rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
             />
           </label>
 
@@ -891,7 +891,7 @@ function EditAccountModal({
           {error ? (
             <p
               role="alert"
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
               data-testid="accounts-edit-error"
             >
               {error}
@@ -979,10 +979,10 @@ function RemoveAccountModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-body text-saw-grey-800">
+        <p className="text-body text-saw-grey-800 dark:text-saw-beige">
           {t("accounts.remove.explainer").replace("{label}", targetAccount.label)}
         </p>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-card bg-saw-grey-50 px-4 py-3 text-small">
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-card bg-saw-grey-50 dark:bg-saw-black px-4 py-3 text-small">
           <dt className="text-saw-grey-500">{t("accounts.row.profile")}</dt>
           <dd className="font-mono">{targetAccount.profile_name}</dd>
           <dt className="text-saw-grey-500">{t("accounts.row.account_id")}</dt>
@@ -1000,11 +1000,11 @@ function RemoveAccountModal({
           </dt>
           <dd>{t("accounts.remove.impact.tf_work_zero")}</dd>
         </dl>
-        <p className="text-small text-saw-grey-700">
+        <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
           {t("accounts.remove.permanence")}
         </p>
         <label className="flex flex-col gap-1.5">
-          <span className="text-small font-medium text-saw-grey-700">
+          <span className="text-small font-medium text-saw-grey-700 dark:text-saw-grey-300">
             {t("accounts.remove.type_to_confirm").replace("{label}", expected)}
           </span>
           <input
@@ -1013,13 +1013,13 @@ function RemoveAccountModal({
             onChange={(e) => setTyped(e.target.value)}
             data-testid="accounts-remove-typed"
             autoComplete="off"
-            className="block w-full rounded-card border border-saw-grey-300 bg-saw-white px-3 py-2 font-mono text-body text-saw-grey-900 focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
+            className="block w-full rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 font-mono text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
           />
         </label>
         {error ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="accounts-remove-error"
           >
             {error}

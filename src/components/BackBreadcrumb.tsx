@@ -38,7 +38,7 @@ export default function BackBreadcrumb({
       type="button"
       onClick={onBack}
       data-testid={testId ?? "back-breadcrumb"}
-      className="inline-flex items-center gap-1.5 text-small font-medium text-saw-grey-700 transition hover:text-saw-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
+      className="inline-flex items-center gap-1.5 text-small font-medium text-saw-grey-700 dark:text-saw-grey-300 transition hover:text-saw-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
     >
       <svg
         aria-hidden="true"

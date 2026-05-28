@@ -43,7 +43,7 @@ export default function VersionFooter() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-2 left-2 z-30 text-xs text-saw-grey-500"
+      className="pointer-events-none fixed bottom-2 left-2 z-30 text-xs text-saw-grey-500 dark:text-saw-grey-400"
       data-testid="version-footer"
       aria-label={`${t("app.version_label")} ${version}`}
     >

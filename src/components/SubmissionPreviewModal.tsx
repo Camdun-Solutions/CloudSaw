@@ -133,31 +133,31 @@ export default function SubmissionPreviewModal({
         </>
       }
     >
-      <div className="flex flex-col gap-3 text-small text-saw-grey-800">
+      <div className="flex flex-col gap-3 text-small text-saw-grey-800 dark:text-saw-beige">
         <p>{t("submitpreview.subtitle")}</p>
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("submitpreview.repo_label")}
           </div>
-          <div className="font-mono text-saw-grey-700">
+          <div className="font-mono text-saw-grey-700 dark:text-saw-grey-300">
             {preview.repo.owner}/{preview.repo.name}
           </div>
         </div>
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("submitpreview.issue_title")}
           </div>
-          <div className="font-mono text-saw-grey-700">{preview.title}</div>
+          <div className="font-mono text-saw-grey-700 dark:text-saw-grey-300">{preview.title}</div>
         </div>
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("submitpreview.labels")}
           </div>
           <div className="flex flex-wrap gap-1">
             {preview.labels.map((l) => (
               <span
                 key={l}
-                className="rounded-full bg-saw-grey-100 px-2 py-0.5 text-xs text-saw-grey-700"
+                className="rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-xs text-saw-grey-700 dark:text-saw-grey-300"
               >
                 {l}
               </span>
@@ -165,11 +165,11 @@ export default function SubmissionPreviewModal({
           </div>
         </div>
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("submitpreview.issue_body")}
           </div>
           <pre
-            className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 bg-saw-grey-50 p-2 font-mono text-xs text-saw-grey-800"
+            className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
             data-testid="submitpreview-body"
           >
             {preview.body}
@@ -178,7 +178,7 @@ export default function SubmissionPreviewModal({
         {err ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="submitpreview-error"
           >
             {err}

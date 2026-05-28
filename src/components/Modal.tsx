@@ -65,13 +65,13 @@ export default function Modal({
         // header/footer (which stay pinned). Fixes the
         // ConnectScannerRoleForm modal that previously overflowed
         // the viewport on shorter windows.
-        className={`flex w-full ${SIZE_CLASSES[size]} max-h-[calc(100vh-2rem)] flex-col rounded-card bg-saw-white shadow-xl outline-none`}
+        className={`flex w-full ${SIZE_CLASSES[size]} max-h-[calc(100vh-2rem)] flex-col rounded-card bg-saw-white dark:bg-saw-grey-dark shadow-xl outline-none`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-saw-grey-200 px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-saw-grey-200 dark:border-saw-grey-700 px-5 py-3">
           <h2
             id="modal-title"
-            className="flex-1 text-h3 font-semibold text-saw-grey-900"
+            className="flex-1 text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige"
           >
             {title}
           </h2>
@@ -86,7 +86,7 @@ export default function Modal({
             onClick={onClose}
             aria-label={t("common.close")}
             data-testid="modal-close-button"
-            className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-saw-grey-500 transition hover:bg-saw-grey-100 hover:text-saw-grey-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
+            className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-saw-grey-500 dark:text-saw-grey-400 transition hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-grey-800 dark:hover:text-saw-beige focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
           >
             <svg
               aria-hidden="true"
@@ -103,11 +103,11 @@ export default function Modal({
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 text-body text-saw-grey-800">
+        <div className="flex-1 overflow-y-auto px-5 py-4 text-body text-saw-grey-800 dark:text-saw-beige">
           {children}
         </div>
         {footer ? (
-          <div className="flex justify-end gap-2 border-t border-saw-grey-200 px-5 py-3">
+          <div className="flex justify-end gap-2 border-t border-saw-grey-200 dark:border-saw-grey-700 px-5 py-3">
             {footer}
           </div>
         ) : null}

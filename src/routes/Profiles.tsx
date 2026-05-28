@@ -92,8 +92,8 @@ export default function Profiles({ onClose }: Props) {
   }
 
   return (
-    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
-      <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
+      <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
         {/* PR #49: back-arrow breadcrumb replaces the old Close
             text button. Profiles is a sub-page of Settings (the
             embedded Accounts panel's "Open profiles" button is
@@ -111,7 +111,7 @@ export default function Profiles({ onClose }: Props) {
             <h1 className="text-h2 font-semibold tracking-tight">
               {t("profiles.title")}
             </h1>
-            <p className="text-small text-saw-grey-500">{t("app.tagline")}</p>
+            <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">{t("app.tagline")}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -128,14 +128,14 @@ export default function Profiles({ onClose }: Props) {
       </header>
 
       <section className="mx-auto max-w-4xl px-8 py-10">
-        <p className="max-w-2xl text-body text-saw-grey-600">
+        <p className="max-w-2xl text-body text-saw-grey-600 dark:text-saw-grey-400">
           {t("profiles.subtitle")}
         </p>
 
         {loadError ? (
           <p
             role="alert"
-            className="mt-6 rounded-card border border-saw-grey-200 bg-saw-white px-4 py-3 text-body text-saw-red"
+            className="mt-6 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 text-body text-saw-red"
             data-testid="profiles-load-error"
           >
             {loadError}
@@ -144,7 +144,7 @@ export default function Profiles({ onClose }: Props) {
 
         <div className="mt-8" data-testid="profiles-list">
           {profiles === null ? (
-            <p className="text-body text-saw-grey-600">{t("common.loading")}</p>
+            <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">{t("common.loading")}</p>
           ) : profiles.length === 0 ? (
             <EmptyState
               title={t("profiles.empty.title")}
@@ -162,7 +162,7 @@ export default function Profiles({ onClose }: Props) {
               }
             />
           ) : (
-            <ul className="divide-y divide-saw-grey-200 rounded-card border border-saw-grey-200 bg-saw-white">
+            <ul className="divide-y divide-saw-grey-200 dark:divide-saw-grey-700 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark">
               {profiles.map((p) => (
                 <ProfileRow
                   key={p.name}
@@ -226,7 +226,7 @@ function ProfileRow({
           >
             {profile.name}
           </p>
-          <p className="text-small text-saw-grey-500">
+          <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
             {profile.source === "sso"
               ? t("profiles.source.sso")
               : t("profiles.source.cli")}
@@ -248,19 +248,19 @@ function ProfileRow({
 
       {result?.status === "success" ? (
         <dl
-          className="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-card bg-saw-grey-50 px-4 py-3 text-small"
+          className="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-card bg-saw-grey-50 dark:bg-saw-black px-4 py-3 text-small"
           data-testid={`profile-success-${profile.name}`}
         >
-          <dt className="text-saw-grey-500">{t("profiles.result.account")}</dt>
-          <dd className="font-mono text-saw-grey-900">
+          <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("profiles.result.account")}</dt>
+          <dd className="font-mono text-saw-grey-900 dark:text-saw-beige">
             {result.identity.account_id}
           </dd>
-          <dt className="text-saw-grey-500">{t("profiles.result.arn")}</dt>
-          <dd className="break-all font-mono text-saw-grey-900">
+          <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("profiles.result.arn")}</dt>
+          <dd className="break-all font-mono text-saw-grey-900 dark:text-saw-beige">
             {result.identity.arn}
           </dd>
-          <dt className="text-saw-grey-500">{t("profiles.result.user_id")}</dt>
-          <dd className="break-all font-mono text-saw-grey-900">
+          <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("profiles.result.user_id")}</dt>
+          <dd className="break-all font-mono text-saw-grey-900 dark:text-saw-beige">
             {result.identity.user_id}
           </dd>
         </dl>
@@ -269,12 +269,12 @@ function ProfileRow({
       {result?.status === "failure" ? (
         <div
           role="alert"
-          className="mt-3 rounded-card bg-saw-grey-50 px-4 py-3 text-small"
+          className="mt-3 rounded-card bg-saw-grey-50 dark:bg-saw-black px-4 py-3 text-small"
           data-testid={`profile-failure-${profile.name}`}
         >
-          <p className="text-saw-grey-900">{t(FAILURE_KEY[result.reason])}</p>
+          <p className="text-saw-grey-900 dark:text-saw-beige">{t(FAILURE_KEY[result.reason])}</p>
           {result.api ? (
-            <p className="mt-1 text-saw-grey-500">
+            <p className="mt-1 text-saw-grey-500 dark:text-saw-grey-400">
               {t("profiles.result.failed_api")}: <span className="font-mono">{result.api}</span>
             </p>
           ) : null}

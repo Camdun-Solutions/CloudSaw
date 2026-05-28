@@ -167,17 +167,17 @@ export default function ScheduledScans({ onBack }: Props) {
   );
 
   return (
-    <main className="min-h-full bg-saw-grey-50 px-8 py-10">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
       <header className="mb-6">
         <BackBreadcrumb
           destination={t("nav.settings")}
           onBack={onBack}
           data-testid="schedules-back"
         />
-        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
+        <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("schedules.title")}
         </h1>
-        <p className="mt-1 text-small text-saw-grey-600">
+        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("schedules.subtitle")}
         </p>
       </header>
@@ -186,12 +186,12 @@ export default function ScheduledScans({ onBack }: Props) {
         className="grid max-w-5xl gap-6 lg:grid-cols-[260px_1fr]"
         data-testid="schedules-section"
       >
-        <aside className="rounded-card border border-saw-grey-200 bg-saw-white p-3">
-          <p className="px-2 pb-2 text-small font-medium text-saw-grey-600">
+        <aside className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-3">
+          <p className="px-2 pb-2 text-small font-medium text-saw-grey-600 dark:text-saw-grey-400">
             {t("schedules.accounts_label")}
           </p>
           {loading && accounts.length === 0 ? (
-            <p className="px-2 py-3 text-small text-saw-grey-500">
+            <p className="px-2 py-3 text-small text-saw-grey-500 dark:text-saw-grey-400">
               {t("common.loading")}
             </p>
           ) : accounts.length === 0 ? (
@@ -219,14 +219,14 @@ export default function ScheduledScans({ onBack }: Props) {
                         "flex w-full flex-col items-start gap-1 rounded-card px-3 py-2 text-left",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
                         isSelected
-                          ? "bg-saw-grey-100 text-saw-grey-900"
-                          : "text-saw-grey-700 hover:bg-saw-grey-50",
+                          ? "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-900 dark:text-saw-beige"
+                          : "text-saw-grey-700 dark:text-saw-grey-300 hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800",
                       ].join(" ")}
                     >
                       <span className="text-body font-medium">
                         {account.label}
                       </span>
-                      <span className="text-small text-saw-grey-500">
+                      <span className="text-small text-saw-grey-500 dark:text-saw-grey-400">
                         {maskAccountId(account.aws_account_id)}
                       </span>
                       {schedule ? (
@@ -253,7 +253,7 @@ export default function ScheduledScans({ onBack }: Props) {
             <p
               role="alert"
               data-testid="schedules-load-error"
-              className="mb-4 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+              className="mb-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             >
               {loadError}
             </p>
@@ -265,7 +265,7 @@ export default function ScheduledScans({ onBack }: Props) {
               onChanged={refresh}
             />
           ) : (
-            <p className="text-body text-saw-grey-600">
+            <p className="text-body text-saw-grey-600 dark:text-saw-grey-400">
               {t("schedules.pick_an_account")}
             </p>
           )}
@@ -392,24 +392,24 @@ function SchedulePanel({
 
   return (
     <section
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-6"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-6"
       data-testid="schedules-panel"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-h3 font-semibold text-saw-grey-900">
+          <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
             {account.label}
           </h2>
-          <p className="mt-1 text-small text-saw-grey-600">
+          <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
             {t("schedules.panel.subtitle")}
           </p>
         </div>
         <div className="flex flex-col gap-1 text-right">
-          <p className="text-small text-saw-grey-500">
+          <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
             {t("schedules.panel.next_run")}
           </p>
           <p
-            className="text-body font-medium text-saw-grey-900"
+            className="text-body font-medium text-saw-grey-900 dark:text-saw-beige"
             data-testid="schedules-next-run"
           >
             {schedule?.enabled
@@ -423,7 +423,7 @@ function SchedulePanel({
         <p
           role="status"
           data-testid="schedules-role-warning"
-          className="mt-4 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
         >
           {t("schedules.panel.role_warning")}
         </p>
@@ -507,7 +507,7 @@ function SchedulePanel({
         <p
           role="alert"
           data-testid="schedules-save-error"
-          className="mt-4 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
         >
           {error}
         </p>
@@ -516,7 +516,7 @@ function SchedulePanel({
         <p
           role="status"
           data-testid="schedules-saved"
-          className="mt-4 rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+          className="mt-4 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
         >
           {t("schedules.panel.saved")}
         </p>
@@ -544,28 +544,28 @@ function SchedulePanel({
       </div>
 
       {schedule ? (
-        <div className="mt-8 border-t border-saw-grey-200 pt-6">
-          <h3 className="text-small font-semibold uppercase tracking-wide text-saw-grey-600">
+        <div className="mt-8 border-t border-saw-grey-200 dark:border-saw-grey-700 pt-6">
+          <h3 className="text-small font-semibold uppercase tracking-wide text-saw-grey-600 dark:text-saw-grey-400">
             {t("schedules.panel.last_run_title")}
           </h3>
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <dt className="text-small text-saw-grey-500">
+              <dt className="text-small text-saw-grey-500 dark:text-saw-grey-400">
                 {t("schedules.panel.last_run_at")}
               </dt>
               <dd
-                className="text-body text-saw-grey-900"
+                className="text-body text-saw-grey-900 dark:text-saw-beige"
                 data-testid="schedules-last-run-at"
               >
                 {formatLocalTimestamp(schedule.last_run_at)}
               </dd>
             </div>
             <div>
-              <dt className="text-small text-saw-grey-500">
+              <dt className="text-small text-saw-grey-500 dark:text-saw-grey-400">
                 {t("schedules.panel.last_run_outcome")}
               </dt>
               <dd
-                className="text-body text-saw-grey-900"
+                className="text-body text-saw-grey-900 dark:text-saw-beige"
                 data-testid="schedules-last-run-outcome"
               >
                 {t(lastRunOutcomeKey(schedule.last_run_outcome))}

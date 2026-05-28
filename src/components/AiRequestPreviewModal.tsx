@@ -80,18 +80,18 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
         </>
       }
     >
-      <div className="flex flex-col gap-3 text-small text-saw-grey-800">
+      <div className="flex flex-col gap-3 text-small text-saw-grey-800 dark:text-saw-beige">
         <p>{t("ai.preview.subtitle")}</p>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="font-medium text-saw-grey-900">
+            <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
               {t("ai.preview.provider")}
             </div>
-            <div className="font-mono text-saw-grey-700">{preview.provider}</div>
+            <div className="font-mono text-saw-grey-700 dark:text-saw-grey-300">{preview.provider}</div>
           </div>
           <div>
-            <div className="font-medium text-saw-grey-900">
+            <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
               {t("ai.preview.model")}
             </div>
             <div className="font-mono text-saw-grey-700" data-testid="ai-preview-model">
@@ -101,10 +101,10 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
         </div>
 
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("ai.preview.digest_label")}
           </div>
-          <div className="font-mono text-xs text-saw-grey-700">
+          <div className="font-mono text-xs text-saw-grey-700 dark:text-saw-grey-300">
             <div>rule_key: {preview.digest.rule_key}</div>
             <div>service: {preview.digest.service}</div>
             <div>resource_category: {preview.digest.resource_category}</div>
@@ -120,7 +120,7 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
           <div className="font-medium text-saw-grey-900">
             {t("ai.preview.context_label")}
           </div>
-          <div className="font-mono text-xs text-saw-grey-700">
+          <div className="font-mono text-xs text-saw-grey-700 dark:text-saw-grey-300">
             <div>industry: {preview.context.industry || "(none)"}</div>
             <div>environment_type: {preview.context.environment_type}</div>
             <div>compliance: {preview.context.compliance.join(", ") || "(none)"}</div>
@@ -156,7 +156,7 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
             {preview.placeholders_used.map((p) => (
               <span
                 key={p}
-                className="rounded-full bg-saw-grey-100 px-2 py-0.5 text-xs font-mono text-saw-grey-800"
+                className="rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-xs font-mono text-saw-grey-800 dark:text-saw-beige"
               >
                 {p}
               </span>
@@ -169,7 +169,7 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
             {t("ai.preview.system_label")}
           </div>
           <pre
-            className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 bg-saw-grey-50 p-2 font-mono text-xs text-saw-grey-800"
+            className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
             data-testid="ai-preview-system"
           >
             {preview.system_prompt}
@@ -181,7 +181,7 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
             {t("ai.preview.user_label")}
           </div>
           <pre
-            className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 bg-saw-grey-50 p-2 font-mono text-xs text-saw-grey-800"
+            className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
             data-testid="ai-preview-user"
           >
             {preview.user_message}
@@ -191,7 +191,7 @@ export default function AiRequestPreviewModal({ preview, onSend, onClose }: Prop
         {err ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             data-testid="ai-preview-error"
           >
             {err}

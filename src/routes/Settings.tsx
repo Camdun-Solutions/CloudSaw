@@ -7,8 +7,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { BackBreadcrumb, Button, Modal, PasswordField, Select, Switch } from "@/components";
+import { useAppearance } from "@/hooks/useAppearance";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
+import type { Appearance } from "@/lib/appearance";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Accounts from "@/routes/Accounts";
 import {
@@ -42,6 +44,7 @@ import { useLock } from "@/stores/lock";
 type SettingsSection =
   | "app_lock"
   | "accounts"
+  | "appearance"
   | "notifications"
   | "schedules"
   | "activity_log"
@@ -56,6 +59,10 @@ type SettingsSection =
 const SECTION_ORDER: SettingsSection[] = [
   "app_lock",
   "accounts",
+  // PR #57: Light/Dark theme switcher. Placed near the top of the
+  // nav so a user looking to flip the theme isn't hunting past
+  // ten other sections to find it.
+  "appearance",
   "notifications",
   "schedules",
   "activity_log",
@@ -198,6 +205,7 @@ export default function Settings({
   const sectionLabels: Record<SettingsSection, string> = {
     app_lock: t("settings.nav.app_lock"),
     accounts: t("settings.nav.accounts"),
+    appearance: t("settings.nav.appearance"),
     notifications: t("settings.nav.notifications"),
     schedules: t("settings.nav.schedules"),
     activity_log: t("settings.nav.activity_log"),
@@ -211,7 +219,7 @@ export default function Settings({
   };
 
   return (
-    <main className="min-h-full bg-saw-grey-50 px-8 py-10">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
       {/* PR #55: max-w-7xl mx-auto wraps the Settings content so the
           two-column (left-nav + right-panel) layout stays readable
           on ultra-wide displays instead of spreading the right
@@ -228,10 +236,10 @@ export default function Settings({
             onBack={onClose}
             data-testid="settings-back"
           />
-          <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900">
+          <h1 className="mt-2 text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
             {t("nav.settings")}
           </h1>
-          <p className="mt-1 text-small text-saw-grey-600">
+          <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
             {t("applock.settings.subtitle")}
           </p>
         </div>
@@ -248,7 +256,7 @@ export default function Settings({
         <nav
           aria-label={t("settings.nav.aria_label")}
           data-testid="settings-nav"
-          className="sticky top-3 flex w-56 shrink-0 flex-col gap-1 rounded-card border border-saw-grey-200 bg-saw-white p-2"
+          className="sticky top-3 flex w-56 shrink-0 flex-col gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-2"
         >
           {SECTION_ORDER.map((section) => {
             const isActive = activeSection === section;
@@ -262,7 +270,7 @@ export default function Settings({
                 className={
                   isActive
                     ? "rounded-card bg-saw-red px-3 py-2 text-left text-small font-medium text-saw-white"
-                    : "rounded-card px-3 py-2 text-left text-small font-medium text-saw-grey-700 transition hover:bg-saw-grey-100 hover:text-saw-grey-900"
+                    : "rounded-card px-3 py-2 text-left text-small font-medium text-saw-grey-700 dark:text-saw-grey-300 transition hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-grey-900 dark:hover:text-saw-beige"
                 }
               >
                 {sectionLabels[section]}
@@ -276,12 +284,12 @@ export default function Settings({
       {activeSection === "app_lock" && (
       <section
         data-testid="settings-section-app_lock"
-        className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       >
-        <h2 className="text-h3 font-semibold text-saw-grey-900">
+        <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("applock.settings.section.app_lock")}
         </h2>
-        <p className="mt-1 text-small text-saw-grey-600">
+        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("applock.disclosure")}
         </p>
 
@@ -315,7 +323,7 @@ export default function Settings({
           {saveError ? (
             <p
               role="alert"
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
             >
               {saveError}
             </p>
@@ -323,7 +331,7 @@ export default function Settings({
           {savedFlash ? (
             <p
               role="status"
-              className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+              className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             >
               {t("applock.settings.saved")}
             </p>
@@ -359,13 +367,13 @@ export default function Settings({
 
       {activeSection === "accounts" && (
       <section
-        className="max-w-4xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        className="max-w-4xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
         data-testid="settings-section-accounts"
       >
-        <h2 className="text-h3 font-semibold text-saw-grey-900">
+        <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("accounts.title")}
         </h2>
-        <p className="mt-1 text-small text-saw-grey-600">
+        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("accounts.subtitle")}
         </p>
         <div className="mt-4">
@@ -374,17 +382,19 @@ export default function Settings({
       </section>
       )}
 
+      {activeSection === "appearance" && <AppearanceSection />}
+
       {activeSection === "notifications" && <NotificationsSection />}
 
       {activeSection === "schedules" && (
       <section
-        className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+        className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
         data-testid="settings-section-schedules"
       >
-        <h2 className="text-h3 font-semibold text-saw-grey-900">
+        <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("schedules.section_title")}
         </h2>
-        <p className="mt-1 text-small text-saw-grey-600">
+        <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("schedules.section_subtitle")}
         </p>
         <div className="mt-4">
@@ -453,6 +463,84 @@ type UpdateCheckResult =
  *  underlying helper (`lib/scanNotifications.ts`) handles
  *  permission prompts on first send; this section just exposes the
  *  user-controlled opt-in. */
+/** PR #57: Settings → Appearance — Light / Dark / Match system. The
+ *  hook handles persistence + applying the `dark` class to <html>;
+ *  this component just owns the radio surface. */
+function AppearanceSection() {
+  const t = useT();
+  const { appearance, setAppearance } = useAppearance();
+
+  const options: { value: Appearance; label: string; description: string }[] = [
+    {
+      value: "light",
+      label: t("settings.appearance.light.label"),
+      description: t("settings.appearance.light.description"),
+    },
+    {
+      value: "dark",
+      label: t("settings.appearance.dark.label"),
+      description: t("settings.appearance.dark.description"),
+    },
+    {
+      value: "system",
+      label: t("settings.appearance.system.label"),
+      description: t("settings.appearance.system.description"),
+    },
+  ];
+
+  return (
+    <section
+      className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6 dark:bg-saw-grey-dark dark:border-saw-grey-700"
+      data-testid="settings-section-appearance"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
+        {t("settings.appearance.title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-300">
+        {t("settings.appearance.subtitle")}
+      </p>
+      <div
+        className="mt-4 flex flex-col gap-3"
+        role="radiogroup"
+        aria-labelledby="settings-appearance-title"
+      >
+        {options.map((opt) => {
+          const checked = appearance === opt.value;
+          return (
+            <label
+              key={opt.value}
+              className={
+                "flex cursor-pointer items-start gap-3 rounded-card border p-3 transition " +
+                (checked
+                  ? "border-saw-red bg-saw-red/5 dark:bg-saw-red/10"
+                  : "border-saw-grey-200 hover:bg-saw-grey-50 dark:border-saw-grey-700 dark:hover:bg-saw-grey-800")
+              }
+              data-testid={`settings-appearance-${opt.value}`}
+            >
+              <input
+                type="radio"
+                name="settings-appearance"
+                value={opt.value}
+                checked={checked}
+                onChange={() => setAppearance(opt.value)}
+                className="mt-1 accent-saw-red"
+              />
+              <div className="flex flex-col">
+                <span className="text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+                  {opt.label}
+                </span>
+                <span className="text-small text-saw-grey-600 dark:text-saw-grey-300">
+                  {opt.description}
+                </span>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function NotificationsSection() {
   const t = useT();
   const [enabled, setEnabled] = useState<boolean>(
@@ -466,13 +554,13 @@ function NotificationsSection() {
 
   return (
     <section
-      className="max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-notifications"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("settings.notifications.title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("settings.notifications.subtitle")}
       </p>
       <div className="mt-4">
@@ -545,17 +633,17 @@ function UpdatesSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-updates"
       aria-labelledby="settings-updates-title"
     >
       <h2
         id="settings-updates-title"
-        className="text-h3 font-semibold text-saw-grey-900"
+        className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige"
       >
         {t("settings.section.updates_title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("settings.section.updates_subtitle")}
       </p>
 
@@ -568,22 +656,22 @@ function UpdatesSection() {
         />
       </div>
 
-      <hr className="my-4 border-saw-grey-100" />
+      <hr className="my-4 border-saw-grey-100 dark:border-saw-grey-800" />
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-small">
-        <dt className="text-saw-grey-500">
+        <dt className="text-saw-grey-500 dark:text-saw-grey-400">
           {t("settings.updates.installed_version_label")}
         </dt>
         <dd
-          className="font-mono text-saw-grey-900"
+          className="font-mono text-saw-grey-900 dark:text-saw-beige"
           data-testid="settings-updates-installed-version"
         >
           {installedVersion ?? "—"}
         </dd>
-        <dt className="text-saw-grey-500">
+        <dt className="text-saw-grey-500 dark:text-saw-grey-400">
           {t("settings.updates.last_checked_label")}
         </dt>
-        <dd className="text-saw-grey-900" data-testid="settings-updates-last-checked">
+        <dd className="text-saw-grey-900 dark:text-saw-beige" data-testid="settings-updates-last-checked">
           {lastCheckedLabel}
         </dd>
       </dl>
@@ -604,7 +692,7 @@ function UpdatesSection() {
       {result.kind === "up_to_date" ? (
         <p
           role="status"
-          className="mt-4 rounded-card bg-saw-grey-50 px-3 py-2 text-small text-saw-grey-800"
+          className="mt-4 rounded-card bg-saw-grey-50 dark:bg-saw-black px-3 py-2 text-small text-saw-grey-800 dark:text-saw-beige"
           data-testid="settings-updates-result-up-to-date"
         >
           {t("settings.updates.up_to_date")}
@@ -614,10 +702,10 @@ function UpdatesSection() {
       {result.kind === "available" ? (
         <div
           role="status"
-          className="mt-4 rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-3 text-small text-saw-grey-800"
+          className="mt-4 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-3 py-3 text-small text-saw-grey-800 dark:text-saw-beige"
           data-testid="settings-updates-result-available"
         >
-          <p className="font-semibold text-saw-grey-900">
+          <p className="font-semibold text-saw-grey-900 dark:text-saw-beige">
             {t("settings.updates.available_title")}
           </p>
           <p className="mt-1">
@@ -643,13 +731,13 @@ function UpdatesSection() {
       {result.kind === "error" ? (
         <div
           role="alert"
-          className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 px-3 py-3 text-small text-saw-grey-900"
+          className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 px-3 py-3 text-small text-saw-grey-900 dark:text-saw-beige"
           data-testid="settings-updates-result-error"
         >
           <p className="font-semibold text-saw-red">
             {t("settings.updates.check_failed_title")}
           </p>
-          <p className="mt-1 text-saw-grey-800">
+          <p className="mt-1 text-saw-grey-800 dark:text-saw-beige">
             {t("settings.updates.check_failed_body")}
           </p>
         </div>
@@ -675,13 +763,13 @@ function OnboardingSection({
   if (!onRerun) return null;
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-onboarding"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("settings.section.onboarding_title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("settings.section.onboarding_subtitle")}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -708,13 +796,13 @@ function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
   const t = useT();
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-activitylog"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("eventlog.section_title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("eventlog.section_subtitle")}
       </p>
       <div className="mt-4">
@@ -836,13 +924,13 @@ function RetentionSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-retention"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("retention.section_title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("retention.section_subtitle")}
       </p>
 
@@ -864,21 +952,21 @@ function RetentionSection() {
           data-testid="settings-retention-eventlog"
         />
         {(scanChoice === "never" || eventChoice === "never") ? (
-          <p className="text-small text-saw-grey-600">
+          <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
             {t("retention.never_storage_hint")}
           </p>
         ) : null}
-        <p className="text-small text-saw-grey-500">{lastRun}</p>
+        <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">{lastRun}</p>
 
         {err ? (
-          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+          <p role="alert" className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red">
             {err}
           </p>
         ) : null}
         {toast ? (
           <p
             role="status"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="settings-retention-toast"
           >
             {toast}
@@ -951,7 +1039,7 @@ function PanicSection() {
         data-testid="settings-section-panic"
       >
         <h2 className="text-h3 font-semibold text-saw-red">{t("panic.section_title")}</h2>
-        <p className="mt-1 text-small text-saw-grey-700">{t("panic.section_subtitle")}</p>
+        <p className="mt-1 text-small text-saw-grey-700 dark:text-saw-grey-300">{t("panic.section_subtitle")}</p>
         <div className="mt-4">
           <Button
             variant="primary"
@@ -986,7 +1074,7 @@ function PanicSection() {
         <div className="flex flex-col gap-3">
           <p>{t("panic.explainer")}</p>
           <p className="text-small text-saw-red">{t("panic.warning")}</p>
-          <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+          <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
             <span>{t("panic.confirm_label")}</span>
             <input
               type="text"
@@ -994,12 +1082,12 @@ function PanicSection() {
               onChange={(e) => setConfirm(e.target.value)}
               placeholder={t("panic.confirm_placeholder")}
               autoFocus
-              className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+              className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
               data-testid="panic-confirm-input"
             />
           </label>
           {err ? (
-            <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+            <p role="alert" className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red">
               {err}
             </p>
           ) : null}
@@ -1045,7 +1133,7 @@ function PanicSection() {
                     : t("panic.success.staged_no"),
                 )}
             </p>
-            <p className="text-small text-saw-grey-700">
+            <p className="text-small text-saw-grey-700 dark:text-saw-grey-300">
               {t("panic.success.reboot_question")}
             </p>
           </div>
@@ -1164,7 +1252,7 @@ function ChangePasswordDialog({
         {error ? (
           <p
             role="alert"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
           >
             {error}
           </p>
@@ -1266,26 +1354,26 @@ function GithubSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-github"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("github.section_title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("github.section_subtitle")}
       </p>
 
       <div className="mt-4 flex flex-col gap-4">
         <p
-          className="text-small text-saw-grey-700"
+          className="text-small text-saw-grey-700 dark:text-saw-grey-300"
           data-testid="settings-github-token-status"
         >
           {settings.token.configured
             ? t("github.token.configured")
             : t("github.token.not_configured")}
         </p>
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("github.token.label")}</span>
           <input
             type="password"
@@ -1293,10 +1381,10 @@ function GithubSection() {
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder={t("github.token.placeholder")}
             autoComplete="off"
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="settings-github-token-input"
           />
-          <span className="text-xs text-saw-grey-500">{t("github.token.hint")}</span>
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">{t("github.token.hint")}</span>
         </label>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -1327,26 +1415,26 @@ function GithubSection() {
         {tokenSaved ? (
           <p
             role="status"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="settings-github-token-saved"
           >
             {t("github.token.configured")}
           </p>
         ) : null}
 
-        <hr className="border-saw-grey-100" />
+        <hr className="border-saw-grey-100 dark:border-saw-grey-800" />
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("github.findings_repo.label")}</span>
           <input
             type="text"
             value={repoInput}
             onChange={(e) => setRepoInput(e.target.value)}
             placeholder={t("github.findings_repo.placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="settings-github-repo-input"
           />
-          <span className="text-xs text-saw-grey-500">{t("github.findings_repo.hint")}</span>
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">{t("github.findings_repo.hint")}</span>
         </label>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -1368,37 +1456,37 @@ function GithubSection() {
           ) : null}
         </div>
         {!settings.findings_repo ? (
-          <p className="text-small text-saw-grey-500" data-testid="settings-github-repo-none">
+          <p className="text-small text-saw-grey-500 dark:text-saw-grey-400" data-testid="settings-github-repo-none">
             {t("github.findings_repo.none")}
           </p>
         ) : null}
 
-        <hr className="border-saw-grey-100" />
+        <hr className="border-saw-grey-100 dark:border-saw-grey-800" />
 
-        <div className="text-small text-saw-grey-700">
+        <div className="text-small text-saw-grey-700 dark:text-saw-grey-300">
           <div className="font-medium">{t("github.error_repo.label")}</div>
-          <div className="font-mono text-saw-grey-900">
+          <div className="font-mono text-saw-grey-900 dark:text-saw-beige">
             {settings.error_report_repo.owner}/{settings.error_report_repo.name}
           </div>
-          <div className="text-xs text-saw-grey-500 mt-1">
+          <div className="text-xs text-saw-grey-500 dark:text-saw-grey-400 mt-1">
             {t("github.error_repo.hint")}
           </div>
         </div>
-        <div className="text-small text-saw-grey-700">
+        <div className="text-small text-saw-grey-700 dark:text-saw-grey-300">
           <div className="font-medium">{t("github.security_contact.label")}</div>
           <div
-            className="font-mono text-saw-grey-900"
+            className="font-mono text-saw-grey-900 dark:text-saw-beige"
             data-testid="settings-github-security-contact"
           >
             {settings.security_contact}
           </div>
-          <div className="text-xs text-saw-grey-500 mt-1">
+          <div className="text-xs text-saw-grey-500 dark:text-saw-grey-400 mt-1">
             {t("github.security_contact.hint")}
           </div>
         </div>
 
         {err ? (
-          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+          <p role="alert" className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red">
             {err}
           </p>
         ) : null}
@@ -1520,40 +1608,40 @@ function AiSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-ai"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("ai.section_title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("ai.section_subtitle")}
       </p>
 
       {!settings.key_connected ? (
         <div
-          className="mt-4 rounded-card border border-saw-grey-200 bg-saw-grey-50 p-3 text-small"
+          className="mt-4 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-3 text-small"
           data-testid="ai-dormant-note"
         >
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("ai.dormant.title")}
           </div>
-          <div className="text-saw-grey-700 mt-1">{t("ai.dormant.body")}</div>
+          <div className="text-saw-grey-700 dark:text-saw-grey-300 mt-1">{t("ai.dormant.body")}</div>
         </div>
       ) : null}
 
       <div className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 p-3 text-small">
         <div className="font-medium text-saw-red">{t("ai.disclosure.title")}</div>
-        <div className="text-saw-grey-800 mt-1">{t("ai.disclosure.body")}</div>
+        <div className="text-saw-grey-800 dark:text-saw-beige mt-1">{t("ai.disclosure.body")}</div>
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.provider.label")}</span>
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value as AiProvider | "")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="ai-provider-select"
           >
             <option value="">{t("ai.provider.none")}</option>
@@ -1573,7 +1661,7 @@ function AiSection() {
 
         {provider !== "" ? (
           <>
-            <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+            <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
               <span>{t("ai.key.label")}</span>
               <input
                 type="password"
@@ -1585,10 +1673,10 @@ function AiSection() {
                     : t("ai.key.placeholder_openai")
                 }
                 autoComplete="off"
-                className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+                className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
                 data-testid="ai-key-input"
               />
-              <span className="text-xs text-saw-grey-500">{t("ai.key.hint")}</span>
+              <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">{t("ai.key.hint")}</span>
             </label>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1610,7 +1698,7 @@ function AiSection() {
               ) : null}
             </div>
             <p
-              className="text-small text-saw-grey-700"
+              className="text-small text-saw-grey-700 dark:text-saw-grey-300"
               data-testid="ai-key-status"
             >
               {settings.key_connected
@@ -1620,7 +1708,7 @@ function AiSection() {
             {keySaved ? (
               <p
                 role="status"
-                className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+                className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
               >
                 {t("ai.key.connected")}
               </p>
@@ -1628,18 +1716,18 @@ function AiSection() {
           </>
         ) : null}
 
-        <hr className="border-saw-grey-100" />
+        <hr className="border-saw-grey-100 dark:border-saw-grey-800" />
 
         <div>
-          <div className="font-medium text-saw-grey-900">
+          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
             {t("ai.context.title")}
           </div>
-          <div className="text-small text-saw-grey-600 mt-1">
+          <div className="text-small text-saw-grey-600 dark:text-saw-grey-400 mt-1">
             {t("ai.context.subtitle")}
           </div>
         </div>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.industry")}</span>
           <input
             type="text"
@@ -1648,7 +1736,7 @@ function AiSection() {
               setContext({ ...context, industry: e.target.value })
             }
             placeholder={t("ai.context.industry_placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="ai-ctx-industry"
           />
           {settings.flags.industry_identifying ? (
@@ -1661,7 +1749,7 @@ function AiSection() {
           ) : null}
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.environment")}</span>
           <select
             value={context.environment_type}
@@ -1671,7 +1759,7 @@ function AiSection() {
                 environment_type: e.target.value as EnvironmentType,
               })
             }
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="ai-ctx-env"
           >
             {envOptions.map((o) => (
@@ -1682,14 +1770,14 @@ function AiSection() {
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.compliance")}</span>
           <input
             type="text"
             value={complianceInput}
             onChange={(e) => setComplianceInput(e.target.value)}
             placeholder={t("ai.context.compliance_placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="ai-ctx-compliance"
           />
           {settings.flags.compliance_identifying ? (
@@ -1702,7 +1790,7 @@ function AiSection() {
           ) : null}
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.risk")}</span>
           <select
             value={context.risk_tolerance}
@@ -1712,7 +1800,7 @@ function AiSection() {
                 risk_tolerance: e.target.value as RiskTolerance,
               })
             }
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="ai-ctx-risk"
           >
             {riskOptions.map((o) => (
@@ -1723,7 +1811,7 @@ function AiSection() {
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.team")}</span>
           <select
             value={context.team_size}
@@ -1733,7 +1821,7 @@ function AiSection() {
                 team_size: e.target.value as TeamSize,
               })
             }
-            className="rounded-card border border-saw-grey-200 bg-saw-white px-3 py-1.5 text-body text-saw-grey-900"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="ai-ctx-team"
           >
             {teamOptions.map((o) => (
@@ -1756,7 +1844,7 @@ function AiSection() {
         {ctxSaved ? (
           <p
             role="status"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="ai-ctx-saved"
           >
             {t("ai.context.saved")}
@@ -1764,7 +1852,7 @@ function AiSection() {
         ) : null}
 
         {err ? (
-          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+          <p role="alert" className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red">
             {err}
           </p>
         ) : null}
@@ -1834,13 +1922,13 @@ function ReportSection({
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white border border-saw-grey-200 p-6"
+      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-reports"
     >
-      <h2 className="text-h3 font-semibold text-saw-grey-900">
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("report.settings.title")}
       </h2>
-      <p className="mt-1 text-small text-saw-grey-600">
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("report.settings.subtitle")}
       </p>
 
@@ -1857,7 +1945,7 @@ function ReportSection({
           </div>
         ) : null}
 
-        <label className="flex items-start gap-2 text-small text-saw-grey-700">
+        <label className="flex items-start gap-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <input
             type="checkbox"
             checked={settings.auto_export_enabled}
@@ -1870,14 +1958,14 @@ function ReportSection({
           <span>{t("report.settings.enable")}</span>
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("report.settings.folder_label")}</span>
           <input
             type="text"
             readOnly
             value={settings.auto_export_folder ?? ""}
             placeholder={t("report.settings.folder_placeholder")}
-            className="rounded-card border border-saw-grey-200 bg-saw-grey-50 px-3 py-1.5 text-body text-saw-grey-900 font-mono"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="settings-reports-folder"
           />
         </label>
@@ -1892,7 +1980,7 @@ function ReportSection({
           </Button>
         </div>
 
-        <label className="flex items-start gap-2 text-small text-saw-grey-700">
+        <label className="flex items-start gap-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <input
             type="checkbox"
             checked={settings.mask_account_ids_default}
@@ -1918,14 +2006,14 @@ function ReportSection({
         {saved ? (
           <p
             role="status"
-            className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-grey-700"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
             data-testid="settings-reports-saved"
           >
             {t("report.settings.saved")}
           </p>
         ) : null}
         {err ? (
-          <p role="alert" className="rounded-card bg-saw-grey-100 px-3 py-2 text-small text-saw-red">
+          <p role="alert" className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red">
             {err}
           </p>
         ) : null}

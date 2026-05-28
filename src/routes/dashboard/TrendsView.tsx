@@ -146,14 +146,14 @@ export default function TrendsView({ account, scans }: Props) {
       <h2 className="text-h2 font-semibold">
         {t("dashboard.trends.title")}
       </h2>
-      <p className="text-small text-saw-grey-600">
+      <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
         {t("dashboard.trends.subtitle").replace("{account}", account.label)}
       </p>
 
       {error ? (
         <p
           role="alert"
-          className="rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-2 text-body text-saw-grey-900"
+          className="rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-2 text-body text-saw-grey-900 dark:text-saw-beige"
         >
           {error}
         </p>
@@ -165,13 +165,13 @@ export default function TrendsView({ account, scans }: Props) {
       />
 
       <section
-        className="rounded-card border border-saw-grey-200 bg-saw-white p-4"
+        className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4"
         data-testid="trends-mttr"
       >
-        <h3 className="text-body font-semibold text-saw-grey-900">
+        <h3 className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("dashboard.trends.mttr.title")}
         </h3>
-        <p className="text-small text-saw-grey-600">
+        <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("dashboard.trends.mttr.subtitle")}
         </p>
         <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-5">
@@ -180,11 +180,11 @@ export default function TrendsView({ account, scans }: Props) {
             return (
               <li
                 key={sev}
-                className="flex flex-col items-start gap-1 rounded-card bg-saw-grey-50 p-3"
+                className="flex flex-col items-start gap-1 rounded-card bg-saw-grey-50 dark:bg-saw-black p-3"
                 data-testid={`mttr-${sev}`}
               >
                 <SeverityBadge severity={sev} size="sm" />
-                <span className="text-body font-semibold text-saw-grey-900">
+                <span className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
                   {v.count === 0
                     ? t("dashboard.trends.mttr.unresolved")
                     : t("dashboard.trends.mttr.value").replace(
@@ -199,13 +199,13 @@ export default function TrendsView({ account, scans }: Props) {
       </section>
 
       <section
-        className="rounded-card border border-saw-grey-200 bg-saw-white p-4"
+        className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4"
         data-testid="trends-timeline"
       >
-        <h3 className="text-body font-semibold text-saw-grey-900">
+        <h3 className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
           {t("dashboard.trends.timeline.title")}
         </h3>
-        <p className="text-small text-saw-grey-600">
+        <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("dashboard.trends.timeline.subtitle")}
         </p>
         {timelineEntries.length === 0 ? (
@@ -217,15 +217,15 @@ export default function TrendsView({ account, scans }: Props) {
             {timelineEntries.map((f) => (
               <li
                 key={f.finding_id}
-                className="flex items-center gap-3 rounded-card bg-saw-grey-50 px-3 py-2"
+                className="flex items-center gap-3 rounded-card bg-saw-grey-50 dark:bg-saw-black px-3 py-2"
                 data-testid={`timeline-${f.finding_id}`}
               >
                 <SeverityBadge severity={f.severity} size="sm" iconOnly />
                 <span className="flex-1 min-w-0">
-                  <span className="block truncate text-body text-saw-grey-900">
+                  <span className="block truncate text-body text-saw-grey-900 dark:text-saw-beige">
                     {f.dashboard_name || f.rule_key}
                   </span>
-                  <span className="block text-small text-saw-grey-600">
+                  <span className="block text-small text-saw-grey-600 dark:text-saw-grey-400">
                     {formatTimelineSpan(f, t)}
                   </span>
                 </span>

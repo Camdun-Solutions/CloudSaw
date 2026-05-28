@@ -145,15 +145,15 @@ export default function Home({ onOpenSettings }: Props) {
   const isLoading = accounts === null;
 
   return (
-    <main className="min-h-full bg-saw-grey-50 text-saw-grey-900">
-      <header className="border-b border-saw-grey-200 bg-saw-white px-8 py-5">
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
+      <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
         <div className="flex items-center gap-3">
           <Logo size="sm" />
           <div className="flex flex-col">
             <h1 className="text-h2 font-semibold tracking-tight">
               {t("dashboard.welcome.title")}
             </h1>
-            <p className="text-small text-saw-grey-500">{t("app.tagline")}</p>
+            <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">{t("app.tagline")}</p>
           </div>
         </div>
       </header>
@@ -168,7 +168,7 @@ export default function Home({ onOpenSettings }: Props) {
             <h2 className="text-h2 font-semibold tracking-tight">
               {t("dashboard.welcome.scan_heading")}
             </h2>
-            <p className="mt-1 text-small text-saw-grey-600">
+            <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
               {t("dashboard.welcome.scan_subtitle")}
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function Home({ onOpenSettings }: Props) {
         {loadError ? (
           <p
             role="alert"
-            className="mt-6 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900"
+            className="mt-6 rounded-card border border-saw-red/40 bg-saw-red/5 px-4 py-3 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="dashboard-error"
           >
             {loadError}
@@ -240,15 +240,15 @@ function RecentActivityCard({
 
   return (
     <div
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-6"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-6"
       data-testid="dashboard-recent-activity"
     >
-      <h3 className="text-h3 font-semibold text-saw-grey-900">
+      <h3 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.recent_activity.title")}
       </h3>
 
       {scans === null ? (
-        <p className="mt-3 text-small text-saw-grey-600">
+        <p className="mt-3 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("common.loading")}
         </p>
       ) : scans.length === 0 ? (
@@ -259,7 +259,7 @@ function RecentActivityCard({
           {t("dashboard.recent_activity.empty")}
         </p>
       ) : (
-        <ul className="mt-3 flex flex-col divide-y divide-saw-grey-100">
+        <ul className="mt-3 flex flex-col divide-y divide-saw-grey-100 dark:divide-saw-grey-800">
           {scans.map((s) => {
             const acct = accounts.find(
               (a) => a.aws_account_id === s.aws_account_id,
@@ -272,10 +272,10 @@ function RecentActivityCard({
                 data-testid="dashboard-recent-activity-row"
               >
                 <div className="flex flex-col">
-                  <span className="text-small font-medium text-saw-grey-900">
+                  <span className="text-small font-medium text-saw-grey-900 dark:text-saw-beige">
                     {label}
                   </span>
-                  <span className="text-xs text-saw-grey-500">
+                  <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
                     {formatTimestamp(s.started_at)}
                   </span>
                 </div>
@@ -300,14 +300,14 @@ function TopFindingsCard({
 
   return (
     <div
-      className="rounded-card border border-saw-grey-200 bg-saw-white p-6"
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-6"
       data-testid="dashboard-top-findings"
     >
-      <h3 className="text-h3 font-semibold text-saw-grey-900">
+      <h3 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.top_findings.title")}
       </h3>
       {latestScan ? (
-        <p className="mt-1 text-xs text-saw-grey-500">
+        <p className="mt-1 text-xs text-saw-grey-500 dark:text-saw-grey-400">
           {t("dashboard.top_findings.from_scan").replace(
             "{timestamp}",
             formatTimestamp(latestScan.started_at),
@@ -316,7 +316,7 @@ function TopFindingsCard({
       ) : null}
 
       {findings === null ? (
-        <p className="mt-3 text-small text-saw-grey-600">
+        <p className="mt-3 text-small text-saw-grey-600 dark:text-saw-grey-400">
           {t("common.loading")}
         </p>
       ) : findings.length === 0 ? (
@@ -327,7 +327,7 @@ function TopFindingsCard({
           {t("dashboard.top_findings.empty")}
         </p>
       ) : (
-        <ul className="mt-3 flex flex-col divide-y divide-saw-grey-100">
+        <ul className="mt-3 flex flex-col divide-y divide-saw-grey-100 dark:divide-saw-grey-800">
           {findings.map((f) => (
             <li
               key={f.finding_id}
@@ -336,10 +336,10 @@ function TopFindingsCard({
             >
               <SeverityBadge severity={f.severity} />
               <div className="flex min-w-0 flex-col">
-                <span className="text-small font-medium text-saw-grey-900 truncate">
+                <span className="text-small font-medium text-saw-grey-900 dark:text-saw-beige truncate">
                   {f.dashboard_name ?? f.rule_key}
                 </span>
-                <span className="text-xs text-saw-grey-500">
+                <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
                   {f.service}
                 </span>
               </div>

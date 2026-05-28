@@ -33,22 +33,22 @@ const TONES: Record<Severity, Tone> = {
     shape: "■",
   },
   high: {
-    wrapper: "bg-saw-red/10 text-saw-grey-900 border border-saw-red/40",
+    wrapper: "bg-saw-red/10 text-saw-grey-900 dark:text-saw-beige border border-saw-red/40",
     glyph: "bg-saw-red",
     shape: "▲",
   },
   medium: {
-    wrapper: "bg-saw-orange/10 text-saw-grey-900 border border-saw-orange/40",
+    wrapper: "bg-saw-orange/10 text-saw-grey-900 dark:text-saw-beige border border-saw-orange/40",
     glyph: "bg-saw-orange",
     shape: "◆",
   },
   low: {
-    wrapper: "bg-saw-gold/10 text-saw-grey-900 border border-saw-gold/40",
+    wrapper: "bg-saw-gold/10 text-saw-grey-900 dark:text-saw-beige border border-saw-gold/40",
     glyph: "bg-saw-gold",
     shape: "●",
   },
   informational: {
-    wrapper: "bg-saw-grey-100 text-saw-grey-800 border border-saw-grey-300",
+    wrapper: "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-800 dark:text-saw-beige border border-saw-grey-300 dark:border-saw-grey-700",
     glyph: "bg-saw-grey-400",
     shape: "○",
   },
@@ -81,7 +81,7 @@ export default function SeverityBadge({
         aria-hidden="true"
         className={`inline-block h-1.5 w-1.5 rounded-full ${tone.glyph}`}
       />
-      <span aria-hidden="true" className="text-saw-grey-700">
+      <span aria-hidden="true" className="text-saw-grey-700 dark:text-saw-grey-300">
         {tone.shape}
       </span>
       {iconOnly ? (

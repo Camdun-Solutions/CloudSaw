@@ -11,27 +11,27 @@ type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
 // information is not conveyed by color alone (CLAUDE.md §4.6).
 const tones: Record<Tone, { wrapper: string; dot: string; label: string }> = {
   neutral: {
-    wrapper: "bg-saw-grey-100 text-saw-grey-700",
+    wrapper: "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-700 dark:text-saw-grey-300",
     dot: "bg-saw-grey-400",
     label: "Neutral",
   },
   info: {
-    wrapper: "bg-saw-grey-100 text-saw-grey-800",
+    wrapper: "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-800 dark:text-saw-beige",
     dot: "bg-saw-gold",
     label: "Info",
   },
   success: {
-    wrapper: "bg-saw-grey-100 text-saw-grey-800",
+    wrapper: "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-800 dark:text-saw-beige",
     dot: "bg-emerald-500",
     label: "OK",
   },
   warning: {
-    wrapper: "bg-saw-grey-100 text-saw-grey-900",
+    wrapper: "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-900 dark:text-saw-beige",
     dot: "bg-saw-orange",
     label: "Warning",
   },
   danger: {
-    wrapper: "bg-saw-grey-100 text-saw-grey-900",
+    wrapper: "bg-saw-grey-100 dark:bg-saw-grey-800 text-saw-grey-900 dark:text-saw-beige",
     dot: "bg-saw-red",
     label: "Danger",
   },
