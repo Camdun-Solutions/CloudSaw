@@ -42,7 +42,7 @@ import { useLock } from "@/stores/lock";
  *  section renders in the right panel at a time. Section IDs are
  *  stable strings so a future PR can wire deep-linking via URL
  *  hash / route sub-path. */
-type SettingsSection =
+export type SettingsSection =
   | "app_lock"
   | "accounts"
   | "appearance"
@@ -122,6 +122,17 @@ type Props = {
    * moves Accounts into Settings — the embedded Accounts panel's
    * "Open profiles" button forwards here. */
   onOpenProfiles: () => void;
+  /** Optional deep-link target. When set, Settings opens with the
+   *  given left-nav section pre-selected instead of the default
+   *  `app_lock`. PR #63 (scan-modal Settings CTAs) uses this to land
+   *  the user on `accounts` from the scan-modal's no-accounts /
+   *  role-not-provisioned CTAs. */
+  initialSection?: SettingsSection;
+  /** Bumped by the parent each time it wants the deep-link to
+   *  re-fire — without it, repeated CTAs to the same `initialSection`
+   *  wouldn't trigger the effect because React sees no prop change.
+   *  Parent owns the counter; Settings only reads it. */
+  initialSectionNonce?: number;
 };
 
 export default function Settings({
@@ -130,6 +141,8 @@ export default function Settings({
   onOpenCustomReport,
   onRerunOnboarding,
   onOpenProfiles,
+  initialSection,
+  initialSectionNonce,
 }: Props) {
   const t = useT();
   const formatError = useIpcError();
@@ -146,7 +159,18 @@ export default function Settings({
   // top-of-page section). A future PR will wire deep-linking
   // from the parent route's sub-path.
   const [activeSection, setActiveSection] =
-    useState<SettingsSection>("app_lock");
+    useState<SettingsSection>(initialSection ?? "app_lock");
+
+  // Re-apply the deep-link target whenever the parent re-targets,
+  // even if the section value is unchanged from the previous call.
+  // `initialSectionNonce` is what guarantees the effect fires on a
+  // repeat tap of the same section — React's dep array sees a new
+  // value each time the parent calls `goToSettingsSection`.
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection, initialSectionNonce]);
 
   // Hydrate from store on mount / when settings change underneath us.
   useEffect(() => {

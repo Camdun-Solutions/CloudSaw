@@ -42,6 +42,14 @@ type Props = {
   account?: Account | null;
   onClose: () => void;
   onScanFinished: () => Promise<void>;
+  /** Optional. When provided, the AccountPicker shows a CTA in its
+   *  no-accounts empty state ("Go to Settings → Accounts") and on
+   *  disabled (role-not-provisioned) rows ("Set up scanner role").
+   *  The caller is responsible for closing the modal as part of the
+   *  navigation — ScanModalContextProvider does this automatically;
+   *  direct-render callers (Accounts.tsx) typically omit the prop
+   *  since the user is already on the Accounts page. */
+  onGoToAccounts?: () => void;
 };
 
 type Phase =
@@ -65,6 +73,7 @@ export default function ScanProgressModal({
   account: prebound,
   onClose,
   onScanFinished,
+  onGoToAccounts,
 }: Props) {
   const t = useT();
   const formatError = useIpcError();
@@ -198,6 +207,7 @@ export default function ScanProgressModal({
         <AccountPicker
           onPick={setPicked}
           onError={(msg) => setError(msg)}
+          onGoToAccounts={onGoToAccounts}
         />
         {error ? (
           <p
@@ -367,9 +377,11 @@ function renderFooter({
 function AccountPicker({
   onPick,
   onError,
+  onGoToAccounts,
 }: {
   onPick: (account: Account) => void;
   onError: (msg: string) => void;
+  onGoToAccounts?: () => void;
 }) {
   const t = useT();
   const formatError = useIpcError();
@@ -408,6 +420,17 @@ function AccountPicker({
           title={t("scanner.picker.empty_title")}
           body={t("scanner.picker.empty_body")}
         />
+        {onGoToAccounts ? (
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="primary"
+              onClick={onGoToAccounts}
+              data-testid="scanner-picker-empty-cta"
+            >
+              {t("scanner.picker.go_to_accounts")}
+            </Button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -420,6 +443,47 @@ function AccountPicker({
       <ul className="flex flex-col gap-2">
         {accounts.map((a) => {
           const disabled = !a.role_provisioned;
+          const details = (
+            <div className="flex flex-col">
+              <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
+                {a.label}
+              </span>
+              <span className="font-mono text-xs text-saw-grey-500 dark:text-saw-grey-400">
+                {a.aws_account_id} · {a.profile_name}
+              </span>
+            </div>
+          );
+          // Disabled row WITH the navigation CTA: replace the
+          // non-clickable disabled button with a static row that has a
+          // single real action — "Set up scanner role" — so the user
+          // can actually fix the underlying state from here. Without
+          // the CTA we fall back to the previous behavior: a disabled
+          // button with the "role not provisioned" badge.
+          if (disabled && onGoToAccounts) {
+            return (
+              <li key={a.aws_account_id}>
+                <div
+                  className="flex w-full items-center justify-between gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 opacity-80"
+                  data-testid="scanner-picker-row-provision"
+                >
+                  {details}
+                  <div className="flex items-center gap-2">
+                    <Badge tone="neutral">
+                      {t("scanner.picker.role_not_provisioned")}
+                    </Badge>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={onGoToAccounts}
+                      data-testid="scanner-picker-row-provision-cta"
+                    >
+                      {t("scanner.picker.provision_role_cta")}
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            );
+          }
           return (
             <li key={a.aws_account_id}>
               <button
@@ -429,14 +493,7 @@ function AccountPicker({
                 data-testid="scanner-picker-row"
                 className="flex w-full items-center justify-between gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 text-left transition hover:border-saw-red hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-saw-grey-200 disabled:hover:bg-saw-white"
               >
-                <div className="flex flex-col">
-                  <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
-                    {a.label}
-                  </span>
-                  <span className="font-mono text-xs text-saw-grey-500 dark:text-saw-grey-400">
-                    {a.aws_account_id} · {a.profile_name}
-                  </span>
-                </div>
+                {details}
                 {disabled ? (
                   <Badge tone="neutral">
                     {t("scanner.picker.role_not_provisioned")}
