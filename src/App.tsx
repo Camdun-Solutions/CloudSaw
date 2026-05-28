@@ -20,7 +20,6 @@ import Dashboard from "@/routes/Dashboard";
 import Findings from "@/routes/Findings";
 import Home from "@/routes/Home";
 import Onboarding from "@/routes/Onboarding";
-import Profiles from "@/routes/Profiles";
 import ScheduledScans from "@/routes/ScheduledScans";
 import Settings, { type SettingsSection } from "@/routes/Settings";
 import UnlockScreen from "@/routes/UnlockScreen";
@@ -33,7 +32,6 @@ type Route =
   // includes it — every former caller (Dashboard, Home, etc.)
   // routes to "settings" instead.
   | "home"
-  | "profiles"
   | "settings"
   | "schedules"
   | "custom_report"
@@ -44,9 +42,7 @@ type Route =
   | "findings";
 
 /** Map the parent `Route` union onto the subset the persistent TopNav
- *  knows about. Returns `null` while on a "deeper" route (Profiles,
- *  etc.) so no menu button is shown active — the user is somewhere
- *  intermediate. */
+ *  knows about. */
 function topNavActive(route: Route): TopNavRoute | null {
   switch (route) {
     case "home":
@@ -58,8 +54,6 @@ function topNavActive(route: Route): TopNavRoute | null {
     case "schedules":
     case "custom_report":
       return "settings";
-    case "profiles":
-      return null;
   }
 }
 
@@ -333,13 +327,22 @@ export default function App() {
             setRoute(target === "dashboard" ? "home" : target);
           }}
           onLock={() => {
-            // The lock state listener in the useLock store flips
-            // status to "locked" on the next IPC tick; App.tsx
-            // re-renders into <UnlockScreen /> via the `state.locked`
-            // gate above. Errors here would mean the lock IPC
-            // rejected (rare — usually only if SQLite is hosed), in
-            // which case the ErrorBoundary picks up the throw.
-            void ipc.applockLock();
+            // PR #66 fix: the previous fire-and-forget approach left
+            // the UI on whatever screen it was on because the useLock
+            // store has no event listener — it only re-reads state
+            // when something calls refresh() explicitly. Settings's
+            // own "Lock now" button always worked because it awaits
+            // applockLock() then calls refresh(); the TopNav button
+            // did not. We mirror that pattern here.
+            void (async () => {
+              try {
+                await ipc.applockLock();
+              } finally {
+                // Run refresh() even if the IPC rejects so the user
+                // isn't stranded on a half-locked screen.
+                await refresh();
+              }
+            })();
           }}
         />
         {/* Global version footer (PR #43). Fixed bottom-left so the
@@ -400,7 +403,6 @@ function AppShell({
         onClose={() => setRoute("home")}
         onOpenSchedules={() => setRoute("schedules")}
         onOpenCustomReport={() => setRoute("custom_report")}
-        onOpenProfiles={() => setRoute("profiles")}
         onRerunOnboarding={onRerunOnboarding}
         initialSection={settingsTarget?.section}
         initialSectionNonce={settingsTarget?.nonce}
@@ -412,13 +414,6 @@ function AppShell({
   }
   if (route === "custom_report") {
     return <CustomReport onBack={() => setRoute("settings")} />;
-  }
-  if (route === "profiles") {
-    // PR #46: Accounts is now an embedded section inside Settings.
-    // Profiles still has its own page; the Back button returns to
-    // Settings (which is where the user opened it from via the
-    // embedded Accounts panel's "Open profiles" button).
-    return <Profiles onClose={() => setRoute("settings")} />;
   }
   if (route === "dashboard") {
     return (
@@ -434,7 +429,7 @@ function AppShell({
     // The legacy Dashboard.tsx still has a findings tab and is
     // still reachable via the "dashboard" route, but the TopNav
     // Findings button now lands on the new page.
-    return <Findings onBack={() => setRoute("home")} />;
+    return <Findings />;
   }
   return (
     <Home onOpenSettings={() => setRoute("settings")} />

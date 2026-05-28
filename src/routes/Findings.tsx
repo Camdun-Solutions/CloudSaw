@@ -34,7 +34,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  BackBreadcrumb,
   Badge,
   EmptyState,
   Logo,
@@ -59,9 +58,7 @@ import {
 // FindingsView.tsx today — exported there for this consumer.
 import { FindingDetailPanel } from "@/routes/dashboard/FindingsView";
 
-type Props = {
-  onBack: () => void;
-};
+type Props = Record<string, never>;
 
 type SevFilter = "any" | Severity;
 type StatusFilter = "any" | FindingStatus;
@@ -92,7 +89,7 @@ function rankSeverity(s: Severity): number {
   return SEVERITY_ORDER.indexOf(s);
 }
 
-export default function Findings({ onBack }: Props) {
+export default function Findings(_props: Props) {
   const t = useT();
   const formatError = useIpcError();
 
@@ -301,12 +298,10 @@ export default function Findings({ onBack }: Props) {
   return (
     <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
       <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
-        <BackBreadcrumb
-          destination={t("nav.dashboard")}
-          onBack={onBack}
-          data-testid="findings-back"
-        />
-        <div className="mt-2 flex items-center gap-3">
+        {/* PR #66: BackBreadcrumb removed — TopNav already exposes
+            Dashboard/Findings/Settings buttons, so the per-page back
+            arrow was redundant. */}
+        <div className="flex items-center gap-3">
           <Logo size="sm" />
           <div className="flex flex-col">
             <h1 className="text-h2 font-semibold tracking-tight">

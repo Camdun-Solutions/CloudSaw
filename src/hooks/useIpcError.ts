@@ -47,6 +47,9 @@ const KNOWN_CODES: Record<string, string> = {
   aws_connectivity: "aws.error.connectivity",
   aws_sso_expired: "aws.error.sso_expired",
   aws_permission_denied: "aws.error.permission_denied",
+  // PR #66 — `auth_create_profile` error codes.
+  aws_profile_already_exists: "accounts.cli_profiles.add_error_duplicate",
+  aws_config_write_failed: "accounts.cli_profiles.add_error_write_failed",
   // Multi-account (Contract 04). Distinct keys so the Accounts page can
   // localize each failure mode precisely.
   account_not_found: "accounts.error.not_found",

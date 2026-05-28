@@ -20,10 +20,12 @@
 //   - Hold any AWS SDK type. The structs returned across IPC are plain
 //     serializable data; SDK types stay inside `sts.rs`.
 
+pub mod create_profile;
 pub mod error;
 pub mod profiles;
 mod sts;
 
+pub use create_profile::{create_profile, AddAwsProfileInput};
 pub use error::AuthError;
 pub use profiles::{ProfileInfo, ProfileSource};
 pub use sts::{CallerIdentity, ProfileTestResult, TestFailureReason};

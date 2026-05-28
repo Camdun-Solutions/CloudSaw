@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Badge, Button, EmptyState, Logo, Modal, Select } from "@/components";
+import { Badge, Button, EmptyState, Logo, MeatballMenu, type MeatballMenuItem, Modal, Select } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -24,9 +24,18 @@ import {
   type AddAccountInput,
   type Environment,
   type ProfileInfo,
+  type ProfileTestResult,
   type RemovalImpact,
   type UpdateAccountInput,
 } from "@/lib/ipc";
+
+/** PR #66: per-profile inline test state. The AWS CLI Profiles
+ *  section renders a small indicator next to each profile's Test
+ *  button — running spinner, OK check, or Failed X. */
+type ProfileTestState =
+  | { phase: "running" }
+  | { phase: "ok" }
+  | { phase: "fail"; code: string };
 import ConnectScannerRoleForm from "@/components/ConnectScannerRoleForm";
 import { SCAN_FINISHED_EVENT } from "@/contexts/ScanModalContext";
 import ScanProgressModal from "@/routes/ScanProgress";
@@ -36,7 +45,6 @@ type Props = {
    *  true (embedded mode is owned by the host Settings page and
    *  has no separate close affordance). */
   onClose?: () => void;
-  onOpenProfiles: () => void;
   /**
    * PR #46: render as an inline section inside the Settings page
    * rather than as a standalone route. When true:
@@ -60,8 +68,6 @@ type Props = {
 const ENVIRONMENTS: Environment[] = ["dev", "staging", "prod", "other"];
 
 export default function Accounts({
-  onClose,
-  onOpenProfiles,
   embedded = false,
 }: Props) {
   const t = useT();
@@ -70,13 +76,36 @@ export default function Accounts({
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Names of profiles currently in `~/.aws/config`. Used to flag accounts
-  // whose profile was deleted out-of-band (Contract 04 §Edge Cases).
+  // whose profile was deleted out-of-band (Contract 04 §Edge Cases) AND
+  // to populate the new AWS CLI Profiles section at the bottom of the
+  // page (PR #66).
   const [presentProfiles, setPresentProfiles] = useState<Set<string>>(new Set());
+  // PR #66: map of aws_account_id → role_arn for accounts whose scanner
+  // role has been provisioned. Populated by parallel `scannerRoleStatus`
+  // calls during reload(). The AccountRow displays the role name parsed
+  // from this ARN next to the "Scanner role" label.
+  const [roleArnByAccount, setRoleArnByAccount] = useState<Record<string, string>>({});
+  // PR #66: full ProfileInfo list — used by the new AWS CLI Profiles
+  // section. `presentProfiles` is a Set<string> derived from this; the
+  // section needs the full ProfileInfo (with `source`) to badge SSO
+  // profiles.
+  const [allProfiles, setAllProfiles] = useState<ProfileInfo[]>([]);
+  // PR #66: per-profile test state. Keyed by profile name. Either
+  // running, or terminal with a result tag the row renders as a small
+  // inline indicator next to the Test button.
+  const [profileTests, setProfileTests] = useState<
+    Record<string, ProfileTestState>
+  >({});
+  const [addProfileOpen, setAddProfileOpen] = useState(false);
+  // PR #66: top-of-section toast banner. Set by AddProfileModal on
+  // success / error so the user sees the outcome without dismissing
+  // the modal. Auto-cleared after ~4s for success; user-dismissable
+  // for errors.
+  const [toast, setToast] = useState<{ kind: "success" | "error"; msg: string } | null>(null);
   const [display, setDisplay] = useState<AccountsDisplaySettings>({
     reveal_full_ids: false,
   });
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   // Modal state. The "edit" modal accepts the row to edit; the "remove" modal
   // accepts the row to remove. Add modal is the simpler boolean form. The
@@ -88,7 +117,6 @@ export default function Accounts({
   const [scanTarget, setScanTarget] = useState<Account | null>(null);
 
   const reload = useCallback(async () => {
-    setRefreshing(true);
     setLoadError(null);
     try {
       const [list, active, settings, profiles] = await Promise.all([
@@ -101,11 +129,32 @@ export default function Accounts({
       setActiveId(active);
       setDisplay(settings);
       setPresentProfiles(new Set(profiles.map((p) => p.name)));
+      setAllProfiles(profiles);
+      // PR #66: fetch the scanner-role provisioning status for every
+      // account in parallel. We only need the role_arn for display;
+      // a missing/unprovisioned/failed status leaves the entry out of
+      // the map and the row falls back to the boolean status label.
+      const provisioned = list.filter((a) => a.role_provisioned);
+      const arnPairs = await Promise.all(
+        provisioned.map(async (a) => {
+          try {
+            const status = await ipc.scannerRoleStatus(a.aws_account_id);
+            return status.status === "provisioned"
+              ? ([a.aws_account_id, status.role_arn] as const)
+              : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const arnMap: Record<string, string> = {};
+      for (const pair of arnPairs) {
+        if (pair) arnMap[pair[0]] = pair[1];
+      }
+      setRoleArnByAccount(arnMap);
     } catch (err) {
       setLoadError(formatError(err));
       setAccounts([]);
-    } finally {
-      setRefreshing(false);
     }
   }, [formatError]);
 
@@ -133,11 +182,53 @@ export default function Accounts({
     }
   }
 
-  // In embedded mode (rendered inside Settings, PR #46), the page-
-  // level header is hidden and the "Refresh" / "Open profiles"
-  // actions reflow into a compact action row directly above the
-  // configured-accounts list. In standalone mode (legacy route),
-  // the original full-page header renders unchanged.
+  // PR #66: trigger an inline AWS CLI profile test. Result tag drives
+  // the inline indicator next to the row's Test button.
+  const runProfileTest = useCallback(
+    async (profileName: string) => {
+      setProfileTests((prev) => ({
+        ...prev,
+        [profileName]: { phase: "running" },
+      }));
+      try {
+        const result: ProfileTestResult = await ipc.authTestProfile(profileName);
+        if (result.status === "success") {
+          setProfileTests((prev) => ({
+            ...prev,
+            [profileName]: { phase: "ok" },
+          }));
+        } else {
+          setProfileTests((prev) => ({
+            ...prev,
+            [profileName]: { phase: "fail", code: result.reason },
+          }));
+        }
+      } catch (err) {
+        setProfileTests((prev) => ({
+          ...prev,
+          [profileName]: { phase: "fail", code: formatError(err) },
+        }));
+      }
+    },
+    [formatError],
+  );
+
+  // PR #66: auto-dismiss success toasts so the banner doesn't linger
+  // forever. Error toasts persist until the user dismisses them or a
+  // subsequent success replaces them.
+  useEffect(() => {
+    if (!toast || toast.kind !== "success") return;
+    const handle = window.setTimeout(() => setToast(null), 4000);
+    return () => window.clearTimeout(handle);
+  }, [toast]);
+
+  // Standalone-mode header. PR #66: the "Diagnose profiles" +
+  // "Refresh" + "Close" action cluster is gone — Diagnose profiles
+  // was replaced by the inline AWS CLI Profiles section below, the
+  // refresh button was redundant (reload happens on mount + after
+  // every mutation), and standalone mode is unreachable from the
+  // router today anyway. The header keeps the logo + title so any
+  // future direct-render usage still has a recognizable anchor.
   const standaloneHeader = (
     <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
       <div className="flex items-center gap-3">
@@ -150,62 +241,8 @@ export default function Accounts({
             {t("accounts.subtitle")}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onOpenProfiles}
-            data-testid="accounts-open-profiles"
-          >
-            {t("accounts.open_profiles")}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void reload()}
-            disabled={refreshing}
-            data-testid="accounts-refresh"
-          >
-            {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
-          </Button>
-          {onClose ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              data-testid="accounts-close"
-            >
-              {t("common.close")}
-            </Button>
-          ) : null}
-        </div>
       </div>
     </header>
-  );
-
-  // Embedded-mode action row — same Open Profiles + Refresh
-  // affordances that lived in the standalone header, just laid
-  // out as a compact row above the section content.
-  const embeddedActions = (
-    <div className="mb-4 flex items-center justify-end gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onOpenProfiles}
-        data-testid="accounts-open-profiles"
-      >
-        {t("accounts.open_profiles")}
-      </Button>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => void reload()}
-        disabled={refreshing}
-        data-testid="accounts-refresh"
-      >
-        {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
-      </Button>
-    </div>
   );
 
   // Body content — identical in both modes. Section padding/max-
@@ -213,7 +250,6 @@ export default function Accounts({
   // page already imposes its own layout container.
   const body = (
     <>
-      {embedded ? embeddedActions : null}
       <section
         className={
           embedded
@@ -221,7 +257,34 @@ export default function Accounts({
             : "mx-auto max-w-4xl px-8 py-10"
         }
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* PR #66: top-of-section toast banner. Add-profile success
+            lands here and auto-dismisses after 4s; errors persist
+            until the user dismisses them. */}
+        {toast ? (
+          <div
+            role={toast.kind === "error" ? "alert" : "status"}
+            className={
+              "mb-4 flex items-start justify-between gap-3 rounded-card px-4 py-3 text-small " +
+              (toast.kind === "success"
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                : "border border-saw-red/30 bg-saw-red/5 text-saw-red")
+            }
+            data-testid={`accounts-toast-${toast.kind}`}
+          >
+            <span className="flex-1">{toast.msg}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              aria-label="Dismiss"
+              className="text-current opacity-70 hover:opacity-100"
+              data-testid="accounts-toast-dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-h3 font-semibold tracking-tight">
               {t("accounts.section.configured")}
@@ -289,11 +352,69 @@ export default function Accounts({
                   active={a.aws_account_id === activeId}
                   revealFullId={display.reveal_full_ids}
                   profileMissing={!presentProfiles.has(a.profile_name)}
+                  roleName={parseRoleNameFromArn(
+                    roleArnByAccount[a.aws_account_id],
+                  )}
                   onSetActive={() => void onSetActive(a.aws_account_id)}
                   onEdit={() => setEditTarget(a)}
                   onRemove={() => setRemoveTarget(a)}
                   onProvision={() => setProvisionTarget(a)}
                   onScan={() => setScanTarget(a)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {/* PR #66: AWS CLI Profiles section. Lists every profile parsed
+          from ~/.aws/config with a Test affordance. Replaces the
+          deleted Profiles route + "Diagnose profiles" CTA. */}
+      <section
+        className={
+          embedded
+            ? "mt-6 flex flex-col gap-3"
+            : "mx-auto max-w-4xl px-8 pb-10"
+        }
+        data-testid="accounts-cli-profiles-section"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-h3 font-semibold tracking-tight">
+              {t("accounts.cli_profiles.title")}
+            </h2>
+            <p className="mt-1 max-w-2xl text-small text-saw-grey-600 dark:text-saw-grey-400">
+              {t("accounts.cli_profiles.subtitle")}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => setAddProfileOpen(true)}
+            data-testid="accounts-cli-profiles-add"
+          >
+            {t("accounts.cli_profiles.add_cta")}
+          </Button>
+        </div>
+
+        <div className="mt-4" data-testid="accounts-cli-profiles-list">
+          {allProfiles.length === 0 ? (
+            <p
+              className="rounded-card border border-dashed border-saw-grey-200 dark:border-saw-grey-700 px-4 py-6 text-center text-small text-saw-grey-600 dark:text-saw-grey-400"
+              data-testid="accounts-cli-profiles-empty"
+            >
+              {t("accounts.cli_profiles.empty")}
+            </p>
+          ) : (
+            <ul
+              className="divide-y divide-saw-grey-200 dark:divide-saw-grey-700 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark"
+              data-testid="accounts-cli-profiles-rows"
+            >
+              {allProfiles.map((p) => (
+                <ProfileRow
+                  key={p.name}
+                  profile={p}
+                  testState={profileTests[p.name]}
+                  onTest={() => void runProfileTest(p.name)}
                 />
               ))}
             </ul>
@@ -332,6 +453,26 @@ export default function Accounts({
             // empty active strip prompts the user to choose a new one.
           }
         }}
+      />
+
+      {/* PR #66: Add an AWS CLI profile. Writes the supplied
+          credentials directly to ~/.aws/credentials and the region +
+          output to ~/.aws/config via the new `auth_create_profile`
+          IPC. CloudSaw briefly holds the secret in memory to forward
+          it to the IPC; it is not stored, logged, or transmitted. */}
+      <AddProfileModal
+        open={addProfileOpen}
+        existingProfileNames={allProfiles.map((p) => p.name)}
+        onClose={() => setAddProfileOpen(false)}
+        onSaved={async (name) => {
+          setAddProfileOpen(false);
+          setToast({
+            kind: "success",
+            msg: t("accounts.cli_profiles.added_success").replace("{name}", name),
+          });
+          await reload();
+        }}
+        onError={(msg) => setToast({ kind: "error", msg })}
       />
 
       {/* Phase 2 — "Connect scanner role" modal. Wraps the shared
@@ -412,6 +553,7 @@ function AccountRow({
   active,
   revealFullId,
   profileMissing,
+  roleName,
   onSetActive,
   onEdit,
   onRemove,
@@ -422,6 +564,10 @@ function AccountRow({
   active: boolean;
   revealFullId: boolean;
   profileMissing: boolean;
+  /** Parsed name segment of the provisioned scanner role's ARN,
+   *  e.g. "CloudSawScanner". Undefined when the role isn't
+   *  provisioned or the ARN lookup failed. */
+  roleName: string | undefined;
   onSetActive: () => void;
   onEdit: () => void;
   onRemove: () => void;
@@ -433,17 +579,43 @@ function AccountRow({
     ? account.aws_account_id
     : maskAccountId(account.aws_account_id);
 
+  // PR #66: collapse the per-row action surface into a vertical
+  // meatball menu anchored at the top-right of the card. Delete
+  // sits last in saw-red. The Set-active affordance stays as a
+  // separate ghost button below the dl because it is a status
+  // flip, not a lifecycle action.
+  const menuItems: MeatballMenuItem[] = [
+    {
+      label: t("accounts.row.edit"),
+      onClick: onEdit,
+      testId: `account-edit-${account.aws_account_id}`,
+    },
+    ...(account.role_provisioned
+      ? [
+          {
+            label: t("scanner.scan.cta"),
+            onClick: onScan,
+            testId: `account-scan-${account.aws_account_id}`,
+          },
+        ]
+      : []),
+    {
+      label: t("terraform.provision.replan_cta"),
+      onClick: onProvision,
+      testId: `account-provision-${account.aws_account_id}`,
+    },
+    {
+      label: t("accounts.row.remove"),
+      onClick: onRemove,
+      danger: true,
+      testId: `account-remove-${account.aws_account_id}`,
+    },
+  ];
+
   return (
     <li className="px-5 py-4" data-testid={`account-row-${account.aws_account_id}`}>
-      {/* PR #65 — always stack vertically: details on top, action
-          buttons in a flex-wrap row below. The previous side-by-side
-          layout collapsed at narrow widths because the right action
-          column has min-content from the "Provision scanner role"
-          button and Tailwind v3 has no container queries installed,
-          so the buttons rendered visually on top of the dl values
-          inside the same Settings panel width. */}
-      <div className="flex flex-col gap-3">
-        <div className="min-w-0">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p
               className="min-w-0 truncate text-body font-medium"
@@ -454,9 +626,11 @@ function AccountRow({
             <Badge tone="neutral" data-testid={`account-env-${account.aws_account_id}`}>
               {t(`accounts.env.${account.environment}`)}
             </Badge>
+            {/* PR #66: active dot was previously tone="info" (gold).
+                Changed to tone="success" (emerald) per user spec. */}
             {active ? (
               <Badge
-                tone="info"
+                tone="success"
                 data-testid={`account-active-${account.aws_account_id}`}
               >
                 {t("accounts.row.active_badge")}
@@ -494,10 +668,26 @@ function AccountRow({
               {displayedId}
             </dd>
             <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.role_status")}</dt>
-            <dd>
-              {account.role_provisioned
-                ? t("accounts.row.role_provisioned")
-                : t("accounts.row.role_not_provisioned")}
+            <dd
+              className="min-w-0 break-all"
+              data-testid={`account-role-status-${account.aws_account_id}`}
+            >
+              {account.role_provisioned ? (
+                <>
+                  {t("accounts.row.role_provisioned")}
+                  {/* PR #66: show the role name parsed from the ARN
+                      (e.g. "CloudSawScanner") alongside the status so
+                      users can see which role is wired without
+                      opening the provisioning modal. */}
+                  {roleName ? (
+                    <span className="ml-1 font-mono text-saw-grey-500 dark:text-saw-grey-400">
+                      ({roleName})
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                t("accounts.row.role_not_provisioned")
+              )}
             </dd>
             <dt className="text-saw-grey-500 dark:text-saw-grey-400">{t("accounts.row.last_scan")}</dt>
             <dd>
@@ -506,71 +696,25 @@ function AccountRow({
                 : t("accounts.row.never_scanned")}
             </dd>
           </dl>
-        </div>
-        {/* Action buttons — wrap horizontally; destructive Edit+Remove
-            pair pushed to the right via ml-auto so the visual hierarchy
-            still reads "primary actions first, destructive last". On
-            very narrow widths the ml-auto group naturally wraps to its
-            own line. */}
-        <div className="flex flex-wrap items-center gap-2">
-          {active ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSetActive}
-              data-testid={`account-active-cta-${account.aws_account_id}`}
-              disabled
-            >
-              {t("accounts.row.is_active")}
-            </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onSetActive}
-              data-testid={`account-set-active-${account.aws_account_id}`}
-            >
-              {t("accounts.row.set_active")}
-            </Button>
-          )}
-          <Button
-            variant={account.role_provisioned ? "ghost" : "primary"}
-            size="sm"
-            onClick={onProvision}
-            data-testid={`account-provision-${account.aws_account_id}`}
-          >
-            {account.role_provisioned
-              ? t("terraform.provision.replan_cta")
-              : t("terraform.provision.cta")}
-          </Button>
-          {account.role_provisioned ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={onScan}
-              data-testid={`account-scan-${account.aws_account_id}`}
-            >
-              {t("scanner.scan.cta")}
-            </Button>
+          {!active ? (
+            <div className="mt-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onSetActive}
+                data-testid={`account-set-active-${account.aws_account_id}`}
+              >
+                {t("accounts.row.set_active")}
+              </Button>
+            </div>
           ) : null}
-          <div className="ml-auto flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onEdit}
-              data-testid={`account-edit-${account.aws_account_id}`}
-            >
-              {t("accounts.row.edit")}
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={onRemove}
-              data-testid={`account-remove-${account.aws_account_id}`}
-            >
-              {t("accounts.row.remove")}
-            </Button>
-          </div>
+        </div>
+        <div className="flex-shrink-0">
+          <MeatballMenu
+            items={menuItems}
+            triggerLabel={t("accounts.row.edit") + " / " + t("scanner.scan.cta")}
+            triggerTestId={`account-menu-${account.aws_account_id}`}
+          />
         </div>
       </div>
     </li>
@@ -1046,4 +1190,285 @@ function formatTs(ts: string): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return ts;
   return d.toLocaleString();
+}
+
+// PR #66: extract the role name from an IAM role ARN. The ARN shape
+// is `arn:aws:iam::<account>:role/<name>`; the name is the part after
+// `:role/`. Returns undefined when the ARN doesn't carry the marker
+// (e.g. an unexpected SDK shape) so the row falls back to the
+// status-only label.
+function parseRoleNameFromArn(arn: string | undefined): string | undefined {
+  if (!arn) return undefined;
+  const marker = ":role/";
+  const idx = arn.indexOf(marker);
+  if (idx === -1) return undefined;
+  const name = arn.slice(idx + marker.length);
+  return name.length > 0 ? name : undefined;
+}
+
+// --- AWS CLI Profiles section ------------------------------------------
+
+/** Single profile row in the AWS CLI Profiles section. Renders the
+ *  profile name + source badge + Test button + inline test state
+ *  indicator. */
+function ProfileRow({
+  profile,
+  testState,
+  onTest,
+}: {
+  profile: ProfileInfo;
+  testState: ProfileTestState | undefined;
+  onTest: () => void;
+}) {
+  const t = useT();
+  return (
+    <li
+      className="flex flex-wrap items-center gap-3 px-4 py-3"
+      data-testid={`cli-profile-row-${profile.name}`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-mono text-body text-saw-grey-900 dark:text-saw-beige">
+          {profile.name}
+        </p>
+        <Badge tone="neutral">{profile.source === "sso" ? "SSO" : "CLI"}</Badge>
+      </div>
+      <div
+        className="flex items-center gap-2 text-small"
+        data-testid={`cli-profile-test-state-${profile.name}`}
+      >
+        {testState?.phase === "running" ? (
+          <span className="text-saw-grey-600 dark:text-saw-grey-400">
+            {t("accounts.cli_profiles.test_running")}
+          </span>
+        ) : null}
+        {testState?.phase === "ok" ? (
+          <Badge tone="success">{t("accounts.cli_profiles.test_ok")}</Badge>
+        ) : null}
+        {testState?.phase === "fail" ? (
+          <Badge tone="danger">
+            {t("accounts.cli_profiles.test_fail")}
+            <span className="ml-1 font-mono text-xs opacity-80">
+              ({testState.code})
+            </span>
+          </Badge>
+        ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onTest}
+          disabled={testState?.phase === "running"}
+          data-testid={`cli-profile-test-${profile.name}`}
+        >
+          {t("accounts.cli_profiles.test_cta")}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+const OUTPUT_FORMATS = ["json", "yaml", "yaml-stream", "text", "table"] as const;
+type OutputFormat = (typeof OUTPUT_FORMATS)[number];
+
+/** New AWS CLI profile modal (PR #66). Collects the four values
+ *  `aws configure set` would set, forwards them to the
+ *  `auth_create_profile` Rust IPC, and lifts success/error back to
+ *  the parent via callbacks. The secret access key is not echoed
+ *  back from the IPC; once the modal closes the secret state is
+ *  released. */
+function AddProfileModal({
+  open,
+  existingProfileNames,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  open: boolean;
+  existingProfileNames: string[];
+  onClose: () => void;
+  onSaved: (name: string) => Promise<void>;
+  onError: (msg: string) => void;
+}) {
+  const t = useT();
+  const formatError = useIpcError();
+  const [name, setName] = useState("");
+  const [accessKeyId, setAccessKeyId] = useState("");
+  const [secretAccessKey, setSecretAccessKey] = useState("");
+  const [region, setRegion] = useState("us-east-1");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("json");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset the form whenever the modal opens. Closing the modal
+  // simply unmounts the inputs; explicit clearing on open is
+  // belt-and-suspenders for secret hygiene.
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setAccessKeyId("");
+      setSecretAccessKey("");
+      setRegion("us-east-1");
+      setOutputFormat("json");
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  const nameValid = /^[A-Za-z0-9_.\-]{1,128}$/.test(name);
+  const duplicate = existingProfileNames.includes(name);
+  const credsValid = accessKeyId.trim().length > 0 && secretAccessKey.length > 0;
+  const canSubmit = !submitting && nameValid && !duplicate && credsValid;
+
+  async function onSubmit() {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await ipc.authCreateProfile({
+        name,
+        access_key_id: accessKeyId.trim(),
+        secret_access_key: secretAccessKey,
+        region: region.trim() || undefined,
+        output_format: outputFormat,
+      });
+      // Release the secret from React state before the success
+      // callback re-renders the parent. (The state is also cleared
+      // on next `open` change, but earlier is better.)
+      setSecretAccessKey("");
+      setAccessKeyId("");
+      await onSaved(name);
+    } catch (err) {
+      const msg = formatError(err);
+      setError(msg);
+      // Errors that surface a stable code that the user can act on
+      // should bubble to the top-of-page toast too — surfacing in
+      // both places makes the failure unmissable.
+      onError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("accounts.cli_profiles.add_modal.title")}
+      footer={
+        <>
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={submitting}
+            data-testid="add-profile-cancel"
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void onSubmit()}
+            disabled={!canSubmit}
+            data-testid="add-profile-save"
+          >
+            {submitting
+              ? t("accounts.cli_profiles.add_modal.saving")
+              : t("accounts.cli_profiles.add_modal.save")}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
+          {t("accounts.cli_profiles.add_modal.subtitle")}
+        </p>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("accounts.cli_profiles.add_modal.name")}</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-testid="add-profile-name"
+            className="rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 font-mono text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-red focus:ring-offset-1"
+          />
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("accounts.cli_profiles.add_modal.name_hint")}
+          </span>
+          {name.length > 0 && !nameValid ? (
+            <span role="alert" className="text-xs text-saw-red" data-testid="add-profile-name-error">
+              {t("accounts.cli_profiles.add_error_name_invalid")}
+            </span>
+          ) : null}
+          {nameValid && duplicate ? (
+            <span role="alert" className="text-xs text-saw-red" data-testid="add-profile-duplicate-error">
+              {t("accounts.cli_profiles.add_error_duplicate").replace("{name}", name)}
+            </span>
+          ) : null}
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("accounts.cli_profiles.add_modal.access_key_id")}</span>
+          <input
+            type="text"
+            value={accessKeyId}
+            onChange={(e) => setAccessKeyId(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-testid="add-profile-access-key-id"
+            className="rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 font-mono text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-red focus:ring-offset-1"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("accounts.cli_profiles.add_modal.secret_key")}</span>
+          <input
+            type="password"
+            value={secretAccessKey}
+            onChange={(e) => setSecretAccessKey(e.target.value)}
+            autoComplete="new-password"
+            data-testid="add-profile-secret-key"
+            className="rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 font-mono text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-red focus:ring-offset-1"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("accounts.cli_profiles.add_modal.region")}</span>
+          <input
+            type="text"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder={t("accounts.cli_profiles.add_modal.region_placeholder")}
+            autoComplete="off"
+            data-testid="add-profile-region"
+            className="rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 font-mono text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-red focus:ring-offset-1"
+          />
+        </label>
+
+        <Select<OutputFormat>
+          label={t("accounts.cli_profiles.add_modal.output_format")}
+          value={outputFormat}
+          options={OUTPUT_FORMATS.map((f) => ({ value: f, label: f }))}
+          onChange={(v) => setOutputFormat(v)}
+          data-testid="add-profile-output-format"
+        />
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+            data-testid="add-profile-error"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </Modal>
+  );
 }

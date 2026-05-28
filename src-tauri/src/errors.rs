@@ -85,6 +85,17 @@ pub enum AppError {
     #[error("aws permission denied: {0}")]
     AwsPermissionDenied(&'static str),
 
+    /// PR #66 — `auth_create_profile` rejected because the profile
+    /// already exists in `~/.aws/credentials` or `~/.aws/config`.
+    #[error("aws profile already exists")]
+    AwsProfileAlreadyExists,
+
+    /// PR #66 — `auth_create_profile` could not write to the
+    /// `~/.aws/` directory. The tag identifies the failing step
+    /// without leaking the underlying I/O error.
+    #[error("aws config write failed: {0}")]
+    AwsConfigWriteFailed(&'static str),
+
     // Multi-account domain (Contract 04). Account IDs and labels never appear
     // in these messages — the frontend maps the `code` to localized copy.
     #[error("account not found")]
@@ -285,6 +296,8 @@ impl AppError {
             AppError::AwsConnectivity => "aws_connectivity",
             AppError::AwsSsoExpired => "aws_sso_expired",
             AppError::AwsPermissionDenied(_) => "aws_permission_denied",
+            AppError::AwsProfileAlreadyExists => "aws_profile_already_exists",
+            AppError::AwsConfigWriteFailed(_) => "aws_config_write_failed",
             AppError::AccountNotFound => "account_not_found",
             AppError::DuplicateAwsAccountId => "duplicate_aws_account_id",
             AppError::DuplicateLabel => "duplicate_label",
