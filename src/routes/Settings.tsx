@@ -797,7 +797,7 @@ function ActivityLogSection({ onOpen }: { onOpen: () => void }) {
   return (
     <section
       className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
-      data-testid="settings-section-activitylog"
+      data-testid="settings-section-activity_log"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("eventlog.section_title")}
@@ -1219,8 +1219,16 @@ function ChangePasswordDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {/* QA FINDING-005: required + minLength attrs reinforce the
+            JS-side validation. They don't fire native form validation
+            here (no <form onSubmit>), but they let password managers
+            and accessibility tools read the field requirements, and
+            they'll engage automatically if a future change wraps the
+            dialog in a form. */}
         <PasswordField
           label={t("applock.field.old_password")}
+          name="current-password"
+          required
           value={oldPw}
           onChange={(e) => setOldPw(e.target.value)}
           autoComplete="current-password"
@@ -1229,6 +1237,9 @@ function ChangePasswordDialog({
         />
         <PasswordField
           label={t("applock.field.new_password")}
+          name="new-password"
+          required
+          minLength={MIN_PASSWORD_LEN}
           value={newPw}
           onChange={(e) => setNewPw(e.target.value)}
           autoComplete="new-password"
@@ -1242,6 +1253,9 @@ function ChangePasswordDialog({
         />
         <PasswordField
           label={t("applock.field.confirm_password")}
+          name="confirm-password"
+          required
+          minLength={MIN_PASSWORD_LEN}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="new-password"
@@ -1923,7 +1937,7 @@ function ReportSection({
   return (
     <section
       className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
-      data-testid="settings-section-reports"
+      data-testid="settings-section-report"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("report.settings.title")}
