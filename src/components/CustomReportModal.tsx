@@ -27,25 +27,99 @@ import {
   type ExportOutcome,
 } from "@/lib/ipc";
 
-/** Common AWS services CloudSaw can scope a report to. Matches the
- *  prefix taxonomy the scanner emits (`iam-`, `s3-`, etc.) so a
- *  future backend wiring can apply this directly as a service
- *  filter. */
+/** PR #71: complete list of AWS services ScoutSuite can scope a scan
+ *  to. Matches the directory layout under
+ *  `vendor/scoutsuite/ScoutSuite/providers/aws/services/`, plus the
+ *  prefix taxonomy the scanner emits (`iam-`, `s3-`, etc.). The label
+ *  map handles display capitalization — special-cased acronyms and
+ *  CamelCase brand names where AWS uses them. */
 const KNOWN_SERVICES: ReadonlyArray<string> = [
-  "iam",
-  "s3",
-  "ec2",
-  "rds",
-  "lambda",
-  "cloudtrail",
+  "acm",
+  "awslambda",
+  "cloudformation",
   "cloudfront",
+  "cloudtrail",
+  "cloudwatch",
+  "codebuild",
+  "config",
+  "directconnect",
+  "dynamodb",
+  "ec2",
+  "ecr",
+  "ecs",
+  "efs",
+  "eks",
+  "elasticache",
+  "elasticbeanstalk",
   "elb",
   "elbv2",
+  "emr",
+  "guardduty",
+  "iam",
   "kms",
+  "opensearch",
+  "rds",
+  "redshift",
   "route53",
+  "s3",
   "secretsmanager",
+  "ses",
+  "sns",
+  "sqs",
+  "ssm",
+  "stepfunctions",
+  "sts",
   "vpc",
 ];
+
+/** PR #71: per-service display label. Acronyms stay all-caps where
+ *  AWS uses them (IAM, RDS, KMS, VPC, EC2, ELB, ELBv2, …); brand
+ *  CamelCase names follow AWS marketing (CloudWatch, CloudFront,
+ *  DynamoDB, …). Anything not in this table falls through to a
+ *  capitalize-first-letter helper. */
+const SERVICE_LABELS: Record<string, string> = {
+  acm: "ACM",
+  awslambda: "AWS Lambda",
+  cloudformation: "CloudFormation",
+  cloudfront: "CloudFront",
+  cloudtrail: "CloudTrail",
+  cloudwatch: "CloudWatch",
+  codebuild: "CodeBuild",
+  directconnect: "Direct Connect",
+  dynamodb: "DynamoDB",
+  ec2: "EC2",
+  ecr: "ECR",
+  ecs: "ECS",
+  efs: "EFS",
+  eks: "EKS",
+  elasticache: "ElastiCache",
+  elasticbeanstalk: "Elastic Beanstalk",
+  elb: "ELB",
+  elbv2: "ELBv2",
+  emr: "EMR",
+  guardduty: "GuardDuty",
+  iam: "IAM",
+  kms: "KMS",
+  opensearch: "OpenSearch",
+  rds: "RDS",
+  redshift: "Redshift",
+  route53: "Route53",
+  s3: "S3",
+  secretsmanager: "Secrets Manager",
+  ses: "SES",
+  sns: "SNS",
+  sqs: "SQS",
+  ssm: "SSM",
+  stepfunctions: "Step Functions",
+  sts: "STS",
+  vpc: "VPC",
+};
+
+function labelForService(svc: string): string {
+  return (
+    SERVICE_LABELS[svc] ?? svc.charAt(0).toUpperCase() + svc.slice(1)
+  );
+}
 
 type Format = "html" | "pdf";
 
@@ -184,6 +258,12 @@ export default function CustomReportModal({ open, onClose, onExported }: Props) 
       const r = await fn(startIso, endIso, accountScope, picked, disclosure);
       setOutcome(r);
       onExported?.(r);
+      // PR #71: close the modal once the report finishes generating.
+      // Give the success state ~700ms to read before the dialog
+      // dismisses so the user has a beat of visual confirmation.
+      window.setTimeout(() => {
+        onClose();
+      }, 700);
     } catch (e) {
       setError(formatError(e));
     } finally {
@@ -295,7 +375,7 @@ export default function CustomReportModal({ open, onClose, onExported }: Props) 
                       <p className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
                         {entry.services.length === 0
                           ? t("report.custom.services_all")
-                          : entry.services.join(", ")}
+                          : entry.services.map(labelForService).join(", ")}
                       </p>
                     </div>
                     <Button
@@ -339,21 +419,25 @@ export default function CustomReportModal({ open, onClose, onExported }: Props) 
                 </label>
                 {!pendingAllServices ? (
                   <div
-                    className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3"
+                    // PR #71: dark-theme adaptive checkbox styling +
+                    // proper service labels (CloudWatch, IAM, ELBv2,
+                    // …) replace the previous lowercase mono prefix.
+                    className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3"
                     data-testid="custom-report-services-list"
                   >
                     {KNOWN_SERVICES.map((svc) => (
                       <label
                         key={svc}
-                        className="flex items-center gap-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+                        className="flex items-center gap-2 rounded px-1.5 py-0.5 text-small text-saw-grey-700 hover:bg-saw-grey-100 dark:text-saw-grey-300 dark:hover:bg-saw-grey-800"
                       >
                         <input
                           type="checkbox"
                           checked={pendingServices.includes(svc)}
                           onChange={() => toggleService(svc)}
                           data-testid={`custom-report-service-${svc}`}
+                          className="h-4 w-4 rounded border-saw-grey-300 bg-saw-white text-saw-red focus:ring-saw-red dark:border-saw-grey-600 dark:bg-saw-grey-800 dark:checked:bg-saw-red dark:focus:ring-saw-red"
                         />
-                        <span className="font-mono text-xs">{svc}</span>
+                        <span>{labelForService(svc)}</span>
                       </label>
                     ))}
                   </div>

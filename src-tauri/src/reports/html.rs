@@ -124,8 +124,13 @@ fn render_header(s: &mut String, content: &ReportContent) {
     push_text(
         s,
         match content.header.disclosure {
-            AccountIdDisclosure::Masked => "masked (default)",
-            AccountIdDisclosure::Full => "full (explicit opt-in)",
+            // PR #71: surface the masking PATTERN itself ("****XXXX")
+            // so the reader of the report sees the format they'll
+            // see in the rows below, not an opaque "masked (default)"
+            // label. Mirrors the convention CloudSaw's UI uses in
+            // log surfaces and the accounts table.
+            AccountIdDisclosure::Masked => "****XXXX (last 4 of each ID only)",
+            AccountIdDisclosure::Full => "full 12-digit account IDs (explicit opt-in)",
         },
     );
     s.push_str("</dd>");
