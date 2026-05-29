@@ -13,6 +13,10 @@ target/
 src-tauri/target/
 src-tauri/gen/schemas/
 
+# Python (content-generator scripts)
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store
 Thumbs.db

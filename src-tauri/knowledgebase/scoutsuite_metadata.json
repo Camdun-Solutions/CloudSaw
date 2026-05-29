@@ -1,35 +1,64 @@
 {
   "acm-certificate-with-transparency-logging-disabled": {
+    "name": "Acm Certificate With Transparency Logging Disabled",
+    "category": "tls-config",
+    "description": "The ACM certificate has Certificate Transparency logging disabled. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://aws.amazon.com/blogs/security/how-to-get-ready-for-certificate-transparency/"
     ]
   },
   "cloudformation-stack-with-role": {
+    "name": "Cloudformation Stack With Role",
+    "category": "infrastructure-hygiene",
+    "description": "The CloudFormation stack runs with an assumed IAM role. The flagged resource isn't an immediate security exposure but it carries operational debt — unused capacity, unowned configuration, mismatched naming. AWS guidance is to keep the inventory tight so reviews remain trustworthy.",
+    "risk": "Operational debt accumulates until reviewers stop trusting the inventory and real findings get lost in the noise. The fix is incremental and low-risk; the long-run payoff is a cleaner attack surface and faster reviews.",
     "references": [
       "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html"
     ]
   },
   "cloudfront-distribution-cleartext-origin": {
+    "name": "Cloudfront Distribution Cleartext Origin",
+    "category": "cleartext-transit",
+    "description": "The CloudFront distribution fetches from its origin over cleartext HTTP. The flagged endpoint accepts unencrypted HTTP / cleartext traffic — either as the only protocol, or alongside HTTPS without a redirect. AWS guidance is to terminate TLS at the edge and force every connection through it.",
+    "risk": "Cleartext traffic means anyone on the network path — a misconfigured wifi captive portal, a hostile cafe, a downstream router — can read or modify the payload. Even endpoints that only carry public data leak credentials in cookies, auth headers, and query strings.",
     "references": [
       "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html"
     ]
   },
   "cloudfront-distribution-insecure-origin": {
+    "name": "Cloudfront Distribution Insecure Origin",
+    "category": "cleartext-transit",
+    "description": "The CloudFront distribution accepts insecure origin protocols. The flagged endpoint accepts unencrypted HTTP / cleartext traffic — either as the only protocol, or alongside HTTPS without a redirect. AWS guidance is to terminate TLS at the edge and force every connection through it.",
+    "risk": "Cleartext traffic means anyone on the network path — a misconfigured wifi captive portal, a hostile cafe, a downstream router — can read or modify the payload. Even endpoints that only carry public data leak credentials in cookies, auth headers, and query strings.",
     "references": [
       "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html"
     ]
   },
   "cloudfront-distribution-insufficient-viewer-security": {
+    "name": "Cloudfront Distribution Insufficient Viewer Security",
+    "category": "tls-config",
+    "description": "The CloudFront viewer security policy allows weak TLS configurations. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-viewercertificate.html"
     ]
   },
   "cloudtrail-duplicated-global-services-logging": {
+    "name": "Cloudtrail Duplicated Global Services Logging",
+    "category": "logging-disabled",
+    "description": "Global-services CloudTrail events are logged by multiple trails (duplicate billing + log noise). AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html#cloudtrail-concepts-global-service-events"
     ]
   },
   "cloudtrail-no-cloudwatch-integration": {
+    "name": "Cloudtrail No Cloudwatch Integration",
+    "category": "cloudtrail-config",
+    "description": "CloudTrail is not delivering events to CloudWatch Logs. CloudTrail's configuration is the trail audit infrastructure depends on — log-file integrity validation, CloudWatch integration, KMS encryption, and global-services capture all need to be enabled deliberately for the trail to be credible during an investigation.",
+    "risk": "A misconfigured CloudTrail is worse than no trail at all — defenders rely on it during incident response, and partial-data / no-integrity / no-encryption gaps create blind spots an attacker can exploit (and, with KMS-decrypt access, potentially tamper with after the fact).",
+    "remediation": "Configure each Trail to have a CloudWatch Logs group attached",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -46,15 +75,26 @@
         "reference": "2.4",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Configure each Trail to have a CloudWatch Logs group attached"
+    ]
   },
   "cloudtrail-no-data-logging": {
+    "name": "Cloudtrail No Data Logging",
+    "category": "logging-disabled",
+    "description": "CloudTrail is not capturing data-event activity (S3 / Lambda / DynamoDB). AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html"
     ]
   },
   "cloudtrail-no-encryption-with-kms": {
+    "name": "Cloudtrail No Encryption With Kms",
+    "category": "encryption-at-rest",
+    "description": "CloudTrail log files are not KMS-encrypted at rest. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
+    "remediation": "Ensure each Trail is encrypted with a KMS key",
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -71,41 +111,53 @@
         "reference": "2.7",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html"
-    ],
-    "remediation": "Ensure each Trail is encrypted with a KMS key"
+    ]
   },
   "cloudtrail-no-global-services-logging": {
+    "name": "Cloudtrail No Global Services Logging",
+    "category": "logging-disabled",
+    "description": "CloudTrail is not capturing global-service events (IAM, CloudFront, Route 53). AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html#cloudtrail-concepts-global-service-events"
     ]
   },
   "cloudtrail-no-log-file-validation": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "2.2",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "2.2",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "2.2",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Cloudtrail No Log File Validation",
+    "category": "cloudtrail-config",
+    "description": "CloudTrail log-file integrity validation is disabled. CloudTrail's configuration is the trail audit infrastructure depends on — log-file integrity validation, CloudWatch integration, KMS encryption, and global-services capture all need to be enabled deliberately for the trail to be credible during an investigation.",
+    "risk": "A misconfigured CloudTrail is worse than no trail at all — defenders rely on it during incident response, and partial-data / no-integrity / no-encryption gaps create blind spots an attacker can exploit (and, with KMS-decrypt access, potentially tamper with after the fact).",
+    "remediation": "Ensure that each Trail has Enable log file validation set to Yes",
     "references": [
       "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-intro.html"
     ],
-    "remediation": "Ensure that each Trail has Enable log file validation set to Yes"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.2",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.2",
+        "version": "1.2.0"
+      }
+    ]
   },
   "cloudtrail-no-logging": {
+    "name": "Cloudtrail No Logging",
+    "category": "logging-disabled",
+    "description": "The CloudTrail trail is not actively logging. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
+    "remediation": "Configure all Trails to enable Logging, set Apply trail to all regions and ensure that Read/Write Events are set to ALL",
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -122,28 +174,44 @@
         "reference": "2.1",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
-    ],
-    "remediation": "Configure all Trails to enable Logging, set Apply trail to all regions and ensure that Read/Write Events are set to ALL"
+    ]
   },
   "cloudtrail-not-configured": {
+    "name": "Cloudtrail Not Configured",
+    "category": "logging-disabled",
+    "description": "CloudTrail is not configured in this account / region. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
     ]
   },
   "cloudtrail-partial-data-logging": {
+    "name": "Cloudtrail Partial Data Logging",
+    "category": "logging-disabled",
+    "description": "CloudTrail data-event logging covers only a subset of relevant resources. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html"
     ]
   },
   "cloudwatch-alarm-without-actions": {
+    "name": "Cloudwatch Alarm Without Actions",
+    "category": "monitoring-alarm",
+    "description": "A CloudWatch alarm has no alarm actions configured. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
     "references": [
       "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html"
     ]
   },
   "config-recorder-not-configured": {
+    "name": "Config Recorder Not Configured",
+    "category": "logging-disabled",
+    "description": "AWS Config recorder is not running in this account / region. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
+    "remediation": "Enable AWS Config in all regions, define the resources you want to record in each region and include global resources (IAM resources)",
+    "references": [
+      "https://aws.amazon.com/blogs/mt/aws-config-best-practices/"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -160,18 +228,26 @@
         "reference": "2.5",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://aws.amazon.com/blogs/mt/aws-config-best-practices/"
-    ],
-    "remediation": "Enable AWS Config in all regions, define the resources you want to record in each region and include global resources (IAM resources)"
+    ]
   },
   "ec2-ami-public": {
+    "name": "Ec2 Ami Public",
+    "category": "public-access",
+    "description": "An EC2 AMI is shared publicly. The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
     "references": [
       "https://aws.amazon.com/security/security-bulletins/reminder-about-safely-sharing-and-using-public-amis/"
     ]
   },
   "ec2-default-security-group-in-use": {
+    "name": "Ec2 Default Security Group In Use",
+    "category": "security-group",
+    "description": "The default VPC security group is attached to a workload. The security group rule is wider than the workload behind it needs — a `0.0.0.0/0` ingress on an administrative port, a default SG carrying real rules, or a long-unused SG kept around as dead config. AWS guidance is to scope every rule to specific CIDRs, principals, or SG references.",
+    "risk": "Wide-open security group rules give attackers direct network reach to backend services that were never hardened for the public internet — SSH brute force, RDP attacks, exposed database ports, unauthenticated metadata endpoints. The exposure persists 24/7.",
+    "remediation": "Ensure resources are not within default security groups. Instead, create a custom security group tailored to each resource needs.",
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-4.3"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -188,13 +264,17 @@
         "reference": "4.3",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-4.3"
-    ],
-    "remediation": "Ensure resources are not within default security groups. Instead, create a custom security group tailored to each resource needs."
+    ]
   },
   "ec2-default-security-group-with-rules": {
+    "name": "Ec2 Default Security Group With Rules",
+    "category": "security-group",
+    "description": "The default VPC security group carries custom rules. The security group rule is wider than the workload behind it needs — a `0.0.0.0/0` ingress on an administrative port, a default SG carrying real rules, or a long-unused SG kept around as dead config. AWS guidance is to scope every rule to specific CIDRs, principals, or SG references.",
+    "risk": "Wide-open security group rules give attackers direct network reach to backend services that were never hardened for the public internet — SSH brute force, RDP attacks, exposed database ports, unauthenticated metadata endpoints. The exposure persists 24/7.",
+    "remediation": "Ensure the default security group of every VPC restricts all traffic",
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-4.3"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -211,54 +291,87 @@
         "reference": "4.3",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-4.3"
-    ],
-    "remediation": "Ensure the default security group of every VPC restricts all traffic"
+    ]
   },
   "ec2-ebs-default-encryption-disabled": {
+    "name": "Ec2 Ebs Default Encryption Disabled",
+    "category": "encryption-at-rest",
+    "description": "EBS default encryption is disabled in this region. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
+    "remediation": "Enable encryption by default for EBS volumes in all regions.",
     "references": [
       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#encryption-by-default"
-    ],
-    "remediation": "Enable encryption by default for EBS volumes in all regions."
+    ]
   },
   "ec2-ebs-snapshot-not-encrypted": {
+    "name": "Ec2 Ebs Snapshot Not Encrypted",
+    "category": "encryption-at-rest",
+    "description": "An EBS snapshot is unencrypted. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
     "references": [
       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html"
     ]
   },
   "ec2-ebs-snapshot-public": {
+    "name": "Ec2 Ebs Snapshot Public",
+    "category": "public-access",
+    "description": "An EBS snapshot is shared publicly. The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
     "references": [
       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modifying-snapshot-permissions.html"
     ]
   },
   "ec2-ebs-volume-not-encrypted": {
+    "name": "Ec2 Ebs Volume Not Encrypted",
+    "category": "encryption-at-rest",
+    "description": "An EBS volume is unencrypted. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
     "references": [
       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html"
     ]
   },
   "ec2-instance-type": {
+    "name": "Ec2 Instance Type",
+    "category": "infrastructure-hygiene",
+    "description": "An EC2 instance uses an instance type outside the approved list. The flagged resource isn't an immediate security exposure but it carries operational debt — unused capacity, unowned configuration, mismatched naming. AWS guidance is to keep the inventory tight so reviews remain trustworthy.",
+    "risk": "Operational debt accumulates until reviewers stop trusting the inventory and real findings get lost in the noise. The fix is incremental and low-risk; the long-run payoff is a cleaner attack surface and faster reviews.",
     "references": [
       "https://aws.amazon.com/ec2/instance-types/"
     ]
   },
   "ec2-instance-types": {
+    "name": "Ec2 Instance Types",
+    "category": "infrastructure-hygiene",
+    "description": "EC2 instance types in use deviate from the approved baseline. The flagged resource isn't an immediate security exposure but it carries operational debt — unused capacity, unowned configuration, mismatched naming. AWS guidance is to keep the inventory tight so reviews remain trustworthy.",
+    "risk": "Operational debt accumulates until reviewers stop trusting the inventory and real findings get lost in the noise. The fix is incremental and low-risk; the long-run payoff is a cleaner attack surface and faster reviews.",
     "references": [
       "https://aws.amazon.com/ec2/instance-types/"
     ]
   },
   "ec2-instance-with-public-ip": {
+    "name": "Ec2 Instance With Public Ip",
+    "category": "public-access",
+    "description": "An EC2 instance has a routable public IP. The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
     "references": [
       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-instance-addressing.html"
     ]
   },
   "ec2-instance-with-user-data-secrets": {
+    "name": "Ec2 Instance With User Data Secrets",
+    "category": "data-exposure",
+    "description": "The EC2 instance user-data script appears to carry credentials. The flagged surface puts data in places it shouldn't appear — credentials in EC2 user-data, secrets in container env-vars, MFA-Delete off on an S3 bucket holding durable state. AWS guidance is to keep secrets in Secrets Manager / Parameter Store and to lock buckets with MFA-Delete + versioning.",
+    "risk": "Misplaced secrets are extracted by routine internal access — any read on the EC2 metadata service or the bucket reveals the secret. Versioning + MFA-Delete protects against the worst case where an attacker tries to cover their tracks by overwriting evidence.",
     "references": [
       "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html"
     ]
   },
   "ec2-security-group-opens-known-port-to-all": {
+    "name": "Ec2 Security Group Opens Known Port To All",
+    "category": "security-group",
+    "description": "A security group opens a well-known port to the public internet. The security group rule is wider than the workload behind it needs — a `0.0.0.0/0` ingress on an administrative port, a default SG carrying real rules, or a long-unused SG kept around as dead config. AWS guidance is to scope every rule to specific CIDRs, principals, or SG references.",
+    "risk": "Wide-open security group rules give attackers direct network reach to backend services that were never hardened for the public internet — SSH brute force, RDP attacks, exposed database ports, unauthenticated metadata endpoints. The exposure persists 24/7.",
+    "remediation": "Remove the inbound rules that expose open ports",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -290,30 +403,49 @@
         "reference": "4.2",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Remove the inbound rules that expose open ports"
+    ]
   },
   "ec2-unused-security-group": {
+    "name": "Ec2 Unused Security Group",
+    "category": "security-group",
+    "description": "An EC2 security group is defined but attached to no resource. The security group rule is wider than the workload behind it needs — a `0.0.0.0/0` ingress on an administrative port, a default SG carrying real rules, or a long-unused SG kept around as dead config. AWS guidance is to scope every rule to specific CIDRs, principals, or SG references.",
+    "risk": "Wide-open security group rules give attackers direct network reach to backend services that were never hardened for the public internet — SSH brute force, RDP attacks, exposed database ports, unauthenticated metadata endpoints. The exposure persists 24/7.",
     "references": [
       "https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html"
     ]
   },
   "elb-listener-allowing-cleartext": {
+    "name": "Elb Listener Allowing Cleartext",
+    "category": "cleartext-transit",
+    "description": "An ELB listener accepts cleartext HTTP traffic. The flagged endpoint accepts unencrypted HTTP / cleartext traffic — either as the only protocol, or alongside HTTPS without a redirect. AWS guidance is to terminate TLS at the edge and force every connection through it.",
+    "risk": "Cleartext traffic means anyone on the network path — a misconfigured wifi captive portal, a hostile cafe, a downstream router — can read or modify the payload. Even endpoints that only carry public data leak credentials in cookies, auth headers, and query strings.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-listener-config.html"
     ]
   },
   "elb-no-access-logs": {
+    "name": "Elb No Access Logs",
+    "category": "logging-disabled",
+    "description": "The classic ELB has access logging disabled. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html"
     ]
   },
   "elb-older-ssl-policy": {
+    "name": "Elb Older Ssl Policy",
+    "category": "tls-config",
+    "description": "The classic ELB uses a deprecated SSL/TLS policy. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-security-policy-table.html"
     ]
   },
   "elbv2-http-request-smuggling": {
+    "name": "Elbv2 Http Request Smuggling",
+    "category": "tls-config",
+    "description": "An ALB / NLB target group is exposed to HTTP request smuggling. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html",
       "https://medium.com/@emilefugulin/http-desync-attacks-with-python-and-aws-1ba07d2c860f",
@@ -322,6 +454,10 @@
     ]
   },
   "elbv2-listener-allowing-cleartext": {
+    "name": "Elbv2 Listener Allowing Cleartext",
+    "category": "cleartext-transit",
+    "description": "An ALB / NLB listener accepts cleartext HTTP traffic. The flagged endpoint accepts unencrypted HTTP / cleartext traffic — either as the only protocol, or alongside HTTPS without a redirect. AWS guidance is to terminate TLS at the edge and force every connection through it.",
+    "risk": "Cleartext traffic means anyone on the network path — a misconfigured wifi captive portal, a hostile cafe, a downstream router — can read or modify the payload. Even endpoints that only carry public data leak credentials in cookies, auth headers, and query strings.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-https-load-balancers.html",
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html",
@@ -329,54 +465,94 @@
     ]
   },
   "elbv2-no-access-logs": {
+    "name": "Elbv2 No Access Logs",
+    "category": "logging-disabled",
+    "description": "The ALB / NLB has access logging disabled. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html",
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html"
     ]
   },
   "elbv2-no-deletion-protection": {
+    "name": "Elbv2 No Deletion Protection",
+    "category": "backup-recovery",
+    "description": "The ALB / NLB has deletion protection disabled. AWS-managed data stores ship automatic backup and recovery primitives (snapshots, PITR, cross-AZ replicas, versioning, deletion protection) but they have to be enabled per-resource. Default-off behaviors leave the resource one operator-error or one ransomware event away from data loss.",
+    "risk": "A resource without backups, retention, or deletion protection is a single incident from permanent loss — and the incident isn't usually malicious. Accidental DROP TABLE, accidental terraform destroy, accidental S3 object overwrite all produce the same blast radius.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#deletion-protection"
     ]
   },
   "elbv2-older-ssl-policy": {
+    "name": "Elbv2 Older Ssl Policy",
+    "category": "tls-config",
+    "description": "The ALB / NLB uses a deprecated TLS policy. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies"
     ]
   },
   "iam-assume-role-lacks-external-id-and-mfa": {
+    "name": "Iam Assume Role Lacks External Id And Mfa",
+    "category": "mfa",
+    "description": "An IAM role's trust policy allows cross-account assumption without an ExternalId or MFA. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
     "references": [
       "https://research.nccgroup.com/2019/12/18/demystifying-aws-assumerole-and-stsexternalid/",
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html"
     ]
   },
   "iam-assume-role-no-mfa": {
+    "name": "Iam Assume Role No Mfa",
+    "category": "mfa",
+    "description": "An IAM role's trust policy allows assumption without an MFA condition. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
     "references": [
       "https://research.nccgroup.com/2019/12/18/demystifying-aws-assumerole-and-stsexternalid/"
     ]
   },
   "iam-assume-role-policy-allows-all": {
+    "name": "Iam Assume Role Policy Allows All",
+    "category": "iam-privilege",
+    "description": "An IAM role's trust policy allows assumption from any principal. The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
     "references": [
       "https://research.nccgroup.com/2019/12/18/demystifying-aws-assumerole-and-stsexternalid/"
     ]
   },
   "iam-ec2-role-without-instances": {
+    "name": "Iam Ec2 Role Without Instances",
+    "category": "iam-hygiene",
+    "description": "An IAM role intended for EC2 use is attached to no instances. The flagged IAM object isn't an immediate exposure but it muddies the access surface — unused groups, support-role gaps, dangling roles attached to no instance — and access reviews work better when the inventory matches reality.",
+    "risk": "Stale IAM clutter masks real findings. Reviewers stop trusting the access list when it's clearly out of date, and an over-permissioned role tucked among twenty abandoned ones is much harder to spot. The fix is small and the audit-hygiene payoff is meaningful.",
     "references": [
       "https://aws.amazon.com/about-aws/whats-new/2019/11/identify-unused-iam-roles-easily-and-remove-them-confidently-by-using-the-last-used-timestamp/"
     ]
   },
   "iam-group-with-inline-policies": {
+    "name": "Iam Group With Inline Policies",
+    "category": "iam-inline-policy",
+    "description": "An IAM group carries inline policies instead of attached managed policies. Inline IAM policies are harder to audit and reuse than managed policies; AWS guidance is to factor reusable rules into customer-managed policies, attach them by name, and reserve inline policies for genuinely one-off cases.",
+    "risk": "Inline policies tend to drift — each owner edits their own copy in isolation, review tooling has nothing stable to diff against, and a permission widened on one role is invisible until somebody runs an access audit. The result is a slow creep toward over-permissive access.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#best-practice-managed-vs-inline",
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html"
     ]
   },
   "iam-group-with-no-users": {
+    "name": "Iam Group With No Users",
+    "category": "iam-hygiene",
+    "description": "An IAM group has no users assigned. The flagged IAM object isn't an immediate exposure but it muddies the access surface — unused groups, support-role gaps, dangling roles attached to no instance — and access reviews work better when the inventory matches reality.",
+    "risk": "Stale IAM clutter masks real findings. Reviewers stop trusting the access list when it's clearly out of date, and an over-permissioned role tucked among twenty abandoned ones is much harder to spot. The fix is small and the audit-hygiene payoff is meaningful.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#use-groups-for-permissions"
     ]
   },
   "iam-inline-policy-allows-NotActions": {
+    "name": "Iam Inline Policy Allows Notactions",
+    "category": "iam-privilege",
+    "description": "An inline policy uses NotAction to define an allow list (over-broad by construction). The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html",
@@ -384,29 +560,54 @@
     ]
   },
   "iam-inline-policy-allows-non-sts-action": {
+    "name": "Iam Inline Policy Allows Non Sts Action",
+    "category": "iam-privilege",
+    "description": "An inline policy on an STS-only context grants non-STS actions. The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
     ]
   },
   "iam-inline-policy-for-role": {
+    "name": "Iam Inline Policy For Role",
+    "category": "iam-inline-policy",
+    "description": "An IAM role carries an inline policy rather than a managed attachment. Inline IAM policies are harder to audit and reuse than managed policies; AWS guidance is to factor reusable rules into customer-managed policies, attach them by name, and reserve inline policies for genuinely one-off cases.",
+    "risk": "Inline policies tend to drift — each owner edits their own copy in isolation, review tooling has nothing stable to diff against, and a permission widened on one role is invisible until somebody runs an access audit. The result is a slow creep toward over-permissive access.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
     ]
   },
   "iam-lightspin-user-action-denied-for-group": {
+    "name": "Iam Lightspin User Action Denied For Group",
+    "category": "iam-privilege",
+    "description": "An IAM identity has actions denied for a group it belongs to (privilege ambiguity). The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
+    "remediation": "Define all relevant users in the resource field of the affected policies to avoid ineffective IAM actions and deny all group actions. The alternative would be to use the condition \"iam:ResourceTag\" in the policy.",
     "references": [
       "https://blog.lightspin.io/aws-iam-groups-authorization-bypass",
       "https://github.com/lightspin-tech/red-shadow"
-    ],
-    "remediation": "Define all relevant users in the resource field of the affected policies to avoid ineffective IAM actions and deny all group actions. The alternative would be to use the condition \"iam:ResourceTag\" in the policy."
+    ]
   },
   "iam-managed-policy-allows-NotActions": {
+    "name": "Iam Managed Policy Allows Notactions",
+    "category": "iam-privilege",
+    "description": "A managed policy uses NotAction to define an allow list (over-broad by construction). The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html",
       "https://aws.amazon.com/blogs/security/back-to-school-understanding-the-iam-policy-grammar/"
     ]
   },
   "iam-managed-policy-allows-full-privileges": {
+    "name": "Iam Managed Policy Allows Full Privileges",
+    "category": "iam-privilege",
+    "description": "A managed policy grants full administrative privileges. The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
+    "remediation": "Ensure no managed policies are configured with <samp>Effect: Allow</samp>, <samp>Action: *</samp> and <samp>Resource: *</samp>",
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+      "https://aws.amazon.com/blogs/security/back-to-school-understanding-the-iam-policy-grammar/"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -418,29 +619,41 @@
         "reference": "1.22",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
-      "https://aws.amazon.com/blogs/security/back-to-school-understanding-the-iam-policy-grammar/"
-    ],
-    "remediation": "Ensure no managed policies are configured with <samp>Effect: Allow</samp>, <samp>Action: *</samp> and <samp>Resource: *</samp>"
+    ]
   },
   "iam-managed-policy-allows-non-sts-action": {
+    "name": "Iam Managed Policy Allows Non Sts Action",
+    "category": "iam-privilege",
+    "description": "A managed policy on an STS-only context grants non-STS actions. The flagged policy grants more authority than the workload appears to need (full-action wildcards, NotAction-style allow lists, or unbounded resource selectors). The principle of least privilege requires the policy be narrowed to the specific actions and resources the workload actually uses.",
+    "risk": "Over-broad IAM permissions turn any single compromised credential into a foothold for lateral movement across the account. Attackers routinely enumerate attached policies and pivot from one over-permissioned role to another to reach data, secrets, or billing.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
     ]
   },
   "iam-managed-policy-for-role": {
+    "name": "Iam Managed Policy For Role",
+    "category": "iam-hygiene",
+    "description": "An IAM role attaches a customer-managed policy in a context that should be AWS-managed. The flagged IAM object isn't an immediate exposure but it muddies the access surface — unused groups, support-role gaps, dangling roles attached to no instance — and access reviews work better when the inventory matches reality.",
+    "risk": "Stale IAM clutter masks real findings. Reviewers stop trusting the access list when it's clearly out of date, and an over-permissioned role tucked among twenty abandoned ones is much harder to spot. The fix is small and the audit-hygiene payoff is meaningful.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
     ]
   },
   "iam-managed-policy-no-attachments": {
+    "name": "Iam Managed Policy No Attachments",
+    "category": "iam-hygiene",
+    "description": "A managed policy is defined but attached to no principal. The flagged IAM object isn't an immediate exposure but it muddies the access surface — unused groups, support-role gaps, dangling roles attached to no instance — and access reviews work better when the inventory matches reality.",
+    "risk": "Stale IAM clutter masks real findings. Reviewers stop trusting the access list when it's clearly out of date, and an over-permissioned role tucked among twenty abandoned ones is much harder to spot. The fix is small and the audit-hygiene payoff is meaningful.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html#customer-managed-policies"
     ]
   },
   "iam-no-support-role": {
+    "name": "Iam No Support Role",
+    "category": "iam-hygiene",
+    "description": "No IAM role is mapped to the AWSSupportAccess managed policy. The flagged IAM object isn't an immediate exposure but it muddies the access surface — unused groups, support-role gaps, dangling roles attached to no instance — and access reviews work better when the inventory matches reality.",
+    "risk": "Stale IAM clutter masks real findings. Reviewers stop trusting the access list when it's clearly out of date, and an over-permissioned role tucked among twenty abandoned ones is much harder to spot. The fix is small and the audit-hygiene payoff is meaningful.",
+    "remediation": "Attach the AWSSupportAccess to a role or group",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -452,163 +665,198 @@
         "reference": "1.20",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Attach the AWSSupportAccess to a role or group"
+    ]
   },
   "iam-password-policy-expiration-threshold": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.11",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.11",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.11",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Iam Password Policy Expiration Threshold",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce a password expiration period above the recommended threshold. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Enable password expiration and set the expiration period to 90 days or less",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.11"
     ],
-    "remediation": "Enable password expiration and set the expiration period to 90 days or less"
-  },
-  "iam-password-policy-minimum-length": {
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.9",
+        "reference": "1.11",
         "version": "1.0.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.9",
+        "reference": "1.11",
         "version": "1.1.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.9",
+        "reference": "1.11",
         "version": "1.2.0"
       }
-    ],
+    ]
+  },
+  "iam-password-policy-minimum-length": {
+    "name": "Iam Password Policy Minimum Length",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce the minimum-length requirement for console passwords. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Ensure the password policy is configured to require a minimum length",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.9",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
       "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
     ],
-    "remediation": "Ensure the password policy is configured to require a minimum length"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.9",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.9",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.9",
+        "version": "1.2.0"
+      }
+    ]
   },
   "iam-password-policy-no-expiration": {
+    "name": "Iam Password Policy No Expiration",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce console password expiration. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.11"
     ]
   },
   "iam-password-policy-no-lowercase-required": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.6",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.6",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.6",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Iam Password Policy No Lowercase Required",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce the lowercase-character requirement for console passwords. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Ensure the password policy is configured to require at least one lowercase letter",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.6",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
       "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
     ],
-    "remediation": "Ensure the password policy is configured to require at least one lowercase letter"
-  },
-  "iam-password-policy-no-number-required": {
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.8",
+        "reference": "1.6",
         "version": "1.0.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.8",
+        "reference": "1.6",
         "version": "1.1.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.8",
+        "reference": "1.6",
         "version": "1.2.0"
       }
-    ],
+    ]
+  },
+  "iam-password-policy-no-number-required": {
+    "name": "Iam Password Policy No Number Required",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce the digit requirement for console passwords. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Ensure the password policy is configured to require at least one number",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.8",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
       "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
     ],
-    "remediation": "Ensure the password policy is configured to require at least one number"
-  },
-  "iam-password-policy-no-symbol-required": {
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.7",
+        "reference": "1.8",
         "version": "1.0.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.7",
+        "reference": "1.8",
         "version": "1.1.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.7",
+        "reference": "1.8",
         "version": "1.2.0"
       }
-    ],
+    ]
+  },
+  "iam-password-policy-no-symbol-required": {
+    "name": "Iam Password Policy No Symbol Required",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce the symbol-character requirement for console passwords. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Ensure the password policy is configured to require at least one symbol",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.7",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
       "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
     ],
-    "remediation": "Ensure the password policy is configured to require at least one symbol"
-  },
-  "iam-password-policy-no-uppercase-required": {
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.5",
+        "reference": "1.7",
         "version": "1.0.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.5",
+        "reference": "1.7",
         "version": "1.1.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.5",
+        "reference": "1.7",
         "version": "1.2.0"
       }
-    ],
+    ]
+  },
+  "iam-password-policy-no-uppercase-required": {
+    "name": "Iam Password Policy No Uppercase Required",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce the uppercase-character requirement for console passwords. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Ensure the password policy is configured to require at least one uppercase letter",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.5",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
       "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
     ],
-    "remediation": "Ensure the password policy is configured to require at least one uppercase letter"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.5",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.5",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.5",
+        "version": "1.2.0"
+      }
+    ]
   },
   "iam-password-policy-reuse-enabled": {
+    "name": "Iam Password Policy Reuse Enabled",
+    "category": "password-policy",
+    "description": "The IAM account password policy does not enforce a password-reuse prevention window. AWS evaluates the policy against every console password set or reset by a human user; gaps in the policy translate directly into weaker credentials sitting in production.",
+    "risk": "Weakened password policy makes credential-guessing attacks (password spray, dictionary lookup, reuse across services) materially cheaper. Compromised console credentials are the most common starting point for AWS account takeover incidents.",
+    "remediation": "Ensure the password policy is configured to prevent password reuse",
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.10"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -625,19 +873,28 @@
         "reference": "1.10",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.10"
-    ],
-    "remediation": "Ensure the password policy is configured to prevent password reuse"
+    ]
   },
   "iam-role-with-inline-policies": {
+    "name": "Iam Role With Inline Policies",
+    "category": "iam-inline-policy",
+    "description": "An IAM role carries inline policies instead of attached managed policies. Inline IAM policies are harder to audit and reuse than managed policies; AWS guidance is to factor reusable rules into customer-managed policies, attach them by name, and reserve inline policies for genuinely one-off cases.",
+    "risk": "Inline policies tend to drift — each owner edits their own copy in isolation, review tooling has nothing stable to diff against, and a permission widened on one role is invisible until somebody runs an access audit. The result is a slow creep toward over-permissive access.",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#best-practice-managed-vs-inline",
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html"
     ]
   },
   "iam-root-account-no-hardware-mfa": {
+    "name": "Iam Root Account No Hardware Mfa",
+    "category": "mfa",
+    "description": "The root account has no hardware MFA device enrolled. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
+    "remediation": "Enable MFA for the root account",
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.13",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_mfa"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -654,50 +911,37 @@
         "reference": "1.14",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.13",
-      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_mfa"
-    ],
-    "remediation": "Enable MFA for the root account"
+    ]
   },
   "iam-root-account-no-mfa": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.13",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.13",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Iam Root Account No Mfa",
+    "category": "mfa",
+    "description": "The root account has no MFA device enrolled. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
+    "remediation": "Enable MFA for the root account",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.13",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_mfa"
     ],
-    "remediation": "Enable MFA for the root account"
-  },
-  "iam-root-account-used-recently": {
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.1",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.1",
+        "reference": "1.13",
         "version": "1.1.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.1",
+        "reference": "1.13",
         "version": "1.2.0"
       }
-    ],
+    ]
+  },
+  "iam-root-account-used-recently": {
+    "name": "Iam Root Account Used Recently",
+    "category": "root-account",
+    "description": "The root account was used recently. The AWS root account holds permanent, unrevocable authority over the billing, security, and resource state of the account; AWS guidance is to lock it down to a hardware MFA-protected break-glass identity and use IAM (or Identity Center) for routine work.",
+    "risk": "Compromise of the root account is essentially unrecoverable — root credentials can disable CloudTrail, rotate keys, and create new admins faster than any automated control can react. Every active root credential, every recent root sign-in, and every missing root MFA increases the blast radius of one phish.",
+    "remediation": "Follow the remediation instructions of the Ensure IAM policies are attached only to groups or roles recommendation",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-standards-cis-controls-1.1",
       "https://docs.aws.amazon.com/general/latest/gr/aws_tasks-that-require-root.html",
@@ -706,41 +950,70 @@
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_document-processes",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_monitor-access"
     ],
-    "remediation": "Follow the remediation instructions of the Ensure IAM policies are attached only to groups or roles recommendation"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.1",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.1",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.1",
+        "version": "1.2.0"
+      }
+    ]
   },
   "iam-root-account-with-active-certs": {
+    "name": "Iam Root Account With Active Certs",
+    "category": "root-account",
+    "description": "The root account has active signing certificates. The AWS root account holds permanent, unrevocable authority over the billing, security, and resource state of the account; AWS guidance is to lock it down to a hardware MFA-protected break-glass identity and use IAM (or Identity Center) for routine work.",
+    "risk": "Compromise of the root account is essentially unrecoverable — root credentials can disable CloudTrail, rotate keys, and create new admins faster than any automated control can react. Every active root credential, every recent root sign-in, and every missing root MFA increases the blast radius of one phish.",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-standards-cis-controls-1.1",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use"
     ]
   },
   "iam-root-account-with-active-keys": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.12",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.12",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.12",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Iam Root Account With Active Keys",
+    "category": "root-account",
+    "description": "The root account has active programmatic access keys. The AWS root account holds permanent, unrevocable authority over the billing, security, and resource state of the account; AWS guidance is to lock it down to a hardware MFA-protected break-glass identity and use IAM (or Identity Center) for routine work.",
+    "risk": "Compromise of the root account is essentially unrecoverable — root credentials can disable CloudTrail, rotate keys, and create new admins faster than any automated control can react. Every active root credential, every recent root sign-in, and every missing root MFA increases the blast radius of one phish.",
+    "remediation": "Delete or disable active root account access keys",
     "references": [
       "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-standards-cis-controls-1.1",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_review-access",
       "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_document-processes"
     ],
-    "remediation": "Delete or disable active root account access keys"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.12",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.12",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.12",
+        "version": "1.2.0"
+      }
+    ]
   },
   "iam-unused-credentials-not-disabled": {
+    "name": "Iam Unused Credentials Not Disabled",
+    "category": "iam-credential-rotation",
+    "description": "IAM credentials that have been unused for a long window remain active. Long-lived access keys and passwords accumulate exposure: every backup tape, every old git commit, every ex-employee laptop is another place the credential might be reachable. AWS guidance is to rotate every 90 days and to delete keys that have been unused for a comparable window.",
+    "risk": "Static long-lived credentials are the bulk of the cloud-account-compromise fixture — leaked S3 buckets, GitHub commits, container images. The longer a key lives, the more accidental copies of it exist. Multiple keys per user multiplies the attack surface for no operational gain.",
+    "remediation": "Ensure that all credentials (including passwords and access keys) have been used and changed in the last _ARG_0_ days",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -757,33 +1030,41 @@
         "reference": "1.3",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Ensure that all credentials (including passwords and access keys) have been used and changed in the last _ARG_0_ days"
+    ]
   },
   "iam-user-no-key-rotation": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.4",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.4",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.4",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Iam User No Key Rotation",
+    "category": "iam-credential-rotation",
+    "description": "An IAM user access key has not been rotated within the recommended window. Long-lived access keys and passwords accumulate exposure: every backup tape, every old git commit, every ex-employee laptop is another place the credential might be reachable. AWS guidance is to rotate every 90 days and to delete keys that have been unused for a comparable window.",
+    "risk": "Static long-lived credentials are the bulk of the cloud-account-compromise fixture — leaked S3 buckets, GitHub commits, container images. The longer a key lives, the more accidental copies of it exist. Multiple keys per user multiplies the attack surface for no operational gain.",
+    "remediation": "Rotate access keys that have not been changed recently",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#rotate-credentials"
     ],
-    "remediation": "Rotate access keys that have not been changed recently"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.4",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.4",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.4",
+        "version": "1.2.0"
+      }
+    ]
   },
   "iam-user-unused-access-key-initial-setup": {
+    "name": "Iam User Unused Access Key Initial Setup",
+    "category": "iam-credential-rotation",
+    "description": "An IAM user's initial access key has never been used. Long-lived access keys and passwords accumulate exposure: every backup tape, every old git commit, every ex-employee laptop is another place the credential might be reachable. AWS guidance is to rotate every 90 days and to delete keys that have been unused for a comparable window.",
+    "risk": "Static long-lived credentials are the bulk of the cloud-account-compromise fixture — leaked S3 buckets, GitHub commits, container images. The longer a key lives, the more accidental copies of it exist. Multiple keys per user multiplies the attack surface for no operational gain.",
+    "remediation": "Do not setup access keys during initial user setup. Instead, require users to create the keys themselves or put in a support ticket to have them created",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -795,21 +1076,33 @@
         "reference": "1.21",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Do not setup access keys during initial user setup. Instead, require users to create the keys themselves or put in a support ticket to have them created"
+    ]
   },
   "iam-user-with-multiple-access-keys": {
+    "name": "Iam User With Multiple Access Keys",
+    "category": "iam-credential-rotation",
+    "description": "An IAM user has multiple active access keys. Long-lived access keys and passwords accumulate exposure: every backup tape, every old git commit, every ex-employee laptop is another place the credential might be reachable. AWS guidance is to rotate every 90 days and to delete keys that have been unused for a comparable window.",
+    "risk": "Static long-lived credentials are the bulk of the cloud-account-compromise fixture — leaked S3 buckets, GitHub commits, container images. The longer a key lives, the more accidental copies of it exist. Multiple keys per user multiplies the attack surface for no operational gain.",
     "references": [
       "https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html"
     ]
   },
   "iam-user-with-password-and-key": {
+    "name": "Iam User With Password And Key",
+    "category": "iam-credential-rotation",
+    "description": "An IAM user has both a console password and an active programmatic key. Long-lived access keys and passwords accumulate exposure: every backup tape, every old git commit, every ex-employee laptop is another place the credential might be reachable. AWS guidance is to rotate every 90 days and to delete keys that have been unused for a comparable window.",
+    "risk": "Static long-lived credentials are the bulk of the cloud-account-compromise fixture — leaked S3 buckets, GitHub commits, container images. The longer a key lives, the more accidental copies of it exist. Multiple keys per user multiplies the attack surface for no operational gain.",
     "references": [
       "https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html",
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_admin-change-user.html"
     ]
   },
   "iam-user-with-policies": {
+    "name": "Iam User With Policies",
+    "category": "iam-hygiene",
+    "description": "An IAM user has policies attached directly rather than via group membership. The flagged IAM object isn't an immediate exposure but it muddies the access surface — unused groups, support-role gaps, dangling roles attached to no instance — and access reviews work better when the inventory matches reality.",
+    "risk": "Stale IAM clutter masks real findings. Reviewers stop trusting the access list when it's clearly out of date, and an over-permissioned role tucked among twenty abandoned ones is much harder to spot. The fix is small and the audit-hygiene payoff is meaningful.",
+    "remediation": "Ensure IAM policies are only attached to groups or roles",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -826,57 +1119,69 @@
         "reference": "1.16",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Ensure IAM policies are only attached to groups or roles"
+    ]
   },
   "iam-user-without-mfa": {
-    "compliance": [
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.2",
-        "version": "1.0.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.2",
-        "version": "1.1.0"
-      },
-      {
-        "name": "CIS Amazon Web Services Foundations",
-        "reference": "1.2",
-        "version": "1.2.0"
-      }
-    ],
+    "name": "Iam User Without Mfa",
+    "category": "mfa",
+    "description": "An IAM user with console access has no MFA device enrolled. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
+    "remediation": "Enable MFA for all users in the AWS account",
     "references": [
       "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#enable-mfa-for-privileged-users",
       "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_mfa"
     ],
-    "remediation": "Enable MFA for all users in the AWS account"
-  },
-  "kms-cmk-rotation-disabled": {
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "2.8",
+        "reference": "1.2",
         "version": "1.0.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "2.8",
+        "reference": "1.2",
         "version": "1.1.0"
       },
       {
         "name": "CIS Amazon Web Services Foundations",
-        "reference": "2.8",
+        "reference": "1.2",
         "version": "1.2.0"
       }
-    ],
+    ]
+  },
+  "kms-cmk-rotation-disabled": {
+    "name": "Kms Cmk Rotation Disabled",
+    "category": "encryption-at-rest",
+    "description": "A customer-managed KMS CMK has automatic rotation disabled. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
+    "remediation": "For every KMS Customer Master Keys (CMKs), ensure that Rotate this key every year is enabled",
     "references": [
       "https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html"
     ],
-    "remediation": "For every KMS Customer Master Keys (CMKs), ensure that Rotate this key every year is enabled"
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.8",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.8",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.8",
+        "version": "1.2.0"
+      }
+    ]
   },
   "logs-no-alarm-aws-configuration-changes": {
+    "name": "Logs No Alarm Aws Configuration Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on AWS Config changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect AWS configuration changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -893,10 +1198,14 @@
         "reference": "3.9",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect AWS configuration changes."
+    ]
   },
   "logs-no-alarm-cloudtrail-configuration-changes": {
+    "name": "Logs No Alarm Cloudtrail Configuration Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on CloudTrail configuration changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to monitor CloudTrail configuration changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -913,10 +1222,14 @@
         "reference": "3.5",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor CloudTrail configuration changes."
+    ]
   },
   "logs-no-alarm-cmk-deletion": {
+    "name": "Logs No Alarm Cmk Deletion",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on customer-managed CMK deletion. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect recently disabled or deleted master keys.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -933,10 +1246,14 @@
         "reference": "3.7",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect recently disabled or deleted master keys."
+    ]
   },
   "logs-no-alarm-console-authentication-failures": {
+    "name": "Logs No Alarm Console Authentication Failures",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on console authentication failures. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to monitor failed authentication attempts.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -953,10 +1270,14 @@
         "reference": "3.6",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor failed authentication attempts."
+    ]
   },
   "logs-no-alarm-iam-policy-changes": {
+    "name": "Logs No Alarm Iam Policy Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on IAM policy changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to monitor the usage of the root account.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -973,10 +1294,14 @@
         "reference": "3.4",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor the usage of the root account."
+    ]
   },
   "logs-no-alarm-nacl-changes": {
+    "name": "Logs No Alarm Nacl Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on network ACL changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect NACL changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -993,10 +1318,14 @@
         "reference": "3.11",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect NACL changes."
+    ]
   },
   "logs-no-alarm-network-gateways-changes": {
+    "name": "Logs No Alarm Network Gateways Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on network gateway changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect network gateways changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1013,10 +1342,14 @@
         "reference": "3.12",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect network gateways changes."
+    ]
   },
   "logs-no-alarm-root-usage": {
+    "name": "Logs No Alarm Root Usage",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on root-account usage. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to monitor the usage of the root account.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1033,10 +1366,14 @@
         "reference": "3.3",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor the usage of the root account."
+    ]
   },
   "logs-no-alarm-route-table-changes": {
+    "name": "Logs No Alarm Route Table Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on route-table changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect route table changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1053,10 +1390,14 @@
         "reference": "3.13",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect route table changes."
+    ]
   },
   "logs-no-alarm-s3-policy-changes": {
+    "name": "Logs No Alarm S3 Policy Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on S3 bucket policy changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect policy changes in S3 buckets.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1073,10 +1414,14 @@
         "reference": "3.8",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect policy changes in S3 buckets."
+    ]
   },
   "logs-no-alarm-security-group-changes": {
+    "name": "Logs No Alarm Security Group Changes",
+    "category": "security-group",
+    "description": "No CloudWatch alarm fires on security-group changes. The security group rule is wider than the workload behind it needs — a `0.0.0.0/0` ingress on an administrative port, a default SG carrying real rules, or a long-unused SG kept around as dead config. AWS guidance is to scope every rule to specific CIDRs, principals, or SG references.",
+    "risk": "Wide-open security group rules give attackers direct network reach to backend services that were never hardened for the public internet — SSH brute force, RDP attacks, exposed database ports, unauthenticated metadata endpoints. The exposure persists 24/7.",
+    "remediation": "Enable a CloudWatch alarm to monitor security group changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1093,10 +1438,14 @@
         "reference": "3.10",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor security group changes."
+    ]
   },
   "logs-no-alarm-signin-without-mfa": {
+    "name": "Logs No Alarm Signin Without Mfa",
+    "category": "mfa",
+    "description": "No CloudWatch alarm fires on console sign-in without MFA. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
+    "remediation": "Enable a CloudWatch alarm to monitor console log ins without MFA.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1113,10 +1462,14 @@
         "reference": "3.2",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor console log ins without MFA."
+    ]
   },
   "logs-no-alarm-unauthorized-api-calls": {
+    "name": "Logs No Alarm Unauthorized Api Calls",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on unauthorized API calls. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to monitor unauthorized API calls.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1133,10 +1486,14 @@
         "reference": "3.1",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to monitor unauthorized API calls."
+    ]
   },
   "logs-no-alarm-vpc-changes": {
+    "name": "Logs No Alarm Vpc Changes",
+    "category": "monitoring-alarm",
+    "description": "No CloudWatch alarm fires on VPC configuration changes. CIS-recommended CloudWatch alarms cover the security-relevant API surface — IAM changes, sign-in failures, root usage, NACL/SG/route-table edits, CMK deletion. Without alarms wired to a real notification channel the audit log is data nobody reads.",
+    "risk": "Detection coverage is the gap between an attacker's first move and the responder's first action. Missing alarms on the API calls that signal compromise (CreateUser, DeleteTrail, root-account sign-in, unauthorized API calls) extend the window where an intrusion goes unanswered.",
+    "remediation": "Enable a CloudWatch alarm to detect VPC changes.",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1153,10 +1510,13 @@
         "reference": "3.14",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Enable a CloudWatch alarm to detect VPC changes."
+    ]
   },
   "rds-instance-backup-disabled": {
+    "name": "Rds Instance Backup Disabled",
+    "category": "backup-recovery",
+    "description": "The RDS instance has automated backups disabled. AWS-managed data stores ship automatic backup and recovery primitives (snapshots, PITR, cross-AZ replicas, versioning, deletion protection) but they have to be enabled per-resource. Default-off behaviors leave the resource one operator-error or one ransomware event away from data loss.",
+    "risk": "A resource without backups, retention, or deletion protection is a single incident from permanent loss — and the incident isn't usually malicious. Accidental DROP TABLE, accidental terraform destroy, accidental S3 object overwrite all produce the same blast radius.",
     "references": [
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html",
       "https://aws.amazon.com/rds/details/backup/",
@@ -1164,22 +1524,38 @@
     ]
   },
   "rds-instance-ca-certificate-deprecated": {
+    "name": "Rds Instance Ca Certificate Deprecated",
+    "category": "tls-config",
+    "description": "The RDS instance uses a deprecated certificate authority. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html"
     ]
   },
   "rds-instance-no-minor-upgrade": {
+    "name": "Rds Instance No Minor Upgrade",
+    "category": "patch-update",
+    "description": "The RDS instance has auto minor-version upgrades disabled. The flagged AWS-managed component is on a deprecated version — an engine release with known CVEs, a certificate authority the trust store is phasing out, or an auto-upgrade path the workload has opted out of. The supported path is to apply the upgrade in a maintenance window.",
+    "risk": "Software running on outdated AWS-managed engines is exposed to whatever CVEs the upgrade fixes — typically authentication bypasses, privilege escalation in stored procedures, or TLS-layer vulnerabilities. The longer the lag, the longer the window of exposure and the more disruptive the eventual catch-up upgrade.",
     "references": [
       "https://aws.amazon.com/blogs/database/best-practices-for-upgrading-amazon-rds-to-major-and-minor-versions-of-postgresql/",
       "https://aws.amazon.com/about-aws/whats-new/2018/12/amazon-rds-enhances-auto-minor-version-upgrades/"
     ]
   },
   "rds-instance-publicly-accessible": {
+    "name": "Rds Instance Publicly Accessible",
+    "category": "public-access",
+    "description": "The RDS instance is publicly accessible. The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
     "references": [
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding"
     ]
   },
   "rds-instance-short-backup-retention-period": {
+    "name": "Rds Instance Short Backup Retention Period",
+    "category": "backup-recovery",
+    "description": "The RDS automated-backup retention window is shorter than recommended. AWS-managed data stores ship automatic backup and recovery primitives (snapshots, PITR, cross-AZ replicas, versioning, deletion protection) but they have to be enabled per-resource. Default-off behaviors leave the resource one operator-error or one ransomware event away from data loss.",
+    "risk": "A resource without backups, retention, or deletion protection is a single incident from permanent loss — and the incident isn't usually malicious. Accidental DROP TABLE, accidental terraform destroy, accidental S3 object overwrite all produce the same blast radius.",
     "references": [
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html",
       "https://aws.amazon.com/rds/details/backup/",
@@ -1187,78 +1563,142 @@
     ]
   },
   "rds-instance-single-az": {
+    "name": "Rds Instance Single Az",
+    "category": "backup-recovery",
+    "description": "The RDS instance is single-AZ (no multi-AZ failover). AWS-managed data stores ship automatic backup and recovery primitives (snapshots, PITR, cross-AZ replicas, versioning, deletion protection) but they have to be enabled per-resource. Default-off behaviors leave the resource one operator-error or one ransomware event away from data loss.",
+    "risk": "A resource without backups, retention, or deletion protection is a single incident from permanent loss — and the incident isn't usually malicious. Accidental DROP TABLE, accidental terraform destroy, accidental S3 object overwrite all produce the same blast radius.",
     "references": [
       "https://aws.amazon.com/rds/features/multi-az/"
     ]
   },
   "rds-instance-storage-not-encrypted": {
+    "name": "Rds Instance Storage Not Encrypted",
+    "category": "encryption-at-rest",
+    "description": "The RDS instance storage is unencrypted at rest. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
     "references": [
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html"
     ]
   },
   "rds-postgres-instance-with-invalid-certificate": {
+    "name": "Rds Postgres Instance With Invalid Certificate",
+    "category": "tls-config",
+    "description": "An RDS PostgreSQL client is configured with an invalid server certificate. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://aws.amazon.com/about-aws/whats-new/2017/02/amazon-rds-for-sql-server-supports-forced-ssl/",
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/SQLServer.Concepts.General.SSL.Using.html"
     ]
   },
   "rds-snapshot-public": {
+    "name": "Rds Snapshot Public",
+    "category": "public-access",
+    "description": "An RDS snapshot is shared publicly. The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
     "references": [
       "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ShareSnapshot.html"
     ]
   },
   "redshift-cluster-database-not-encrypted": {
+    "name": "Redshift Cluster Database Not Encrypted",
+    "category": "encryption-at-rest",
+    "description": "A Redshift cluster's database storage is unencrypted at rest. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
     "references": [
       "https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-db-encryption.html"
     ]
   },
   "redshift-cluster-no-version-upgrade": {
+    "name": "Redshift Cluster No Version Upgrade",
+    "category": "patch-update",
+    "description": "A Redshift cluster has auto version upgrades disabled. The flagged AWS-managed component is on a deprecated version — an engine release with known CVEs, a certificate authority the trust store is phasing out, or an auto-upgrade path the workload has opted out of. The supported path is to apply the upgrade in a maintenance window.",
+    "risk": "Software running on outdated AWS-managed engines is exposed to whatever CVEs the upgrade fixes — typically authentication bypasses, privilege escalation in stored procedures, or TLS-layer vulnerabilities. The longer the lag, the longer the window of exposure and the more disruptive the eventual catch-up upgrade.",
     "references": [
       "https://docs.aws.amazon.com/redshift/latest/APIReference/API_ModifyCluster.html"
     ]
   },
   "redshift-cluster-publicly-accessible": {
+    "name": "Redshift Cluster Publicly Accessible",
+    "category": "public-access",
+    "description": "A Redshift cluster is publicly accessible. The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
     "references": [
       "https://docs.aws.amazon.com/redshift/latest/gsg/getting-started.html"
     ]
   },
   "redshift-parameter-group-logging-disabled": {
+    "name": "Redshift Parameter Group Logging Disabled",
+    "category": "logging-disabled",
+    "description": "A Redshift parameter group has audit logging disabled. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
     "references": [
       "https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html"
     ]
   },
   "redshift-parameter-group-ssl-not-required": {
+    "name": "Redshift Parameter Group Ssl Not Required",
+    "category": "tls-config",
+    "description": "A Redshift parameter group does not require SSL connections. The TLS configuration on the flagged endpoint accepts protocol versions or cipher suites AWS has deprecated, or relies on a certificate the browser/AWS trust store no longer accepts. AWS publishes managed security policies that track current guidance — using one is the supported path.",
+    "risk": "Old TLS versions (1.0/1.1) and weak ciphers are vulnerable to downgrade and padding-oracle attacks that retrieve plaintext from intercepted traffic. Deprecated certificates fail validation as clients update, eventually causing a production outage on top of the security gap.",
     "references": [
       "https://docs.aws.amazon.com/redshift/latest/mgmt/connecting-ssl-support.html"
     ]
   },
   "route53-domain-no-autorenew": {
+    "name": "Route53 Domain No Autorenew",
+    "category": "domain-management",
+    "description": "A Route 53 registered domain has auto-renew disabled. Route 53 domain registration carries operational controls that protect against accidental loss of the registration — auto-renew, transfer lock, and registrar-side transfer authorization. Lapses cost the entire DNS hierarchy rooted at the domain.",
+    "risk": "Loss of a registered domain is unique among AWS findings in that it can take down email, web, SSO, and customer-facing services simultaneously, often with limited recovery options. Domain-takeover incidents are rare but functionally catastrophic when they occur.",
     "references": [
       "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-enable-disable-auto-renewal.html"
     ]
   },
   "route53-domain-no-transferlock": {
+    "name": "Route53 Domain No Transferlock",
+    "category": "domain-management",
+    "description": "A Route 53 registered domain has transfer-lock disabled. Route 53 domain registration carries operational controls that protect against accidental loss of the registration — auto-renew, transfer lock, and registrar-side transfer authorization. Lapses cost the entire DNS hierarchy rooted at the domain.",
+    "risk": "Loss of a registered domain is unique among AWS findings in that it can take down email, web, SSO, and customer-facing services simultaneously, often with limited recovery options. Domain-takeover incidents are rare but functionally catastrophic when they occur.",
     "references": [
       "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-lock.html"
     ]
   },
   "route53-domain-transferlock-not-authorized": {
+    "name": "Route53 Domain Transferlock Not Authorized",
+    "category": "domain-management",
+    "description": "The Route 53 transfer-lock request is not authorized. Route 53 domain registration carries operational controls that protect against accidental loss of the registration — auto-renew, transfer lock, and registrar-side transfer authorization. Lapses cost the entire DNS hierarchy rooted at the domain.",
+    "risk": "Loss of a registered domain is unique among AWS findings in that it can take down email, web, SSO, and customer-facing services simultaneously, often with limited recovery options. Domain-takeover incidents are rare but functionally catastrophic when they occur.",
     "references": [
       "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/registrar-tld-list.html"
     ]
   },
   "s3-bucket-allowing-cleartext": {
+    "name": "S3 Bucket Allowing Cleartext",
+    "category": "cleartext-transit",
+    "description": "An S3 bucket policy allows cleartext HTTP requests. The flagged endpoint accepts unencrypted HTTP / cleartext traffic — either as the only protocol, or alongside HTTPS without a redirect. AWS guidance is to terminate TLS at the edge and force every connection through it.",
+    "risk": "Cleartext traffic means anyone on the network path — a misconfigured wifi captive portal, a hostile cafe, a downstream router — can read or modify the payload. Even endpoints that only carry public data leak credentials in cookies, auth headers, and query strings.",
     "references": [
       "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
     ]
   },
   "s3-bucket-no-default-encryption": {
+    "name": "S3 Bucket No Default Encryption",
+    "category": "encryption-at-rest",
+    "description": "An S3 bucket has no default encryption configured. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
     "references": [
       "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html",
       "https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html"
     ]
   },
   "s3-bucket-no-logging": {
+    "name": "S3 Bucket No Logging",
+    "category": "logging-disabled",
+    "description": "An S3 bucket has access logging disabled. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
+    "remediation": "Ensure that S3 buckets have Logging enabled",
+    "references": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1275,23 +1715,32 @@
         "reference": "2.6",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
-    ],
-    "remediation": "Ensure that S3 buckets have Logging enabled"
+    ]
   },
   "s3-bucket-no-mfa-delete": {
+    "name": "S3 Bucket No Mfa Delete",
+    "category": "mfa",
+    "description": "An S3 bucket has MFA Delete disabled. AWS does not require multi-factor authentication on a console- or API-facing principal by default — it has to be enforced via IAM policy, Identity Center, or an organization-wide SCP. The flagged principal is currently protected by a single factor.",
+    "risk": "Single-factor authentication on an AWS principal is one phishing email or one leaked-password-database hit away from a full takeover. AWS incident response data consistently shows missing MFA as the top initial-access vector for cloud account compromise.",
     "references": [
       "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
     ]
   },
   "s3-bucket-no-versioning": {
+    "name": "S3 Bucket No Versioning",
+    "category": "backup-recovery",
+    "description": "An S3 bucket has versioning disabled. AWS-managed data stores ship automatic backup and recovery primitives (snapshots, PITR, cross-AZ replicas, versioning, deletion protection) but they have to be enabled per-resource. Default-off behaviors leave the resource one operator-error or one ransomware event away from data loss.",
+    "risk": "A resource without backups, retention, or deletion protection is a single incident from permanent loss — and the incident isn't usually malicious. Accidental DROP TABLE, accidental terraform destroy, accidental S3 object overwrite all produce the same blast radius.",
     "references": [
       "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
     ]
   },
   "s3-bucket-world-policy-star": {
+    "name": "S3 Bucket World Policy Star",
+    "category": "public-access",
+    "description": "An S3 bucket policy uses Principal: \"*\" (publicly accessible). The flagged resource is reachable from outside the AWS account or exposes data to anonymous principals (`Principal: \"*\"`, a public ACL, a publicly routable IP, or a public snapshot). AWS guidance is to confine the resource to a private subnet, a specific account, or a named principal list.",
+    "risk": "Publicly exposed AWS resources are continuously scanned by attackers — Shodan, censys, and dedicated bucket-enumeration tools find them within minutes of exposure. The most common AWS data breaches start as misconfigured public buckets or snapshots.",
+    "remediation": "Remove any Statement having an Effect set to Allow and a Principal set to \"*\" or {\"AWS\":\"*\"} in the affected bucket policy",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1308,25 +1757,41 @@
         "reference": "2.3",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Remove any Statement having an Effect set to Allow and a Principal set to \"*\" or {\"AWS\":\"*\"} in the affected bucket policy"
+    ]
   },
   "ses-identity-dkim-not-enabled": {
+    "name": "Ses Identity Dkim Not Enabled",
+    "category": "email-auth",
+    "description": "An SES sending identity has DKIM signing disabled. SES domain identity DKIM signing authenticates outbound mail to downstream receivers; without it, mail is easier to spoof and gets penalized on reputation. AWS guidance is to enable DKIM on every verified sending identity.",
+    "risk": "Missing DKIM lets attackers send convincingly-spoofed mail from the domain — phishing campaigns leveraging executive identities are an established initial-access pattern. Receivers also penalize unauthenticated mail, so legitimate transactional email starts landing in spam.",
     "references": [
       "https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-email-authentication-dkim.html"
     ]
   },
   "ses-identity-dkim-not-verified": {
+    "name": "Ses Identity Dkim Not Verified",
+    "category": "email-auth",
+    "description": "An SES sending identity's DKIM configuration is unverified. SES domain identity DKIM signing authenticates outbound mail to downstream receivers; without it, mail is easier to spoof and gets penalized on reputation. AWS guidance is to enable DKIM on every verified sending identity.",
+    "risk": "Missing DKIM lets attackers send convincingly-spoofed mail from the domain — phishing campaigns leveraging executive identities are an established initial-access pattern. Receivers also penalize unauthenticated mail, so legitimate transactional email starts landing in spam.",
     "references": [
       "https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-email-authentication-dkim.html"
     ]
   },
   "sqs-queue-server-side-encryption-disabled": {
+    "name": "Sqs Queue Server Side Encryption Disabled",
+    "category": "encryption-at-rest",
+    "description": "An SQS queue has server-side encryption disabled. AWS provides encryption-at-rest as a first-class default for every storage service involved here (S3, EBS, RDS, Redshift, DynamoDB, SQS, …) via either SSE-S3, SSE-KMS, or a customer-managed CMK. The flagged resource is storing data unencrypted at the storage layer.",
+    "risk": "Unencrypted storage means a snapshot leak, a disk-level forensic recovery, or a misrouted backup yields data in plaintext. KMS-based encryption also lets the key policy revoke access en-masse during incident response — without it, key rotation is meaningless.",
     "references": [
       "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html"
     ]
   },
   "vpc-routing-tables-with-peering": {
+    "name": "Vpc Routing Tables With Peering",
+    "category": "network-topology",
+    "description": "A VPC route table mixes peering routes with non-peering destinations. The VPC / networking surface flagged here is wider or noisier than the workload requires: public IPs on resources that don't need them, VPC peering without scoped routes, subnets without flow logs to inspect traffic. AWS guidance is to default to private subnets and add visibility (flow logs, GWLB) before adding reachability.",
+    "risk": "Network exposure compounds — a public IP plus a wide security group plus an unpatched service is the standard chain leading to AWS instance compromise. Missing flow logs then deprive responders of the data needed to bound the blast radius after the fact.",
+    "remediation": "Ensure route tables contain the least number of subnets or hosts as is required to accomplish the purpose for peering",
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1338,10 +1803,17 @@
         "reference": "4.4",
         "version": "1.2.0"
       }
-    ],
-    "remediation": "Ensure route tables contain the least number of subnets or hosts as is required to accomplish the purpose for peering"
+    ]
   },
   "vpc-subnet-without-flow-log": {
+    "name": "Vpc Subnet Without Flow Log",
+    "category": "logging-disabled",
+    "description": "A VPC subnet has no VPC Flow Logs configured. AWS audit and access-log streams (CloudTrail, S3 access logs, ELB access logs, VPC flow logs, Config) are off or missing on the flagged surface. AWS guidance is to centralize these into a dedicated security-account S3 bucket with KMS encryption and integrity validation.",
+    "risk": "Without complete logs, every post-incident investigation hits a wall — there is no record of who did what, when, or from where. Compliance frameworks treat missing audit trail as a high-severity finding because it forecloses detection AND response.",
+    "remediation": "Create a flow log for each subnet.",
+    "references": [
+      "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html"
+    ],
     "compliance": [
       {
         "name": "CIS Amazon Web Services Foundations",
@@ -1358,10 +1830,6 @@
         "reference": "2.9",
         "version": "1.2.0"
       }
-    ],
-    "references": [
-      "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html"
-    ],
-    "remediation": "Create a flow log for each subnet."
+    ]
   }
 }
