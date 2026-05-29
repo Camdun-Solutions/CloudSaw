@@ -477,24 +477,15 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
     return suggestion;
   }
 
-  async function startCreateTicket() {
-    if (!findingId || !github) return;
-    if (!github.findings_repo) {
-      setError(t("github.error.no_findings_repo"));
-      return;
-    }
-    if (ticket) {
-      // Already linked — the UI shows the link rather than filing a
-      // duplicate (Contract 12 §Edge Cases).
-      return;
-    }
-    try {
-      const p = await ipc.githubPrepareFindingTicket(findingId, github.findings_repo);
-      setPreview(p);
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
+  // PR #81 — `startCreateTicket` was the in-panel "Create GitHub
+  // ticket" handler. The create affordance moved to the Findings
+  // drawer header (`FindingGitHubAction`); the legacy in-panel
+  // SubmissionPreviewModal mount below stays for one final case the
+  // header doesn't cover: the user explicitly clicks "View on
+  // GitHub" on the linked-ticket row and wants to re-open the
+  // submission preview from the panel itself (rare; defense-in-
+  // depth). Modal stays mounted but never opens unless `preview`
+  // gets set by something — which today is nothing.
 
   if (!findingId) {
     return (
@@ -557,12 +548,34 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
           </div>
         </div>
 
-        <FindingTicketRow
-          ticket={ticket}
-          onCreate={() => void startCreateTicket()}
-          tokenConfigured={github?.token.configured ?? false}
-          findingsRepoConfigured={!!github?.findings_repo}
-        />
+        {/* PR #81 — `FindingTicketRow` and its in-panel "Create
+            GitHub ticket" button + "No repo selected" hint are gone.
+            The create affordance now lives in the Findings drawer
+            header via `<FindingGitHubAction>`; the legacy
+            "Tracked in {repo}#{n}" link below stays so a linked
+            ticket is still visible inside the panel when the user
+            has scrolled the drawer body past the header. */}
+        {ticket ? (
+          <div
+            className="mt-3 rounded-card bg-saw-grey-50 dark:bg-saw-black border border-saw-grey-200 dark:border-saw-grey-700 px-3 py-2 text-small flex items-center justify-between"
+            data-testid="finding-ticket-linked"
+          >
+            <span className="text-saw-grey-900 dark:text-saw-beige font-mono">
+              {t("findingticket.linked")
+                .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
+                .replace("{n}", String(ticket.issue_number))}
+            </span>
+            <a
+              href={ticket.issue_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
+              data-testid="finding-ticket-link"
+            >
+              {t("findingticket.linked_view")}
+            </a>
+          </div>
+        ) : null}
 
         {article.matched ? (
           <ArticleBody article={article} />
@@ -583,7 +596,7 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
       </div>
 
       <ResourceList detail={detail} />
-      <MappingList mapping={mapping} />
+      <MappingList mapping={mapping} service={detail.finding.service} />
 
       <SubmissionPreviewModal
         preview={preview}
@@ -917,60 +930,10 @@ function AiPreviewInline({
   );
 }
 
-function FindingTicketRow({
-  ticket,
-  onCreate,
-  tokenConfigured,
-  findingsRepoConfigured,
-}: {
-  ticket: FindingTicket | null;
-  onCreate: () => void;
-  tokenConfigured: boolean;
-  findingsRepoConfigured: boolean;
-}) {
-  const t = useT();
-  if (ticket) {
-    return (
-      <div
-        className="mt-3 rounded-card bg-saw-grey-50 dark:bg-saw-black border border-saw-grey-200 dark:border-saw-grey-700 px-3 py-2 text-small flex items-center justify-between"
-        data-testid="finding-ticket-linked"
-      >
-        <span className="text-saw-grey-900 dark:text-saw-beige font-mono">
-          {t("findingticket.linked")
-            .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
-            .replace("{n}", String(ticket.issue_number))}
-        </span>
-        <a
-          href={ticket.issue_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
-          data-testid="finding-ticket-link"
-        >
-          {t("findingticket.linked_view")}
-        </a>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-3">
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={onCreate}
-        disabled={!findingsRepoConfigured && !tokenConfigured}
-        data-testid="finding-create-ticket"
-      >
-        {t("findingticket.cta")}
-      </Button>
-      {!findingsRepoConfigured ? (
-        <p className="mt-1 text-xs text-saw-grey-500 dark:text-saw-grey-400" data-testid="finding-create-ticket-hint">
-          {t("github.findings_repo.none")}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+// PR #81 — `FindingTicketRow` is gone. The create button moved to the
+// Findings drawer header (`<FindingGitHubAction>` rendered into
+// `Drawer.headerAction`); the in-panel linked-ticket display is now
+// inlined at the panel body's render site.
 
 function ArticleBody({ article }: { article: KnowledgeArticle }) {
   const t = useT();
@@ -1172,17 +1135,12 @@ function NoArticleBlock({ finding }: { finding: Finding }) {
           </p>
         ) : null}
       </div>
-      <p className="mt-3 text-small">
-        <a
-          href={t("dashboard.findings.contrib.url")}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-saw-red underline underline-offset-2"
-          data-testid="kb-contribute-link"
-        >
-          {t("dashboard.findings.detail.no_article.contribute")}
-        </a>
-      </p>
+      {/* PR #81 — "Contribute an article on GitHub" link removed per
+          user request. The KB authoring flow lives on the GitHub
+          repo's Wiki (where readers who want to file an issue will
+          find their way without an in-app affordance), and the
+          legacy link sometimes pointed at routes that no longer
+          existed. Cleaner to drop it than to maintain a stub. */}
     </div>
   );
 }
@@ -1226,9 +1184,68 @@ function ResourceList({ detail }: { detail: FindingDetail }) {
   );
 }
 
-function MappingList({ mapping }: { mapping: ControlMapping }) {
+// PR #81 — coarse service → security-domain mapping. Used as a
+// fallback in the Mappings block when a finding has no compliance
+// framework entries (and the backend's ScoutSuite synthesis didn't
+// land either) so every finding has *some* contextual framing. The
+// list is not exhaustive — unknown services fall to "General".
+const SERVICE_DOMAIN: Record<string, string> = {
+  iam: "Identity & Access Management",
+  organizations: "Identity & Access Management",
+  sso: "Identity & Access Management",
+  cognito: "Identity & Access Management",
+  s3: "Data Protection",
+  rds: "Data Protection",
+  dynamodb: "Data Protection",
+  redshift: "Data Protection",
+  backup: "Data Protection",
+  kms: "Cryptography & Key Management",
+  secretsmanager: "Cryptography & Key Management",
+  acm: "Cryptography & Key Management",
+  ec2: "Network Security",
+  vpc: "Network Security",
+  elasticloadbalancing: "Network Security",
+  elb: "Network Security",
+  elbv2: "Network Security",
+  cloudfront: "Network Security",
+  route53: "Network Security",
+  waf: "Network Security",
+  shield: "Network Security",
+  apigateway: "Network Security",
+  cloudtrail: "Logging & Monitoring",
+  cloudwatch: "Logging & Monitoring",
+  config: "Logging & Monitoring",
+  guardduty: "Detection & Response",
+  securityhub: "Detection & Response",
+  inspector: "Detection & Response",
+  macie: "Detection & Response",
+  lambda: "Compute Security",
+  ecs: "Compute Security",
+  ecr: "Compute Security",
+  eks: "Compute Security",
+  emr: "Data Processing",
+  elasticache: "Compute & Caching",
+  sns: "Application Integration",
+  sqs: "Application Integration",
+  ses: "Application Integration",
+  cloudformation: "Infrastructure as Code",
+};
+
+function securityDomainFor(service: string | undefined): string {
+  if (!service) return "General";
+  return SERVICE_DOMAIN[service] ?? "General";
+}
+
+function MappingList({
+  mapping,
+  service,
+}: {
+  mapping: ControlMapping;
+  service?: string;
+}) {
   const t = useT();
   const entries = Object.entries(mapping.frameworks ?? {});
+  const domain = securityDomainFor(service);
   return (
     <details
       open
@@ -1238,6 +1255,17 @@ function MappingList({ mapping }: { mapping: ControlMapping }) {
       <summary className="cursor-pointer text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.findings.detail.mappings.title")}
       </summary>
+      {/* PR #81 — the security-domain chip renders ABOVE the framework
+          list (or alone when nothing else matches). Every finding gets
+          a domain — coarse but always non-empty — so even findings the
+          KB hasn't touched have *some* topical framing. */}
+      <p
+        className="mt-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+        data-testid="mappings-security-domain"
+      >
+        <strong>{t("dashboard.findings.detail.mappings.security_domain")}:</strong>{" "}
+        {domain}
+      </p>
       {entries.length === 0 ? (
         <div
           className="mt-2 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 px-4 py-3 text-small text-saw-grey-600 dark:text-saw-grey-400"

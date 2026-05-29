@@ -432,6 +432,7 @@
   "dashboard.findings.detail.resources.invalid": "unparsed",
   "dashboard.findings.detail.resources.empty": "No resources recorded for this finding.",
   "dashboard.findings.detail.mappings.title": "Compliance mappings",
+  "dashboard.findings.detail.mappings.security_domain": "Security domain",
   "dashboard.findings.detail.mappings.empty.title": "No compliance mappings",
   "dashboard.findings.detail.mappings.empty.body": "This finding isn't mapped to any compliance framework in CloudSaw's bundled dataset.",
   "dashboard.findings.detail.copy_diagnostic": "Copy diagnostic info",
@@ -720,9 +721,11 @@
   "submitpreview.success.view": "View on GitHub",
   "submitpreview.success.close": "Close",
 
-  "findingticket.cta": "Create GitHub ticket",
+  "findingticket.cta": "Create GitHub Issue",
   "findingticket.linked": "Tracked in {repo}#{n}",
   "findingticket.linked_view": "View on GitHub",
+  "findingticket.drawer.view_link": "View issue #{n}",
+  "findingticket.drawer.unconfigured_hint": "GitHub not configured. Enable this feature in settings.",
 
   "ai.section_title": "AI suggestion layer",
   "ai.section_subtitle": "Opt-in. CloudSaw never makes an AI call unless you connect your own provider API key here. With no key connected the feature is dormant and no network call is attempted. Suggestions are processed by your chosen provider under their terms, using your own account — CloudSaw cannot control how the provider handles your data.",

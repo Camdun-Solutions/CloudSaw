@@ -34,6 +34,11 @@ type Props = {
   children: ReactNode;
   /** Footer rendered as a sticky bottom row inside the drawer. */
   footer?: ReactNode;
+  /** PR #81 — Optional action slot rendered in the header row, between
+   * the title block and the dismiss button. Used by the Findings drawer
+   * to surface the "Create GitHub Issue" affordance at the top-right of
+   * the panel (so the action is reachable without scrolling the body). */
+  headerAction?: ReactNode;
   /** Width preset. `md` (default, 28rem) matches the page-right
    * column on the Findings view; `lg` (40rem) is for content-dense
    * panels like the AI suggestion modal flow. */
@@ -72,6 +77,7 @@ export default function Drawer({
   subtitle,
   children,
   footer,
+  headerAction,
   size = "md",
   ...rest
 }: Props) {
@@ -153,6 +159,14 @@ export default function Drawer({
               </p>
             ) : null}
           </div>
+          {headerAction ? (
+            <div
+              className="flex shrink-0 items-start"
+              data-testid="drawer-header-action"
+            >
+              {headerAction}
+            </div>
+          ) : null}
           <button
             ref={closeBtnRef}
             type="button"

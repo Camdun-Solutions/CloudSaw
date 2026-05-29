@@ -31,13 +31,14 @@
 // intact so any pre-existing UI surface that still routes to
 // Dashboard.tsx with initialTab="findings" continues to work.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Badge,
   Button,
   Drawer,
   EmptyState,
+  FindingGitHubAction,
   Logo,
   Select,
   SeverityBadge,
@@ -61,7 +62,21 @@ import {
 // FindingsView.tsx today — exported there for this consumer.
 import { FindingDetailPanel } from "@/routes/dashboard/FindingsView";
 
-type Props = Record<string, never>;
+type Props = {
+  /** PR #81 — Optional deep-link target from elsewhere in the app
+   *  (currently: Home's Top Findings card). When set, the route
+   *  pre-selects the account + scan, expands the row's service
+   *  group, and opens the drawer for the finding. The `nonce` field
+   *  changes on every navigation so re-targeting the same finding
+   *  still triggers the effect. */
+  initialTarget?: {
+    accountId: string;
+    scanId: string;
+    findingId: string;
+    service: string;
+    nonce: number;
+  } | null;
+};
 
 type SevFilter = "any" | Severity;
 type StatusFilter = "any" | FindingStatus;
@@ -92,7 +107,7 @@ function rankSeverity(s: Severity): number {
   return SEVERITY_ORDER.indexOf(s);
 }
 
-export default function Findings(_props: Props) {
+export default function Findings({ initialTarget }: Props) {
   const t = useT();
   const formatError = useIpcError();
   // PR #67: empty-state "Scan now" CTA opens the global scan modal,
@@ -122,8 +137,75 @@ export default function Findings(_props: Props) {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(
     null,
   );
+  // PR #81 — service name the deep-link target wants force-expanded.
+  // ServiceGroup honors this in its `openByDefault` prop. Mirrors the
+  // selectedFindingId nonce-style lifecycle: cleared the moment the
+  // user navigates away (or toggles a different service open).
+  const [targetService, setTargetService] = useState<string | null>(null);
+
+  // PR #81 — `pendingTargetRef` holds the finding_id we're trying to
+  // route to. The existing account/scan-change effects clear
+  // `selectedFindingId` as part of resetting the page; this ref
+  // carries the target across those clears so a third effect can
+  // re-apply the selection once `findings` finishes loading.
+  const pendingTargetRef = useRef<{
+    findingId: string;
+    nonce: number;
+  } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+
+  // PR #81 — apply the deep-link target on mount / re-target. Order:
+  //   1. Stash the target finding id + nonce in the ref (carries
+  //      across the account/scan-change clears that follow).
+  //   2. Override `accountId`. Effect 2 fires, clears scans/scanId,
+  //      then picks scans. Once scans land, the snap-effect below
+  //      sets `scanId` to the target.
+  //   3. Effect 3 fires on scanId change, fetches findings. Final
+  //      re-apply effect notices the pending ref and opens the
+  //      drawer.
+  // The nonce in `initialTarget` is what makes the effect re-run for
+  // a repeat-tap of the same finding.
+  useEffect(() => {
+    if (!initialTarget) return;
+    pendingTargetRef.current = {
+      findingId: initialTarget.findingId,
+      nonce: initialTarget.nonce,
+    };
+    setAccountId(initialTarget.accountId);
+    setTargetService(initialTarget.service);
+    // Reset any filters so the row isn't hidden by a stale severity /
+    // service filter the user left set.
+    setSev("any");
+    setService("any");
+    setStatus("any");
+    setQuery("");
+  }, [initialTarget]);
+
+  // PR #81 — once the scans-for-account list lands, snap to the
+  // target scan if it's in the list. Falls back to whatever the
+  // pickup effect chose (latest terminal) if the target scan is
+  // already pruned from history.
+  useEffect(() => {
+    if (!initialTarget) return;
+    if (!scans) return;
+    if (scans.some((s) => s.scan_id === initialTarget.scanId)) {
+      setScanId(initialTarget.scanId);
+    }
+  }, [scans, initialTarget]);
+
+  // PR #81 — once findings load, open the drawer for the pending
+  // target. Runs after the account/scan-change clears in effects 2
+  // and 3 because it depends on `findings`.
+  useEffect(() => {
+    const pending = pendingTargetRef.current;
+    if (!pending) return;
+    if (!findings) return;
+    if (findings.some((f) => f.finding_id === pending.findingId)) {
+      setSelectedFindingId(pending.findingId);
+      pendingTargetRef.current = null;
+    }
+  }, [findings]);
 
   // 1. Bootstrap: load accounts + auto-pick active (or first).
   useEffect(() => {
@@ -466,7 +548,9 @@ export default function Findings(_props: Props) {
                       service={g.service}
                       worst={g.worst}
                       items={g.items}
-                      openByDefault={g.openByDefault}
+                      openByDefault={
+                        g.openByDefault || g.service === targetService
+                      }
                       onSelectFinding={setSelectedFindingId}
                     />
                   ))
@@ -690,6 +774,9 @@ function FindingDrawer({
       subtitle={selected?.service}
       size="lg"
       data-testid="findings-drawer"
+      headerAction={
+        findingId ? <FindingGitHubAction findingId={findingId} /> : null
+      }
     >
       {findingId ? <FindingDetailPanel findingId={findingId} /> : null}
     </Drawer>

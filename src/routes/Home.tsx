@@ -54,12 +54,23 @@ type Props = {
    *  has a Settings button — these CTAs are convenience shortcuts
    *  for the in-content empty states. */
   onOpenSettings: () => void;
+  /** PR #81 — navigate to Findings with a specific finding selected.
+   *  The Findings route picks up `accountId` / `scanId` / `findingId`
+   *  / `service` from App's `findingsTarget` and pre-opens the right
+   *  service group + drawer on mount. Wired into the Top Findings
+   *  card so each row becomes a deep link to its detail panel. */
+  onOpenFinding: (target: {
+    accountId: string;
+    scanId: string;
+    findingId: string;
+    service: string;
+  }) => void;
 };
 
 const RECENT_LIMIT = 5;
 const TOP_FINDINGS_LIMIT = 5;
 
-export default function Home({ onOpenSettings }: Props) {
+export default function Home({ onOpenSettings, onOpenFinding }: Props) {
   const t = useT();
   const formatError = useIpcError();
   const { open: openScanModal } = useScanModal();
@@ -224,6 +235,7 @@ export default function Home({ onOpenSettings }: Props) {
             <TopFindingsCard
               findings={topFindings}
               latestScan={latestScan}
+              onOpenFinding={onOpenFinding}
             />
             <RecentActivityCard
               scans={recentScans}
@@ -299,9 +311,16 @@ function RecentActivityCard({
 function TopFindingsCard({
   findings,
   latestScan,
+  onOpenFinding,
 }: {
   findings: Finding[] | null;
   latestScan: ScanRecord | null;
+  onOpenFinding: (target: {
+    accountId: string;
+    scanId: string;
+    findingId: string;
+    service: string;
+  }) => void;
 }) {
   const t = useT();
 
@@ -336,20 +355,37 @@ function TopFindingsCard({
       ) : (
         <ul className="mt-3 flex flex-col divide-y divide-saw-grey-100 dark:divide-saw-grey-800">
           {findings.map((f) => (
-            <li
-              key={f.finding_id}
-              className="flex items-start gap-3 py-3"
-              data-testid="dashboard-top-findings-row"
-            >
-              <SeverityBadge severity={f.severity} />
-              <div className="flex min-w-0 flex-col">
-                <span className="text-small font-medium text-saw-grey-900 dark:text-saw-beige truncate">
-                  {f.dashboard_name ?? f.rule_key}
-                </span>
-                <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
-                  {f.service}
-                </span>
-              </div>
+            <li key={f.finding_id} data-testid="dashboard-top-findings-row">
+              {/* PR #81 — rows are clickable. Each navigates to the
+                  Findings page with this finding's drawer open and its
+                  service-group force-expanded. `latestScan` is non-null
+                  here because the card only renders when there's a
+                  latest scan to read findings from. */}
+              <button
+                type="button"
+                disabled={!latestScan}
+                onClick={() =>
+                  latestScan &&
+                  onOpenFinding({
+                    accountId: latestScan.aws_account_id,
+                    scanId: latestScan.scan_id,
+                    findingId: f.finding_id,
+                    service: f.service,
+                  })
+                }
+                className="flex w-full items-start gap-3 py-3 text-left hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800 -mx-2 px-2 rounded-card focus:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange"
+                data-testid={`dashboard-top-finding-${f.finding_id}`}
+              >
+                <SeverityBadge severity={f.severity} />
+                <div className="flex min-w-0 flex-col">
+                  <span className="text-small font-medium text-saw-grey-900 dark:text-saw-beige truncate">
+                    {f.dashboard_name ?? f.rule_key}
+                  </span>
+                  <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+                    {f.service}
+                  </span>
+                </div>
+              </button>
             </li>
           ))}
         </ul>

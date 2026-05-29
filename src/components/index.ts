@@ -14,6 +14,7 @@ export { default as PasswordField } from "./PasswordField";
 export { default as CustomReportModal } from "./CustomReportModal";
 export { default as Drawer } from "./Drawer";
 export { default as ExportActivityLogModal } from "./ExportActivityLogModal";
+export { default as FindingGitHubAction } from "./FindingGitHubAction";
 export { default as ReportBugFlag } from "./ReportBugFlag";
 export { default as TagInput } from "./TagInput";
 export { default as SafeMarkdown } from "./SafeMarkdown";
