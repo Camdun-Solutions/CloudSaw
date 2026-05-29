@@ -223,26 +223,37 @@ export default function Settings({
   };
 
   return (
-    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black px-8 py-10">
-      {/* PR #55: max-w-7xl mx-auto wraps the Settings content so the
-          two-column (left-nav + right-panel) layout stays readable
-          on ultra-wide displays instead of spreading the right
-          panel across the whole viewport. */}
-      <div className="mx-auto max-w-7xl">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          {/* PR #66: BackBreadcrumb removed — TopNav already exposes
-              Dashboard/Findings/Settings, so the per-page back arrow
-              was redundant. */}
-          <h1 className="text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
-            {t("nav.settings")}
-          </h1>
-          <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-            {t("applock.settings.subtitle")}
-          </p>
+    <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black">
+      {/* PR #75: page header pulled out of the padded inner wrapper
+          and made `sticky top-0 z-20` with an opaque background so
+          content scrolls *underneath* it instead of behind the
+          floating TopNav chip. The TopNav lives at z-30, so it
+          still sits on top of this header's right edge. The same
+          treatment is mirrored on Home / Dashboard / Findings /
+          Accounts; their existing full-width header bars just
+          gained `sticky top-0 z-20`. */}
+      <header className="sticky top-0 z-20 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black">
+        {/* PR #55: max-w-7xl mx-auto wraps the Settings content so
+            the two-column (left-nav + right-panel) layout stays
+            readable on ultra-wide displays instead of spreading the
+            right panel across the whole viewport. The header carries
+            the same wrapper so its title aligns with the body. */}
+        <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-8 py-5">
+          <div>
+            {/* PR #66: BackBreadcrumb removed — TopNav already exposes
+                Dashboard/Findings/Settings, so the per-page back arrow
+                was redundant. */}
+            <h1 className="text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
+              {t("nav.settings")}
+            </h1>
+            <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
+              {t("applock.settings.subtitle")}
+            </p>
+          </div>
         </div>
       </header>
 
+      <div className="mx-auto max-w-7xl px-8 pb-10 pt-6">
       {/* PR #48 two-column layout: left nav (w-56) selects the
           active section; right panel renders that section only.
           The page's existing 10 section cards each become a
@@ -254,7 +265,12 @@ export default function Settings({
         <nav
           aria-label={t("settings.nav.aria_label")}
           data-testid="settings-nav"
-          className="sticky top-3 flex w-56 shrink-0 flex-col gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-2"
+          // PR #75: bumped sticky-offset from `top-3` (12px) to
+          // `top-28` (~112px) so the inner left-nav now anchors
+          // BELOW the new sticky page header instead of sliding up
+          // underneath it. The header is ~90-100px tall (py-5 +
+          // h1 + subtitle); 28*4=112px leaves a small gap.
+          className="sticky top-28 flex w-56 shrink-0 flex-col gap-1 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-2"
         >
           {SECTION_ORDER.map((section) => {
             const isActive = activeSection === section;

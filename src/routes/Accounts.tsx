@@ -229,8 +229,13 @@ export default function Accounts({
   // every mutation), and standalone mode is unreachable from the
   // router today anyway. The header keeps the logo + title so any
   // future direct-render usage still has a recognizable anchor.
+  // PR #75: sticky-top page header so the title bar stays visible
+  // while body content scrolls underneath. z-20 sits below the
+  // floating TopNav chip (z-30). Applies to the standalone-route
+  // render path; when Accounts is embedded as a Settings panel the
+  // outer Settings header already provides the sticky bar.
   const standaloneHeader = (
-    <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
+    <header className="sticky top-0 z-20 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
       <div className="flex items-center gap-3">
         <Logo size="sm" />
         <div className="flex flex-col">
@@ -600,7 +605,15 @@ function AccountRow({
         ]
       : []),
     {
-      label: t("terraform.provision.replan_cta"),
+      // PR #75: label tracks whether the role has ever been
+      // provisioned for this account. First-time configuration reads
+      // "Configure scanner role"; subsequent edits to an existing
+      // role read "Re-configure scanner role". Same onClick path —
+      // the underlying flow is identical (it always replans), the
+      // distinction is purely the verb the user sees.
+      label: account.role_provisioned
+        ? t("terraform.provision.replan_cta")
+        : t("terraform.provision.configure_cta"),
       onClick: onProvision,
       testId: `account-provision-${account.aws_account_id}`,
     },
