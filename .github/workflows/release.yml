@@ -147,6 +147,69 @@ jobs:
           cat pinned.json
           ls -la "$TRIPLE/"
 
+      # PR #76 — Belt-and-suspenders verification that the frozen
+      # scoutsuite binary actually contains the data files
+      # `cloudsaw.spec` declared in `datas`. The spec-eval asserts
+      # at line 90-95 only confirm the source paths are present in
+      # the `datas` list; they don't confirm PyInstaller wrote those
+      # paths into the final bundle. macOS releases in 2026.5.14 and
+      # earlier shipped without `icmp_message_types.json` despite
+      # earlier versions of the spec listing it via the directory-
+      # tuple form (see SPEC_NOTES.md 2026-05-27 entry). This step
+      # uses `pyi-archive_viewer --brief` to list the bundle's TOC
+      # and greps for each required data file; missing files fail
+      # the build BEFORE we ship a broken binary to users.
+      - name: verify bundled scoutsuite data files
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platform.name }}" in
+            windows) BIN_NAME="scoutsuite.exe" ;;
+            *)       BIN_NAME="scoutsuite"     ;;
+          esac
+          case "${{ matrix.platform.name }}" in
+            linux)   TRIPLE="x86_64-unknown-linux-gnu" ;;
+            macos)   TRIPLE="aarch64-apple-darwin"    ;;
+            windows) TRIPLE="x86_64-pc-windows-msvc"  ;;
+          esac
+          BIN="src-tauri/vendor/scoutsuite/$TRIPLE/$BIN_NAME"
+          echo "Listing PyInstaller TOC for $BIN"
+          # pyi-archive_viewer reads the embedded TOC. --brief
+          # prints one entry per line: path, then file type. We
+          # grep for the required files; failure to find one fails
+          # the build via `set -e`.
+          TOC=$(python -m PyInstaller.utils.cliutils.archive_viewer --brief "$BIN" 2>&1 || true)
+          # Print a small preview so debugging is one log scroll
+          # away when this step ever fires.
+          echo "----- TOC (first 30 lines) -----"
+          echo "$TOC" | head -n 30
+          echo "----- /TOC -----"
+          REQUIRED=(
+            "ScoutSuite/data/icmp_message_types.json"
+            "ScoutSuite/data/protocols.json"
+            "ScoutSuite/data/aws/ip-ranges/aws.json"
+            "ScoutSuite/providers/aws/metadata.json"
+            "ScoutSuite/providers/aws/rules"
+            "ScoutSuite/output/data"
+            "ScoutSuite/providers/aws/provider.pyc"
+            "ScoutSuite/providers/aws/authentication_strategy.pyc"
+          )
+          MISSING=()
+          for f in "${REQUIRED[@]}"; do
+            if ! echo "$TOC" | grep -qF "$f"; then
+              MISSING+=("$f")
+            fi
+          done
+          if [ "${#MISSING[@]}" -gt 0 ]; then
+            echo "::error::scoutsuite bundle is missing required entries on ${{ matrix.platform.name }}:"
+            for f in "${MISSING[@]}"; do
+              echo "::error::  - $f"
+            done
+            echo "::error::Check vendor/scoutsuite/cloudsaw.spec and SPEC_NOTES.md."
+            exit 1
+          fi
+          echo "All required scoutsuite bundle entries present."
+
       - name: install linux tauri prereqs
         if: matrix.platform.name == 'linux'
         run: |
