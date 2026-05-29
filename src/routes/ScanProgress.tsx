@@ -453,12 +453,14 @@ function AccountPicker({
               </span>
             </div>
           );
-          // Disabled row WITH the navigation CTA: replace the
-          // non-clickable disabled button with a static row that has a
-          // single real action — "Set up scanner role" — so the user
-          // can actually fix the underlying state from here. Without
-          // the CTA we fall back to the previous behavior: a disabled
-          // button with the "role not provisioned" badge.
+          // PR #75: disabled row with the "fix it" CTA now reads as a
+          // single profile row whose status text ("Scanner role not
+          // connected") sits under the profile / account line as an
+          // inline note — same visual weight as the account-id
+          // subtext. The right-hand action stays a "Configure" button
+          // so a user can resolve the missing role from here in one
+          // click. Previously the row showed a separate Badge pill,
+          // which read as two competing chips of equal weight.
           if (disabled && onGoToAccounts) {
             return (
               <li key={a.aws_account_id}>
@@ -466,20 +468,28 @@ function AccountPicker({
                   className="flex w-full items-center justify-between gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3 opacity-80"
                   data-testid="scanner-picker-row-provision"
                 >
-                  {details}
-                  <div className="flex items-center gap-2">
-                    <Badge tone="neutral">
-                      {t("scanner.picker.role_not_provisioned")}
-                    </Badge>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={onGoToAccounts}
-                      data-testid="scanner-picker-row-provision-cta"
+                  <div className="flex flex-col">
+                    <span className="font-medium text-saw-grey-900 dark:text-saw-beige">
+                      {a.label}
+                    </span>
+                    <span className="font-mono text-xs text-saw-grey-500 dark:text-saw-grey-400">
+                      {a.aws_account_id} · {a.profile_name}
+                    </span>
+                    <span
+                      className="mt-1 text-xs italic text-saw-grey-600 dark:text-saw-grey-400"
+                      data-testid="scanner-picker-row-provision-note"
                     >
-                      {t("scanner.picker.provision_role_cta")}
-                    </Button>
+                      {t("scanner.picker.role_not_provisioned")}
+                    </span>
                   </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={onGoToAccounts}
+                    data-testid="scanner-picker-row-provision-cta"
+                  >
+                    {t("scanner.picker.provision_role_cta")}
+                  </Button>
                 </div>
               </li>
             );

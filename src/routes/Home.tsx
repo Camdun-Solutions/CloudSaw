@@ -146,7 +146,10 @@ export default function Home({ onOpenSettings }: Props) {
 
   return (
     <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black text-saw-grey-900 dark:text-saw-beige">
-      <header className="border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
+      {/* PR #75: sticky-top page header so the title bar stays
+          visible while body content scrolls underneath. z-20 sits
+          below the floating TopNav chip (z-30). */}
+      <header className="sticky top-0 z-20 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-8 py-5">
         <div className="flex items-center gap-3">
           <Logo size="sm" />
           <div className="flex flex-col">
