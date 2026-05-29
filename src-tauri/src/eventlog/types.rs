@@ -28,6 +28,10 @@ pub enum EventKind {
     PanicWipe,
     SettingsChanged,
     RetentionPurged,
+    /// PR #70 — emitted by `findings::storage::apply_parsed` when a
+    /// scan auto-resolves one or more prior findings (the resolution
+    /// sweep). The `item_count` field carries the resolved count.
+    FindingsAutoResolved,
 }
 
 impl EventKind {
@@ -50,6 +54,7 @@ impl EventKind {
             EventKind::PanicWipe => "panic_wipe",
             EventKind::SettingsChanged => "settings_changed",
             EventKind::RetentionPurged => "retention_purged",
+            EventKind::FindingsAutoResolved => "findings_auto_resolved",
         }
     }
 
@@ -72,6 +77,7 @@ impl EventKind {
             "panic_wipe" => EventKind::PanicWipe,
             "settings_changed" => EventKind::SettingsChanged,
             "retention_purged" => EventKind::RetentionPurged,
+            "findings_auto_resolved" => EventKind::FindingsAutoResolved,
             _ => return None,
         })
     }

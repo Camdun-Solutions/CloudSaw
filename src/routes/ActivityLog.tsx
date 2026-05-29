@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, EmptyState, Select } from "@/components";
+import { Button, EmptyState, ExportActivityLogModal, Select } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import { ipc, type EventKind, type EventLogEntry } from "@/lib/ipc";
@@ -51,8 +51,11 @@ export default function ActivityLog() {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<EventKind | "all">("all");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  // PR #70: Export button now opens a modal that lets the user pick
+  // format (HTML/PDF/Excel) + date range + kind filter, then writes
+  // the themed file through the Rust pipeline. The old clipboard-
+  // ndjson path is gone.
+  const [exportOpen, setExportOpen] = useState(false);
   // PR #67: pagination — slice the loaded entries client-side. The
   // reload call already caps at 500 rows, which is plenty for the
   // 10/20/50/100 paging tiers.
@@ -84,23 +87,6 @@ export default function ActivityLog() {
     void reload();
   }, [reload]);
 
-  async function onExport() {
-    setExporting(true);
-    setToast(null);
-    try {
-      const ndjson = await ipc.eventlogExport();
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(ndjson);
-        setToast(t("eventlog.export.toast"));
-      }
-    } catch (err) {
-      setLoadError(formatError(err));
-    } finally {
-      setExporting(false);
-      window.setTimeout(() => setToast(null), 4000);
-    }
-  }
-
   const totalLoaded = entries?.length ?? 0;
   const visible = entries ? entries.slice(0, pageSize) : [];
 
@@ -123,13 +109,17 @@ export default function ActivityLog() {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => void onExport()}
-          disabled={exporting}
+          onClick={() => setExportOpen(true)}
           data-testid="activitylog-export"
         >
-          {exporting ? t("eventlog.action.export_busy") : t("eventlog.action.export")}
+          {t("eventlog.action.export")}
         </Button>
       </div>
+
+      <ExportActivityLogModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+      />
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
@@ -163,16 +153,6 @@ export default function ActivityLog() {
           {loadError}
         </p>
       ) : null}
-      {toast ? (
-        <p
-          role="status"
-          className="mt-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
-          data-testid="activitylog-toast"
-        >
-          {toast}
-        </p>
-      ) : null}
-
       {entries === null ? (
         <p className="mt-4 text-body text-saw-grey-600 dark:text-saw-grey-400">
           {t("common.loading")}

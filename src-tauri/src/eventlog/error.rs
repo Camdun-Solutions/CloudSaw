@@ -16,6 +16,13 @@ pub enum EventLogError {
 
     #[error("io: {0}")]
     Io(String),
+
+    /// PR #70 — catch-all for renderer failures from the export
+    /// pipeline (printpdf / rust_xlsxwriter). These are operational
+    /// failures, not user-input errors; the IPC layer surfaces them
+    /// as `internal_error`.
+    #[error("other: {0}")]
+    Other(String),
 }
 
 impl From<rusqlite::Error> for EventLogError {
@@ -30,6 +37,7 @@ impl From<EventLogError> for AppError {
             EventLogError::InvalidInput(field) => AppError::InvalidInput(field.into()),
             EventLogError::Db(msg) => AppError::Db(msg),
             EventLogError::Io(msg) => AppError::Io(msg),
+            EventLogError::Other(msg) => AppError::Internal(msg),
         }
     }
 }

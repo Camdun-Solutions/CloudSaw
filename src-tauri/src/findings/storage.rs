@@ -224,6 +224,29 @@ pub fn apply_parsed(
     }
 
     tx.commit()?;
+
+    // PR #70 — record the auto-resolution sweep in the activity log
+    // so the user can see, after the fact, that "scan X resolved N
+    // prior findings for account Y". Best-effort; an event-log write
+    // failure must never roll back the findings transaction.
+    if summary.findings_resolved > 0 {
+        use crate::eventlog::{record_event, EventInput, EventKind};
+        record_event(
+            EventInput::new(
+                EventKind::FindingsAutoResolved,
+                format!(
+                    "Scan {scan} auto-resolved {n} prior finding(s) for {acct}.",
+                    scan = scan_id,
+                    n = summary.findings_resolved,
+                    acct = crate::accounts::mask_for_logs(account_id),
+                ),
+            )
+            .with_scan_id(scan_id)
+            .with_account(account_id)
+            .with_item_count(summary.findings_resolved as i64),
+        );
+    }
+
     Ok(summary)
 }
 
