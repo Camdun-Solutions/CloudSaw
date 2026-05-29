@@ -12,8 +12,17 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: Size;
 };
 
+// PR #77 — `whitespace-nowrap` added to base so multi-word labels
+// like "Add provider" never break onto two lines when the parent
+// container narrows (e.g. side-by-side header chrome with a tight
+// "Connected providers · Add provider" row). Buttons are sized by
+// content width by default and were inheriting the wrapping
+// behavior of their containing flexbox. Coupled with `shrink-0`
+// so a flex container can't compress the button below its
+// intrinsic content width either.
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-card font-medium " +
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 " +
+  "rounded-card font-medium " +
   "transition-colors disabled:cursor-not-allowed disabled:opacity-60 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-saw-grey-50 " +

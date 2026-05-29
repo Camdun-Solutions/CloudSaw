@@ -53,11 +53,17 @@ export default function Switch({
           "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
           "focus-visible:ring-offset-2",
+          // PR #77 — the off-state previously fell back to a light-
+          // grey track on both themes (`bg-saw-grey-300`), which read
+          // as a pale band against the dark canvas. The user wanted a
+          // dark fill + light outline in dark mode so the off-state
+          // reads as a recessed shape rather than a stray light
+          // patch. Light theme keeps the existing solid grey track.
           disabled
-            ? "cursor-not-allowed bg-saw-grey-200 dark:bg-saw-grey-700"
+            ? "cursor-not-allowed bg-saw-grey-200 dark:bg-saw-grey-800 dark:border dark:border-saw-grey-600"
             : checked
               ? "bg-saw-red"
-              : "bg-saw-grey-300",
+              : "bg-saw-grey-300 dark:border dark:border-saw-grey-500 dark:bg-saw-grey-dark",
         ].join(" ")}
       >
         <span

@@ -109,6 +109,93 @@ function formatLocalTimestamp(iso: string | null): string {
   }
 }
 
+/** PR #77 — Compute the next scheduled run from the LIVE device
+ *  clock + the schedule's cadence. The backend computes & persists
+ *  `next_run_at` when the schedule is set, but the value goes stale
+ *  the moment the device's clock passes it (the runner only updates
+ *  after a fire). This helper mirrors `src-tauri/src/scheduler/
+ *  cadence.rs::next_after` so the UI always shows what's truly next
+ *  given the user's current time.
+ *
+ *  Returns `null` if the cadence parameters are inconsistent (e.g. a
+ *  daily cadence without a time-of-day, or an interval of 0). */
+function computeNextRunFromNow(
+  cadence: ScheduleCadence,
+  timeOfDayMinutes: number | null,
+  now: Date = new Date(),
+): Date | null {
+  switch (cadence.kind) {
+    case "interval": {
+      if (cadence.minutes <= 0) return null;
+      return new Date(now.getTime() + cadence.minutes * 60_000);
+    }
+    case "daily": {
+      if (timeOfDayMinutes === null) return null;
+      const candidate = atLocal(now, timeOfDayMinutes);
+      // If today's slot is already in the past, roll to tomorrow.
+      if (candidate.getTime() <= now.getTime()) {
+        candidate.setDate(candidate.getDate() + 1);
+      }
+      return candidate;
+    }
+    case "weekly": {
+      if (timeOfDayMinutes === null) return null;
+      if (cadence.day_of_week < 0 || cadence.day_of_week > 6) return null;
+      // Walk forward up to 14 days to clear any DST shuffle, picking
+      // the first candidate that lands on day_of_week and is in the
+      // future relative to now.
+      for (let i = 0; i < 14; i++) {
+        const base = new Date(now);
+        base.setDate(base.getDate() + i);
+        if (base.getDay() !== cadence.day_of_week) continue;
+        const candidate = atLocal(base, timeOfDayMinutes);
+        if (candidate.getTime() > now.getTime()) return candidate;
+      }
+      return null;
+    }
+    case "monthly": {
+      if (timeOfDayMinutes === null) return null;
+      if (cadence.day_of_month < 1 || cadence.day_of_month > 28) return null;
+      // Walk forward month by month (up to 14 months for safety).
+      for (let i = 0; i < 14; i++) {
+        const base = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const candidate = atLocal(
+          new Date(
+            base.getFullYear(),
+            base.getMonth(),
+            cadence.day_of_month,
+          ),
+          timeOfDayMinutes,
+        );
+        if (candidate.getTime() > now.getTime()) return candidate;
+      }
+      return null;
+    }
+  }
+}
+
+/** Helper — build a Date at the given local date with hour/minute
+ *  derived from `time_of_day_minutes` (0–1439). */
+function atLocal(date: Date, timeOfDayMinutes: number): Date {
+  const hour = Math.floor(timeOfDayMinutes / 60);
+  const minute = timeOfDayMinutes % 60;
+  const out = new Date(date);
+  out.setHours(hour, minute, 0, 0);
+  return out;
+}
+
+/** PR #77 — format the schedule's "Next run" cell. Prefers a fresh
+ *  client-computed value over the persisted backend timestamp so the
+ *  cell always reflects "what's next given THE DEVICE CLOCK right
+ *  now." Falls back to the backend value (raw) only if computation
+ *  yields null (cadence inconsistency). */
+function formatNextRun(s: Schedule): string {
+  if (!s.enabled) return "—";
+  const computed = computeNextRunFromNow(s.cadence, s.time_of_day_minutes);
+  if (computed) return computed.toLocaleString();
+  return formatLocalTimestamp(s.next_run_at);
+}
+
 function lastRunOutcomeKey(outcome: LastRunOutcome | null): string {
   if (!outcome) return "schedules.last_run.none";
   return `schedules.last_run.${outcome}`;
@@ -256,7 +343,7 @@ export default function ScheduledScans() {
                     </p>
                     <p className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
                       {t("schedules.row.next_run_label")}:{" "}
-                      {s.enabled ? formatLocalTimestamp(s.next_run_at) : "—"}
+                      {formatNextRun(s)}
                     </p>
                   </div>
                   <Badge tone={s.enabled ? "success" : "neutral"}>
@@ -498,8 +585,7 @@ function SchedulePanel({
           className="text-small text-saw-grey-500 dark:text-saw-grey-400"
           data-testid="schedules-next-run"
         >
-          {t("schedules.panel.next_run")}:{" "}
-          {schedule.enabled ? formatLocalTimestamp(schedule.next_run_at) : "—"}
+          {t("schedules.panel.next_run")}: {formatNextRun(schedule)}
         </p>
       ) : null}
 

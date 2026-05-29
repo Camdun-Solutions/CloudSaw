@@ -222,6 +222,26 @@ export default function Accounts({
     return () => window.clearTimeout(handle);
   }, [toast]);
 
+  // PR #77 — render the AWS CLI Profiles list in the same order as
+  // the Configured Accounts list above it. Profiles attached to an
+  // account come first, in the same row order as `accounts`;
+  // profiles NOT linked to any account come after in alphabetical
+  // order so the unattached set still has a stable, predictable
+  // layout.
+  const orderedProfiles = useMemo(() => {
+    const linkedNames = (accounts ?? []).map((a) => a.profile_name);
+    const byName = new Map(allProfiles.map((p) => [p.name, p]));
+    const linked = linkedNames
+      .map((n) => byName.get(n))
+      .filter((p): p is ProfileInfo => p !== undefined);
+    const linkedSet = new Set(linked.map((p) => p.name));
+    const unlinked = allProfiles
+      .filter((p) => !linkedSet.has(p.name))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return [...linked, ...unlinked];
+  }, [accounts, allProfiles]);
+
   // Standalone-mode header. PR #66: the "Diagnose profiles" +
   // "Refresh" + "Close" action cluster is gone — Diagnose profiles
   // was replaced by the inline AWS CLI Profiles section below, the
@@ -307,13 +327,22 @@ export default function Accounts({
           </Button>
         </div>
 
+        {/* PR #77 — dark-theme checkbox restyling. Previously the
+            native checkbox used `bg-saw-grey-300 dark:border-saw-grey-700`
+            which left the unchecked state as a pale white square
+            against the dark canvas (the OS render of native
+            checkboxes ignored our dark-mode classes). The
+            `appearance-none` reset hands rendering back to us, and
+            `accent-saw-red` styles the checked state on the
+            handful of browsers that fall through to native
+            rendering. */}
         <label className="mt-4 inline-flex items-center gap-2 text-small text-saw-grey-600 dark:text-saw-grey-400">
           <input
             type="checkbox"
             checked={display.reveal_full_ids}
             onChange={(e) => void onToggleReveal(e.target.checked)}
             data-testid="accounts-reveal-toggle"
-            className="h-4 w-4 rounded border-saw-grey-300 dark:border-saw-grey-700"
+            className="h-4 w-4 appearance-none rounded border border-saw-grey-300 bg-saw-white accent-saw-red transition-colors checked:border-saw-red checked:bg-saw-red checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 12 12%22><path d=%22M2.5 6.5l2.5 2.5L9.5 3.5%22 stroke=%22white%22 stroke-width=%221.75%22 fill=%22none%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>')] checked:bg-no-repeat checked:bg-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange focus-visible:ring-offset-1 dark:border-saw-grey-500 dark:bg-saw-grey-dark dark:checked:border-saw-red"
           />
           {t("accounts.reveal_toggle.label")}
         </label>
@@ -402,7 +431,7 @@ export default function Accounts({
         </div>
 
         <div className="mt-4" data-testid="accounts-cli-profiles-list">
-          {allProfiles.length === 0 ? (
+          {orderedProfiles.length === 0 ? (
             <p
               className="rounded-card border border-dashed border-saw-grey-200 dark:border-saw-grey-700 px-4 py-6 text-center text-small text-saw-grey-600 dark:text-saw-grey-400"
               data-testid="accounts-cli-profiles-empty"
@@ -414,7 +443,7 @@ export default function Accounts({
               className="divide-y divide-saw-grey-200 dark:divide-saw-grey-700 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark"
               data-testid="accounts-cli-profiles-rows"
             >
-              {allProfiles.map((p) => (
+              {orderedProfiles.map((p) => (
                 <ProfileRow
                   key={p.name}
                   profile={p}

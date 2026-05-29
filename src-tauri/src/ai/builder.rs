@@ -46,6 +46,10 @@ pub const PLACEHOLDER_ARN: &str = "[REDACTED-ARN]";
 /// what they're talking to.
 const ANTHROPIC_DEFAULT_MODEL: &str = "claude-haiku-4-5-20251001";
 const OPENAI_DEFAULT_MODEL: &str = "gpt-4o-mini";
+// PR #77 — Gemini default. `gemini-2.0-flash` is the cost-tier model
+// in the v1beta API surface; same scale and latency posture as
+// Anthropic Haiku / OpenAI gpt-4o-mini.
+const GEMINI_DEFAULT_MODEL: &str = "gemini-2.0-flash";
 
 /// Build the preview the UI must show to the user. The result is the
 /// EXACT payload that would be sent to the provider — there is no
@@ -85,6 +89,7 @@ pub fn build_preview(
     let model = match provider {
         Provider::Anthropic => ANTHROPIC_DEFAULT_MODEL,
         Provider::Openai => OPENAI_DEFAULT_MODEL,
+        Provider::Gemini => GEMINI_DEFAULT_MODEL,
     };
 
     Ok(AiRequestPreview {

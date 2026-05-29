@@ -574,7 +574,11 @@ export type FindingTicket = {
 
 // --- AI Suggestion Layer (Contract 13) -----------------------------------
 
-export type AiProvider = "anthropic" | "openai";
+// PR #77 — Gemini joins the provider union. The set stays a string
+// literal union (mirrored on the Rust side as a `Provider` enum)
+// so `<AiProvider>` and `Provider` round-trip safely across the
+// IPC boundary.
+export type AiProvider = "anthropic" | "openai" | "gemini";
 
 export type EnvironmentType =
   | "production"

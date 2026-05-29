@@ -60,6 +60,13 @@ pub const GITHUB_PAT_ACCOUNT: &str = "default";
 pub const LLM_KEY_SERVICE: &str = "cloudsaw.llm_api_key";
 pub const LLM_KEY_ACCOUNT_ANTHROPIC: &str = "anthropic";
 pub const LLM_KEY_ACCOUNT_OPENAI: &str = "openai";
+// PR #77 — Gemini lives under the same llm_api_key service, with
+// `account` = `gemini` so the legacy single-provider model can still
+// route by type while the multi-provider model (PR #74) routes by
+// the random per-row `provider_id`. The panic wipe enumerates both
+// the static REGISTRY below and the dynamic ai_providers table rows
+// so every keychain entry is reachable from a single wipe.
+pub const LLM_KEY_ACCOUNT_GEMINI: &str = "gemini";
 
 /// All service/account pairs CloudSaw is permitted to write to the OS
 /// keychain. The panic wipe enumerates this list and removes every
@@ -69,6 +76,7 @@ const REGISTRY: &[(&str, &str)] = &[
     (GITHUB_PAT_SERVICE, GITHUB_PAT_ACCOUNT),
     (LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_ANTHROPIC),
     (LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_OPENAI),
+    (LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_GEMINI),
 ];
 
 /// Typed error returned by every `CredentialStore` method. The inner
