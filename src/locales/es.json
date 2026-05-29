@@ -52,6 +52,8 @@
   "findings.filter.search_placeholder": "Search by name, rule, or description…",
   "findings.group.count": "{count} findings",
   "findings.group.toggle_hint": "Click to expand",
+  "findings.group.severity_tabs_aria": "Filter findings by severity",
+  "findings.drawer.empty_title": "Finding details",
   "findings.row.affected_label": "affected",
   "findings.empty.no_accounts.title": "No accounts configured",
   "findings.empty.no_accounts.body": "Add an account in Settings → Accounts to start scanning.",
