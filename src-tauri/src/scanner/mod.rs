@@ -139,6 +139,21 @@ pub fn reveal_scan_dir(scan_id: &str) -> Result<(), ScannerError> {
     // scanner_scan_status / scanner_cancel_scan.
     let _ = storage::get(scan_id)?;
     let dir = runner::scan_output_dir(scan_id)?;
+    // PR #78: surface a typed error if the directory genuinely doesn't
+    // exist (e.g. an upgraded install whose pre-PR-#78 failed scans
+    // never produced a folder). The previous behavior was to spawn
+    // `explorer.exe` against the missing path and let Windows pop its
+    // "Location is not available" dialog — diagnostic for an OS power
+    // user, but a dead end for everyone else. The IPC seam now returns
+    // ScanIo with a clear message; the UI's `useIpcError` hook surfaces
+    // it via the toast/banner instead of an OS modal.
+    if !dir.exists() {
+        return Err(ScannerError::ScanIo(
+            "scan output directory does not exist — the scan failed before \
+             producing any logs. There is nothing to reveal."
+                .to_string(),
+        ));
+    }
     open_in_file_manager(&dir).map_err(|e| ScannerError::ScanIo(e.to_string()))
 }
 
@@ -232,7 +247,51 @@ fn execute_scan(
         scan_id: scan_id.clone(),
     };
 
+    // PR #78: pre-create the per-scan output directory BEFORE the inner
+    // orchestration starts. Previously the directory was only created
+    // after the AssumeRole step succeeded (inside `execute_scan_inner`),
+    // which meant any early failure — bad AWS credentials, role not
+    // provisioned, STS network error — left the scan row with a
+    // `failure_code` but no folder on disk. When the user then clicked
+    // "Reveal output" Windows Explorer surfaced a "Location is not
+    // available" dialog with no recourse. Creating the directory here
+    // means a reveal click always lands somewhere real, and the failure-
+    // path branch below can write a sidecar `cloudsaw-error.log` with
+    // the failure code so the user has something concrete to read.
+    let output_dir = runner::scan_output_dir(&scan_id).ok();
+    if let Some(ref dir) = output_dir {
+        let _ = ensure_user_only_dir(dir);
+    }
+
     if let Err(e) = execute_scan_inner(handle, &scan_id, &aws_account_id, &role_session_name) {
+        // PR #78: write a sidecar error log so the user sees the failure
+        // detail when they click "Reveal output" on an early-stage
+        // failure (before the stderr sidecar would normally be written
+        // — see `write_stderr_sidecar` in `execute_scan_inner`). The
+        // file name is distinct (`cloudsaw-error.log`) so it doesn't
+        // clobber the ScoutSuite stderr capture that happens later in
+        // the happy path.
+        if let Some(ref dir) = output_dir {
+            let log_path = dir.join("cloudsaw-error.log");
+            // Per CLAUDE.md §4.4: no account IDs, no raw stderr. The
+            // failure code is a stable enum tag and the Display impl
+            // is constructed from in-repo strings only.
+            let msg = format!(
+                "Scan failed.\n\
+                 \n\
+                 Scan ID:      {scan_id}\n\
+                 Failure code: {code}\n\
+                 Detail:       {detail}\n\
+                 \n\
+                 Look for `cloudsaw-stderr.log` in this folder for the\n\
+                 ScoutSuite child process's stderr — present only when\n\
+                 the failure occurred after ScoutSuite was spawned.\n",
+                scan_id = scan_id,
+                code = e.code(),
+                detail = e,
+            );
+            let _ = std::fs::write(log_path, msg);
+        }
         // Persist the terminal failure. The `record_failed` call itself
         // can fail (SQLite locked etc.); ignore the secondary error — the
         // UI poll will eventually surface the row.
