@@ -26,7 +26,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use cloudsaw_lib::keychain::{
     self, CredentialStore, InMemoryStore, KeyringStore, GITHUB_PAT_ACCOUNT, GITHUB_PAT_SERVICE,
-    LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_OPENAI, LLM_KEY_SERVICE,
+    LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_GEMINI, LLM_KEY_ACCOUNT_OPENAI, LLM_KEY_SERVICE,
 };
 
 fn env_lock() -> &'static Mutex<()> {
@@ -75,16 +75,20 @@ fn happy_list_known_returns_the_module_registry() {
 fn happy_delete_all_empties_the_store_and_counts_outcomes() {
     let _g = env_lock().lock().unwrap_or_else(|p| p.into_inner());
     let store = InMemoryStore::new();
-    // Pre-populate with the two registered LLM entries; leave the
-    // GitHub PAT absent so we can assert the not_present counter.
+    // PR #77 — registry now includes Gemini's LLM slot. Pre-populate
+    // anthropic + openai + gemini and leave the GitHub PAT absent so
+    // the not_present counter still reads 1 (the one un-set entry).
     store
         .set(LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_ANTHROPIC, "k1")
         .unwrap();
     store
         .set(LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_OPENAI, "k2")
         .unwrap();
+    store
+        .set(LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_GEMINI, "k3")
+        .unwrap();
     let result = store.delete_all();
-    assert_eq!(result.removed, 2);
+    assert_eq!(result.removed, 3);
     assert_eq!(result.not_present, 1);
     assert_eq!(result.failed, 0);
     // Store is empty afterwards.
@@ -159,13 +163,16 @@ fn happy_ai_key_module_round_trips_through_the_installed_store() {
 fn happy_wipe_all_empties_every_registered_entry_via_the_installed_store() {
     let _g = env_lock().lock().unwrap_or_else(|p| p.into_inner());
     let handle = keychain::install_in_memory_for_tests();
-    // Populate the GitHub PAT + both LLM entries.
+    // PR #77 — populate the GitHub PAT + all three LLM provider
+    // slots (Anthropic, OpenAI, Gemini) so the registry-iteration
+    // walk in wipe_all reaches every entry.
     keychain::set(GITHUB_PAT_SERVICE, GITHUB_PAT_ACCOUNT, "pat").unwrap();
     keychain::set(LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_ANTHROPIC, "ant").unwrap();
     keychain::set(LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_OPENAI, "oai").unwrap();
-    assert_eq!(handle.len(), 3);
+    keychain::set(LLM_KEY_SERVICE, LLM_KEY_ACCOUNT_GEMINI, "gem").unwrap();
+    assert_eq!(handle.len(), 4);
     let result = keychain::wipe_all();
-    assert_eq!(result.removed, 3);
+    assert_eq!(result.removed, 4);
     assert_eq!(result.not_present, 0);
     assert_eq!(result.failed, 0);
     assert!(handle.is_empty());

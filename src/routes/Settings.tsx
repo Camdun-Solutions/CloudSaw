@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, Modal, PasswordField, Select, Switch, TagInput } from "@/components";
+import { Button, Logo, Modal, PasswordField, Select, Switch, TagInput } from "@/components";
 import { useAppearance } from "@/hooks/useAppearance";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
@@ -224,29 +224,26 @@ export default function Settings({
 
   return (
     <main className="min-h-full bg-saw-grey-50 dark:bg-saw-black">
-      {/* PR #75: page header pulled out of the padded inner wrapper
-          and made `sticky top-0 z-20` with an opaque background so
-          content scrolls *underneath* it instead of behind the
-          floating TopNav chip. The TopNav lives at z-30, so it
-          still sits on top of this header's right edge. The same
-          treatment is mirrored on Home / Dashboard / Findings /
-          Accounts; their existing full-width header bars just
-          gained `sticky top-0 z-20`. */}
-      <header className="sticky top-0 z-20 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black">
+      {/* PR #77 — Settings header now mirrors the Dashboard /
+          Findings / Accounts pattern: opaque `bg-saw-white
+          dark:bg-saw-grey-dark` bar (was main-bg-matched, which
+          made it read as a transparent section title rather than a
+          true app chrome bar), Logo + text-h2 title + subtitle on
+          one row. Sticky behavior + the max-w-7xl alignment with
+          the body inherit from the surrounding wrapper. */}
+      <header className="sticky top-0 z-20 border-b border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark">
         {/* PR #55: max-w-7xl mx-auto wraps the Settings content so
             the two-column (left-nav + right-panel) layout stays
             readable on ultra-wide displays instead of spreading the
             right panel across the whole viewport. The header carries
             the same wrapper so its title aligns with the body. */}
-        <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-8 py-5">
-          <div>
-            {/* PR #66: BackBreadcrumb removed — TopNav already exposes
-                Dashboard/Findings/Settings, so the per-page back arrow
-                was redundant. */}
-            <h1 className="text-h1 font-semibold text-saw-grey-900 dark:text-saw-beige">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-8 py-5">
+          <Logo size="sm" />
+          <div className="flex flex-col">
+            <h1 className="text-h2 font-semibold tracking-tight text-saw-grey-900 dark:text-saw-beige">
               {t("nav.settings")}
             </h1>
-            <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
+            <p className="text-small text-saw-grey-500 dark:text-saw-grey-400">
               {t("applock.settings.subtitle")}
             </p>
           </div>
@@ -1565,6 +1562,24 @@ function GithubSection() {
 
 // --- AI Suggestion Layer (Contract 13) ----------------------------------
 
+/** PR #77 — placeholder for the API-key input, dispatched on the
+ * provider type. Centralizes the per-provider shape hint so the
+ * Add and Edit modals stay in sync if a provider's key format
+ * changes. */
+function keyPlaceholderFor(
+  provider: AiProvider,
+  t: (k: string) => string,
+): string {
+  switch (provider) {
+    case "anthropic":
+      return t("ai.key.placeholder_anthropic");
+    case "openai":
+      return t("ai.key.placeholder_openai");
+    case "gemini":
+      return t("ai.key.placeholder_gemini");
+  }
+}
+
 /** PR #74 — Add Provider modal. Three fields: Provider Type +
  * Nickname + API Key. The key never re-renders after submit; the
  * keychain owns it from here on. */
@@ -1628,18 +1643,21 @@ function AddProviderModal({
       data-testid="ai-provider-add-modal"
     >
       <div className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <span>{t("ai.provider.label")}</span>
-          <select
-            value={providerType}
-            onChange={(e) => setProviderType(e.target.value as AiProvider)}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
-            data-testid="ai-provider-add-type"
-          >
-            <option value="anthropic">{t("ai.provider.anthropic")}</option>
-            <option value="openai">{t("ai.provider.openai")}</option>
-          </select>
-        </label>
+        {/* PR #77 — provider dropdown uses the shared Select so the
+            modern dropdown style (custom popup, rounded items) is
+            consistent with Compliance Obligations / Risk / Team /
+            etc. Gemini joins Anthropic and OpenAI in the option set. */}
+        <Select<AiProvider>
+          label={t("ai.provider.label")}
+          value={providerType}
+          options={[
+            { value: "anthropic", label: t("ai.provider.anthropic") },
+            { value: "openai", label: t("ai.provider.openai") },
+            { value: "gemini", label: t("ai.provider.gemini") },
+          ]}
+          onChange={setProviderType}
+          data-testid="ai-provider-add-type"
+        />
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.providers.nickname")}</span>
           <input
@@ -1648,7 +1666,7 @@ function AddProviderModal({
             onChange={(e) => setNickname(e.target.value.slice(0, 60))}
             placeholder={t("ai.providers.nickname_placeholder")}
             maxLength={60}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+            className="rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
             data-testid="ai-provider-add-nickname"
           />
           <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
@@ -1661,11 +1679,7 @@ function AddProviderModal({
             type="password"
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
-            placeholder={
-              providerType === "anthropic"
-                ? t("ai.key.placeholder_anthropic")
-                : t("ai.key.placeholder_openai")
-            }
+            placeholder={keyPlaceholderFor(providerType, t)}
             autoComplete="off"
             className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
             data-testid="ai-provider-add-key"
@@ -2218,26 +2232,21 @@ function AiSection() {
           </span>
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <span>{t("ai.context.environment")}</span>
-          <select
-            value={context.environment_type}
-            onChange={(e) =>
-              setContext({
-                ...context,
-                environment_type: e.target.value as EnvironmentType,
-              })
-            }
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
-            data-testid="ai-ctx-env"
-          >
-            {envOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* PR #77 — Environment/Risk/Team dropdowns moved from native
+            <select> to the shared Select component so they share the
+            modern dropdown style with Compliance Obligations'
+            suggestion list (rounded-card panel, hover state,
+            keyboard nav). Each is still a single-select; the visual
+            language is the only thing that's converging. */}
+        <Select<EnvironmentType>
+          label={t("ai.context.environment")}
+          value={context.environment_type}
+          options={envOptions}
+          onChange={(next) =>
+            setContext({ ...context, environment_type: next })
+          }
+          data-testid="ai-ctx-env"
+        />
 
         {/* PR #69: Compliance obligations are now a pill editor.
             Typing surfaces suggestions from KNOWN_COMPLIANCE_FRAMEWORKS
@@ -2260,47 +2269,23 @@ function AiSection() {
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <span>{t("ai.context.risk")}</span>
-          <select
-            value={context.risk_tolerance}
-            onChange={(e) =>
-              setContext({
-                ...context,
-                risk_tolerance: e.target.value as RiskTolerance,
-              })
-            }
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
-            data-testid="ai-ctx-risk"
-          >
-            {riskOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select<RiskTolerance>
+          label={t("ai.context.risk")}
+          value={context.risk_tolerance}
+          options={riskOptions}
+          onChange={(next) =>
+            setContext({ ...context, risk_tolerance: next })
+          }
+          data-testid="ai-ctx-risk"
+        />
 
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <span>{t("ai.context.team")}</span>
-          <select
-            value={context.team_size}
-            onChange={(e) =>
-              setContext({
-                ...context,
-                team_size: e.target.value as TeamSize,
-              })
-            }
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
-            data-testid="ai-ctx-team"
-          >
-            {teamOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select<TeamSize>
+          label={t("ai.context.team")}
+          value={context.team_size}
+          options={teamOptions}
+          onChange={(next) => setContext({ ...context, team_size: next })}
+          data-testid="ai-ctx-team"
+        />
 
         <div>
           <Button

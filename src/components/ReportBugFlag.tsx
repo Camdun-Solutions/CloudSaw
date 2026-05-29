@@ -59,8 +59,16 @@ export default function ReportBugFlag() {
 
   return (
     <>
+      {/* PR #77 — z-50 (was z-40) so the hover label paints above
+          modals' backdrop chrome and above the floating TopNav.
+          The label itself was being clipped by the bottom-left
+          window edge — the flag sits at `left-2` and the chip used
+          `left-1/2 -translate-x-1/2` (centered above the flag) so
+          half the chip sat outside the viewport. Anchoring the
+          chip to the LEFT edge of the flag (left-0, no centering)
+          keeps it on-screen on every viewport width. */}
       <div
-        className="group fixed bottom-2 left-2 z-40"
+        className="group fixed bottom-2 left-2 z-50"
         data-testid="report-bug-flag"
       >
         <button
@@ -82,7 +90,7 @@ export default function ReportBugFlag() {
             so it doesn't push the adjacent VersionFooter sideways.
             Appears on hover and on keyboard focus. */}
         <span
-          className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-saw-grey-800 dark:bg-saw-grey-700 px-2 py-0.5 text-xs text-saw-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+          className="pointer-events-none absolute bottom-full left-0 z-50 mb-1 whitespace-nowrap rounded bg-saw-grey-800 dark:bg-saw-grey-700 px-2 py-0.5 text-xs text-saw-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
           data-testid="report-bug-flag-label"
         >
           {t("report_bug.flag_label")}

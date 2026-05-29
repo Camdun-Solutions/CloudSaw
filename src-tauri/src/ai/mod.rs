@@ -179,6 +179,7 @@ pub fn set_provider(provider: Option<Provider>) -> Result<(), AiError> {
                 let default_nick = match p {
                     Provider::Anthropic => "Anthropic".to_string(),
                     Provider::Openai => "OpenAI".to_string(),
+                    Provider::Gemini => "Gemini".to_string(),
                 };
                 providers::add_empty(p, default_nick).map(|_| ())
             }
@@ -206,6 +207,7 @@ pub fn set_provider_key(provider: Provider, value: String) -> Result<(), AiError
         let default_nick = match provider {
             Provider::Anthropic => "Anthropic".to_string(),
             Provider::Openai => "OpenAI".to_string(),
+            Provider::Gemini => "Gemini".to_string(),
         };
         add_provider(provider, default_nick, value).map(|_| ())
     }

@@ -7,11 +7,18 @@ use serde::{Deserialize, Serialize};
 
 /// Which provider the user has connected. Exactly one is active at a
 /// time. `None` means the feature is dormant (no provider chosen).
+///
+/// PR #77 — Gemini added as the third provider. The Provider enum
+/// stays a closed set (no string-typed dispatch) so adding a new
+/// provider is a compile-time fan-out of: `as_str`, `from_storage`,
+/// `key::looks_like_key`, `builder::default_model_for`, and
+/// `client::Transport::send`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Provider {
     Anthropic,
     Openai,
+    Gemini,
 }
 
 impl Provider {
@@ -19,6 +26,7 @@ impl Provider {
         match self {
             Provider::Anthropic => "anthropic",
             Provider::Openai => "openai",
+            Provider::Gemini => "gemini",
         }
     }
 
@@ -26,6 +34,7 @@ impl Provider {
         match s {
             "anthropic" => Some(Provider::Anthropic),
             "openai" => Some(Provider::Openai),
+            "gemini" => Some(Provider::Gemini),
             _ => None,
         }
     }

@@ -26,6 +26,12 @@ use super::types::{AiRequestPreview, AiSuggestion, Provider};
 
 const ANTHROPIC_API: &str = "https://api.anthropic.com/v1/messages";
 const OPENAI_API: &str = "https://api.openai.com/v1/chat/completions";
+// PR #77 — Google Gemini v1beta `generateContent` endpoint. The
+// model id is appended at request time (`/models/{model}:generate
+// Content`) and the API key travels as a query string per Google's
+// AI Studio convention; the HTTP body shape is documented at
+// https://ai.google.dev/api/generate-content.
+const GEMINI_API_BASE: &str = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /// Transport abstraction used by tests. Production code goes through
 /// `ReqwestTransport`. The transport receives the EXACT bytes built by
@@ -41,6 +47,7 @@ impl Transport for ReqwestTransport {
         match preview.provider {
             Provider::Anthropic => send_anthropic(preview, token),
             Provider::Openai => send_openai(preview, token),
+            Provider::Gemini => send_gemini(preview, token),
         }
     }
 }
@@ -222,6 +229,147 @@ fn send_openai(preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, 
     Ok(AiSuggestion {
         provider: Provider::Openai,
         model: body.model,
+        generated_at: Utc::now(),
+        suggestion_markdown: text,
+        usage_input_tokens: input_tokens,
+        usage_output_tokens: output_tokens,
+    })
+}
+
+// --- Google Gemini transport (PR #77) -----------------------------------
+//
+// The Gemini API splits its request body across "contents" (the
+// conversation; CloudSaw sends a single user turn) and a
+// "systemInstruction" carrying the same constant system prompt
+// Anthropic and OpenAI receive. Token usage shows up under
+// `usageMetadata` (`promptTokenCount` / `candidatesTokenCount`).
+
+#[derive(Serialize)]
+struct GeminiTextPart<'a> {
+    text: &'a str,
+}
+
+#[derive(Serialize)]
+struct GeminiContent<'a> {
+    role: &'a str,
+    parts: Vec<GeminiTextPart<'a>>,
+}
+
+#[derive(Serialize)]
+struct GeminiGenerationConfig {
+    #[serde(rename = "maxOutputTokens")]
+    max_output_tokens: u32,
+}
+
+#[derive(Serialize)]
+struct GeminiRequest<'a> {
+    #[serde(rename = "systemInstruction")]
+    system_instruction: GeminiContent<'a>,
+    contents: Vec<GeminiContent<'a>>,
+    #[serde(rename = "generationConfig")]
+    generation_config: GeminiGenerationConfig,
+}
+
+#[derive(Deserialize)]
+struct GeminiPart {
+    #[serde(default)]
+    text: String,
+}
+
+#[derive(Deserialize)]
+struct GeminiContentResp {
+    #[serde(default)]
+    parts: Vec<GeminiPart>,
+}
+
+#[derive(Deserialize)]
+struct GeminiCandidate {
+    #[serde(default)]
+    content: Option<GeminiContentResp>,
+}
+
+#[derive(Deserialize)]
+struct GeminiUsageMetadata {
+    #[serde(default)]
+    #[serde(rename = "promptTokenCount")]
+    prompt_token_count: Option<u32>,
+    #[serde(default)]
+    #[serde(rename = "candidatesTokenCount")]
+    candidates_token_count: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct GeminiResponse {
+    #[serde(default)]
+    candidates: Vec<GeminiCandidate>,
+    #[serde(default)]
+    #[serde(rename = "usageMetadata")]
+    usage_metadata: Option<GeminiUsageMetadata>,
+}
+
+fn send_gemini(preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, AiError> {
+    let client = build_http_client()?;
+    let req = GeminiRequest {
+        system_instruction: GeminiContent {
+            role: "system",
+            parts: vec![GeminiTextPart {
+                text: &preview.system_prompt,
+            }],
+        },
+        contents: vec![GeminiContent {
+            role: "user",
+            parts: vec![GeminiTextPart {
+                text: &preview.user_message,
+            }],
+        }],
+        generation_config: GeminiGenerationConfig {
+            max_output_tokens: 1024,
+        },
+    };
+    // Gemini's auth: API key as the `x-goog-api-key` header. AI
+    // Studio examples often show the key in the URL query string;
+    // the header form is equally supported by the v1beta endpoint
+    // and keeps the credential out of any URL log (defense in depth
+    // even though reqwest doesn't log URLs by default).
+    let url = format!(
+        "{base}/{model}:generateContent",
+        base = GEMINI_API_BASE,
+        model = preview.model,
+    );
+    let resp = client
+        .post(url)
+        .header("x-goog-api-key", token)
+        .header("content-type", "application/json")
+        .json(&req)
+        .send()
+        .map_err(|_| AiError::Network)?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(map_status(status.as_u16()));
+    }
+    let body: GeminiResponse = resp.json().map_err(|_| AiError::Server(status.as_u16()))?;
+    let text = body
+        .candidates
+        .into_iter()
+        .next()
+        .and_then(|c| c.content)
+        .map(|content| {
+            content
+                .parts
+                .into_iter()
+                .map(|p| p.text)
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        })
+        .unwrap_or_default();
+    let (input_tokens, output_tokens) = body
+        .usage_metadata
+        .map(|u| (u.prompt_token_count, u.candidates_token_count))
+        .unwrap_or((None, None));
+    Ok(AiSuggestion {
+        provider: Provider::Gemini,
+        model: preview.model.clone(),
         generated_at: Utc::now(),
         suggestion_markdown: text,
         usage_input_tokens: input_tokens,

@@ -11,12 +11,16 @@ use zeroize::Zeroizing;
 
 use super::error::AiError;
 use super::types::Provider;
-use crate::keychain::{self, LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_OPENAI, LLM_KEY_SERVICE};
+use crate::keychain::{
+    self, LLM_KEY_ACCOUNT_ANTHROPIC, LLM_KEY_ACCOUNT_GEMINI, LLM_KEY_ACCOUNT_OPENAI,
+    LLM_KEY_SERVICE,
+};
 
 fn account_for(provider: Provider) -> &'static str {
     match provider {
         Provider::Anthropic => LLM_KEY_ACCOUNT_ANTHROPIC,
         Provider::Openai => LLM_KEY_ACCOUNT_OPENAI,
+        Provider::Gemini => LLM_KEY_ACCOUNT_GEMINI,
     }
 }
 
@@ -43,7 +47,9 @@ pub fn clear(provider: Provider) -> Result<(), AiError> {
 }
 
 pub fn has_any() -> Result<bool, AiError> {
-    Ok(get(Provider::Anthropic)?.is_some() || get(Provider::Openai)?.is_some())
+    Ok(get(Provider::Anthropic)?.is_some()
+        || get(Provider::Openai)?.is_some()
+        || get(Provider::Gemini)?.is_some())
 }
 
 pub fn has(provider: Provider) -> Result<bool, AiError> {
@@ -89,10 +95,10 @@ pub fn has_for_id(provider_id: &str) -> Result<bool, AiError> {
     Ok(get_for_id(provider_id)?.is_some())
 }
 
-/// Shape check per provider. We accept Anthropic's `sk-ant-…` and
-/// OpenAI's `sk-…` (length-bounded). The check is intentionally lax —
-/// providers rotate prefixes, so the network layer is the authority on
-/// "this key works."
+/// Shape check per provider. We accept Anthropic's `sk-ant-…`,
+/// OpenAI's `sk-…`, and Google's `AIza…` (Gemini API key format).
+/// The check is intentionally lax — providers rotate prefixes, so
+/// the network layer is the authority on "this key works."
 pub fn looks_like_key(provider: Provider, s: &str) -> bool {
     if s.len() < 20 {
         return false;
@@ -100,6 +106,12 @@ pub fn looks_like_key(provider: Provider, s: &str) -> bool {
     match provider {
         Provider::Anthropic => s.starts_with("sk-ant-") || s.starts_with("sk-"),
         Provider::Openai => s.starts_with("sk-") || s.starts_with("sess-"),
+        // PR #77 — Google AI Studio / Gemini keys are issued under
+        // the `AIza` prefix, 39 chars total. We loosen to ≥20 to
+        // match the rest of the providers' shape gates rather than
+        // hard-coding the exact length, in case Google rotates the
+        // format.
+        Provider::Gemini => s.starts_with("AIza"),
     }
 }
 
