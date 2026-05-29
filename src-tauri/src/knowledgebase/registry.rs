@@ -101,11 +101,23 @@ pub fn get_article(finding_id: &str) -> Result<KnowledgeArticle, KnowledgebaseEr
         // file always wins; the upstream text is purely a baseline so a
         // finding without a hand-written article still surfaces a
         // remediation hint instead of the generic "consult AWS docs"
-        // boilerplate. Mirrors the user's 2026-05-29 ask:
-        //   "Every finding should have a recommended fix for basic
-        //    security. Tailored recommendations will come from the AI
-        //    suggestion layer when enabled."
-        super::scoutsuite::overlay_into_article(finding_id, article)
+        // boilerplate.
+        //
+        // PR #82 — the overlay also generates a service-keyed best-
+        // practices baseline when ScoutSuite has nothing either, AND
+        // it promotes `matched = true` whenever the resulting article
+        // has a non-empty remediation. Mirrors the user's 2026-05-29
+        // ask: "Every finding should have a recommended fix for basic
+        // security. Tailored recommendations will come from the AI
+        // suggestion layer when enabled."
+        //
+        // The service component of `rule_key` is the prefix up to the
+        // first hyphen — `iam-user-no-mfa` → `iam`. ScoutSuite's rule-
+        // key naming is consistent with this; the lookup is a pure
+        // string operation so we don't need to thread the resolved
+        // `Finding.service` field down here.
+        let service = finding_id.split('-').next().unwrap_or("");
+        super::scoutsuite::overlay_into_article(finding_id, service, article)
     })
 }
 

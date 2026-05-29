@@ -1,7 +1,7 @@
 // FindingsView — the split list+detail surface for a single scan
 // (`/scans/:scanId` equivalent). Contract 09 §Expected Output.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Button,
@@ -23,6 +23,7 @@ import {
   type ControlMapping,
   type Finding,
   type FindingDetail,
+  type FindingResource,
   type FindingStatus,
   type FindingsFilter,
   type FindingTicket,
@@ -523,27 +524,18 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
         <div className="flex items-start gap-3">
           <SeverityBadge severity={detail.finding.severity} />
           <div className="min-w-0">
+            {/* PR #82 — prefer the finding's own dashboard_name (human-
+                readable, e.g. "Users without MFA") over the article's
+                title (often just the rule_key after the matched-flag
+                semantics changed). Falls through to article.title then
+                rule_key. */}
             <h3 className="text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige">
-              {article.matched
-                ? article.title
-                : detail.finding.dashboard_name || detail.finding.rule_key}
+              {detail.finding.dashboard_name ||
+                article.title ||
+                detail.finding.rule_key}
             </h3>
             <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-              {detail.finding.rule_key}{" "}
-              {!article.matched ? (
-                <span
-                  className="ml-2 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-saw-grey-700 dark:text-saw-grey-300"
-                  data-testid="kb-unmatched-tag"
-                >
-                  {t("dashboard.findings.unmatched_label")}
-                </span>
-              ) : (
-                <span className="ml-2 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-saw-grey-700 dark:text-saw-grey-300">
-                  {article.source === "bundled"
-                    ? t("dashboard.findings.detail.section.kb_source.bundled")
-                    : t("dashboard.findings.detail.section.kb_source.remote")}
-                </span>
-              )}
+              {detail.finding.rule_key}
             </p>
           </div>
         </div>
@@ -577,11 +569,15 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
           </div>
         ) : null}
 
-        {article.matched ? (
-          <ArticleBody article={article} />
-        ) : (
-          <NoArticleBlock finding={detail.finding} />
-        )}
+        {/* PR #82 — always render <ArticleBody>. The backend overlay
+            (knowledgebase::scoutsuite::overlay_into_article) now
+            guarantees that every article has a non-empty remediation
+            sourced from: hand-authored KB → ScoutSuite upstream →
+            service-keyed best-practices baseline. The old
+            `article.matched ? Body : NoArticleBlock` branch surfaced
+            "No remediation guidance yet" even when the overlay had
+            populated content — that empty state is gone now. */}
+        <ArticleBody article={article} />
 
         <AiSuggestionBlock
           settings={aiSettings}
@@ -1113,37 +1109,11 @@ function RemediationTabs({
   );
 }
 
-function NoArticleBlock({ finding }: { finding: Finding }) {
-  const t = useT();
-  return (
-    <div className="mt-4 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-4">
-      <h4 className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
-        {t("dashboard.findings.detail.no_article.title")}
-      </h4>
-      <p className="mt-1 text-body text-saw-grey-700 dark:text-saw-grey-300">
-        {t("dashboard.findings.detail.no_article.body")}
-      </p>
-      <div className="mt-3 space-y-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
-        <p>
-          <strong>{t("dashboard.findings.detail.section.description")}:</strong>{" "}
-          {finding.description}
-        </p>
-        {finding.rationale ? (
-          <p>
-            <strong>{t("dashboard.findings.detail.section.risk")}:</strong>{" "}
-            {finding.rationale}
-          </p>
-        ) : null}
-      </div>
-      {/* PR #81 — "Contribute an article on GitHub" link removed per
-          user request. The KB authoring flow lives on the GitHub
-          repo's Wiki (where readers who want to file an issue will
-          find their way without an in-app affordance), and the
-          legacy link sometimes pointed at routes that no longer
-          existed. Cleaner to drop it than to maintain a stub. */}
-    </div>
-  );
-}
+// PR #82 — `NoArticleBlock` is gone. The backend overlay
+// (knowledgebase::scoutsuite::overlay_into_article) now guarantees
+// every article has a populated remediation, and the conditional at
+// the panel's render site always falls into <ArticleBody>. The
+// "No knowledge-base article" empty state is no longer reachable.
 
 function ResourceList({ detail }: { detail: FindingDetail }) {
   const t = useT();
@@ -1161,26 +1131,129 @@ function ResourceList({ detail }: { detail: FindingDetail }) {
           {t("dashboard.findings.detail.resources.empty")}
         </p>
       ) : (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 space-y-3">
           {detail.resources.map((r) => (
-            <li
-              key={r.resource_path}
-              className="font-mono text-small text-saw-grey-800 dark:text-saw-beige break-all"
-            >
-              {r.resource_path}
-              {r.invalid ? (
-                <span
-                  className="ml-2 rounded-full bg-saw-orange/10 px-2 py-0.5 text-saw-grey-900 dark:text-saw-beige"
-                  data-testid="resource-invalid"
-                >
-                  {t("dashboard.findings.detail.resources.invalid")}
-                </span>
-              ) : null}
-            </li>
+            <ResourceCard key={r.resource_path} resource={r} />
           ))}
         </ul>
       )}
     </details>
+  );
+}
+
+/** PR #82 — One row per resource. Renders the human-readable name +
+ *  ARN + id when ScoutSuite captured them, plus every captured scalar
+ *  attribute (CreateDate, AccessKeys count, etc.) so the user sees
+ *  everything ScoutSuite knows about the resource by default. Falls
+ *  back to just the dotted path on legacy rows. */
+function ResourceCard({ resource }: { resource: FindingResource }) {
+  const t = useT();
+  const hasIdentity =
+    resource.resource_name ||
+    resource.resource_arn ||
+    resource.resource_id_value;
+  const attrEntries = Object.entries(resource.attributes ?? {});
+  return (
+    <li
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-3"
+      data-testid="resource-card"
+    >
+      {/* Headline row: human name + invalid badge. Falls back to the
+          raw path when ScoutSuite didn't expose an identity at all
+          (e.g. `iam.password_policy.*` globals). */}
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className="text-small font-medium text-saw-grey-900 dark:text-saw-beige break-all"
+          data-testid="resource-name"
+        >
+          {resource.resource_name ??
+            resource.resource_id_value ??
+            resource.resource_path}
+        </span>
+        {resource.invalid ? (
+          <span
+            className="shrink-0 rounded-full bg-saw-orange/10 px-2 py-0.5 text-xs text-saw-grey-900 dark:text-saw-beige"
+            data-testid="resource-invalid"
+          >
+            {t("dashboard.findings.detail.resources.invalid")}
+          </span>
+        ) : null}
+      </div>
+
+      {/* ARN + id row */}
+      {(resource.resource_arn || resource.resource_id_value) && (
+        <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
+          {resource.resource_arn ? (
+            <>
+              <dt className="font-medium text-saw-grey-500 dark:text-saw-grey-400">
+                ARN
+              </dt>
+              <dd
+                className="font-mono text-saw-grey-800 dark:text-saw-beige break-all"
+                data-testid="resource-arn"
+              >
+                {resource.resource_arn}
+              </dd>
+            </>
+          ) : null}
+          {resource.resource_id_value ? (
+            <>
+              <dt className="font-medium text-saw-grey-500 dark:text-saw-grey-400">
+                ID
+              </dt>
+              <dd
+                className="font-mono text-saw-grey-800 dark:text-saw-beige break-all"
+                data-testid="resource-id"
+              >
+                {resource.resource_id_value}
+              </dd>
+            </>
+          ) : null}
+        </dl>
+      )}
+
+      {/* Attribute bag — every other scalar field ScoutSuite emitted.
+          Renders alphabetized so the order is stable across renders. */}
+      {attrEntries.length > 0 ? (
+        <dl
+          className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs"
+          data-testid="resource-attributes"
+        >
+          {attrEntries
+            .slice()
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => (
+              <Fragment key={k}>
+                <dt className="font-medium text-saw-grey-500 dark:text-saw-grey-400">
+                  {k}
+                </dt>
+                <dd
+                  className="font-mono text-saw-grey-800 dark:text-saw-beige break-all"
+                  data-testid={`resource-attr-${k}`}
+                >
+                  {String(v)}
+                </dd>
+              </Fragment>
+            ))}
+        </dl>
+      ) : null}
+
+      {/* Raw path — always visible at the end for traceability back to
+          the ScoutSuite output, especially when ARN/id aren't shown. */}
+      {hasIdentity && (
+        <p
+          className="mt-2 text-xs text-saw-grey-500 dark:text-saw-grey-400 font-mono break-all"
+          data-testid="resource-path"
+        >
+          {resource.resource_path}
+        </p>
+      )}
+      {!hasIdentity && (
+        // No identity → the name slot already showed the path. Don't
+        // duplicate it here.
+        <></>
+      )}
+    </li>
   );
 }
 

@@ -81,6 +81,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0013_ai_providers",
         include_str!("../../migrations/0013_ai_providers.sql"),
     ),
+    (
+        "0014_finding_resource_attributes",
+        include_str!("../../migrations/0014_finding_resource_attributes.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {

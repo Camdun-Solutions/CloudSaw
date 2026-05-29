@@ -59,26 +59,28 @@ pub struct KnowledgeArticle {
 
 impl KnowledgeArticle {
     /// The default-article shape returned when no matching markdown file
-    /// exists. Description and Remediation are intentionally non-empty so
-    /// the UI can render *something* — the `matched = false` flag is the
-    /// signal callers should switch on, never string emptiness.
+    /// exists. PR #82 — `description` is left EMPTY in the default and
+    /// the upstream-overlay path (`scoutsuite::overlay_into_article`)
+    /// fills `remediation` from ScoutSuite or a service-keyed baseline,
+    /// then flips `matched = true` so the article body renders. The
+    /// frontend filters out empty sections, so a default-article with
+    /// only `remediation` populated still renders cleanly. Callers
+    /// should NOT rely on `matched = false` as a sad-path signal; the
+    /// overlay almost always promotes it to true.
     pub fn default_for(finding_id: &str, source: KnowledgeSource) -> Self {
         KnowledgeArticle {
             finding_id: finding_id.to_string(),
             matched: false,
             source,
             title: finding_id.to_string(),
-            description:
-                "No knowledge-base article is available for this finding yet. The finding \
-                 was detected by the scanner; refer to AWS documentation for the affected \
-                 service while a dedicated article is authored."
-                    .to_string(),
+            description: String::new(),
             risk: String::new(),
             detection_logic: String::new(),
-            remediation: "Review the resources listed for this finding, consult the relevant AWS \
-                 service documentation, and apply least-privilege changes to bring the \
-                 configuration in line with your security baseline."
-                .to_string(),
+            // Default remediation is intentionally empty — the overlay
+            // step is the single source of truth for what populates this
+            // field. Letting the default fill in here would mask the
+            // upstream pull-through that PR #82 wires up.
+            remediation: String::new(),
             terraform_fix: String::new(),
             aws_cli_fix: String::new(),
             false_positives: String::new(),

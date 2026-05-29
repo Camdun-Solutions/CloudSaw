@@ -288,6 +288,20 @@ export type FindingResource = {
   invalid: boolean;
   first_seen_at: string;
   last_seen_at: string;
+  /** PR #82 — identity fields extracted from the ScoutSuite output's
+   * deepest resource-entity ancestor. All optional; `null` means the
+   * walk didn't land on a dict with identifying scalars (e.g. global
+   * config blocks like `iam.password_policy.MaxPasswordAge`) or the
+   * row predates the 0014 migration. The frontend prefers these for
+   * display and falls back to `resource_path` when they're absent. */
+  resource_name: string | null;
+  resource_arn: string | null;
+  resource_id_value: string | null;
+  /** Forward-compat attribute bag: every other scalar captured at the
+   * resource entity level. Strings, numbers, and booleans only. Empty
+   * object when the walk captured nothing. The frontend renders every
+   * non-null key by default. */
+  attributes: Record<string, string | number | boolean>;
 };
 
 export type FindingDetail = {
