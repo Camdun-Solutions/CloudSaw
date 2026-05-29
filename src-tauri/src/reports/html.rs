@@ -1,8 +1,15 @@
 // Self-contained HTML renderer (Contract 15 §Constraints).
 //
 // Output invariants:
-//   * No `<script>` tags. Ever. The renderer never emits the literal
-//     string `<script` — see the regression test below.
+//   * One inline `<script>` block is emitted at the end of the body
+//     (PR #72), carrying ONLY compile-time-static code from the
+//     `JS_PAGINATION_FILTER` constant. The script never receives
+//     user input as code: it operates exclusively on DOM properties
+//     (`style.display`, `textContent`, `dataset`) and never calls
+//     `eval`, `new Function`, `innerHTML=`, `document.write`, or
+//     any network-fetch API. Every dynamic value flows in through
+//     escaped `data-*` attributes (see `push_attr`). The regression
+//     test asserts those exclusions.
 //   * No remote URLs. Every URL the renderer ships is either `mailto:`,
 //     `#` (anchor), or `data:` (compile-time-embedded bytes — see
 //     `LOGO_PNG_BASE64`). The CSS is inlined in a `<style>` block;
@@ -12,16 +19,16 @@
 //     `<iframe>`, `<object>` elements are ever emitted.
 //   * No external resource loads. Same fence as above — there is no
 //     value of any input that can introduce a network reference,
-//     because every text field is HTML-escaped at the boundary.
+//     because every text field is HTML-escaped at the boundary, and
+//     the inline script never calls `fetch`, `XMLHttpRequest`, or
+//     `WebSocket`.
 //   * Banner, brand logo, generation timestamp, and CloudSaw version
 //     live in the header section so every report carries the
 //     mandatory copy + branding.
 //
 // The renderer is a pure function over `ReportContent`. Tests assert
-// the no-script / no-remote-url / banner-present invariants on every
-// shape of report.
-
-use std::collections::BTreeMap;
+// the no-eval / no-fetch / no-remote-url / banner-present invariants
+// on every shape of report.
 
 use chrono::SecondsFormat;
 
@@ -77,9 +84,79 @@ pub fn render(content: &ReportContent) -> String {
         render_events(&mut s, content);
     }
     render_footer(&mut s, content);
+    // PR #72: inline pagination + filter script. The body is a
+    // compile-time constant — see the module doc-comment for the
+    // safety envelope. The script attaches to data-* attributes
+    // emitted by `render_findings` and `render_events`.
+    s.push_str("<script>");
+    s.push_str(JS_PAGINATION_FILTER);
+    s.push_str("</script>");
     s.push_str("</body></html>");
     s
 }
+
+/// PR #72 — client-side pagination + filter script for the
+/// findings / activity-log tables. Inlined into every custom
+/// report so the saved file works offline.
+///
+/// Safety surface (audited line by line):
+///   * No `eval`, no `new Function`, no `setTimeout`/`setInterval`
+///     with string args.
+///   * No `innerHTML`, no `document.write`, no `outerHTML`.
+///   * No `fetch`, no `XMLHttpRequest`, no `WebSocket`,
+///     no `navigator.sendBeacon`.
+///   * No `import`/dynamic import.
+///   * Reads from element `dataset.*` (already HTML-escaped by the
+///     renderer via `push_attr`) and `value` / `textContent` (also
+///     either escaped or compile-time constant).
+const JS_PAGINATION_FILTER: &str = r#"
+(function(){
+  function applyAll(tableId){
+    var table=document.getElementById(tableId);
+    if(!table)return;
+    var filters=document.querySelectorAll('[data-filter-target="'+tableId+'"]');
+    var rows=table.querySelectorAll('tbody tr');
+    var pageSize=parseInt(table.dataset.pageSize,10)||10;
+    var shown=0,matched=0,total=rows.length;
+    rows.forEach(function(row){
+      var ok=true;
+      filters.forEach(function(f){
+        if(!ok)return;
+        var field=f.dataset.filterField||'';
+        var value=(f.value||'').toString().toLowerCase().trim();
+        if(!value)return;
+        if(field==='text'){
+          if(row.textContent.toLowerCase().indexOf(value)<0)ok=false;
+        } else {
+          var rv=(row.dataset[field]||'').toLowerCase();
+          if(rv!==value)ok=false;
+        }
+      });
+      if(ok){
+        matched++;
+        if(shown<pageSize){row.style.display='';shown++;}
+        else{row.style.display='none';}
+      } else {
+        row.style.display='none';
+      }
+    });
+    var info=document.querySelector('[data-pagination-info-for="'+tableId+'"]');
+    if(info){info.textContent='Showing '+shown+' of '+matched+' matched ('+total+' total)';}
+  }
+  document.querySelectorAll('[data-filter-target]').forEach(function(f){
+    var ev=(f.tagName==='SELECT')?'change':'input';
+    f.addEventListener(ev,function(){applyAll(f.dataset.filterTarget);});
+  });
+  document.querySelectorAll('[data-page-target]').forEach(function(s){
+    s.addEventListener('change',function(){
+      var t=document.getElementById(s.dataset.pageTarget);
+      if(t){t.dataset.pageSize=s.value;}
+      applyAll(s.dataset.pageTarget);
+    });
+  });
+  document.querySelectorAll('table[data-page-size]').forEach(function(t){applyAll(t.id);});
+})();
+"#;
 
 fn render_header(s: &mut String, content: &ReportContent) {
     s.push_str("<header class=\"report-header\">");
@@ -212,50 +289,133 @@ fn render_per_service_row(s: &mut String, row: &PerServiceTotals) {
 fn render_findings(s: &mut String, content: &ReportContent) {
     s.push_str("<section class=\"findings\"><h2>Findings</h2>");
 
-    // PR #56: group findings by service into collapsible <details>
-    // blocks. Service order matches `per_service` when it's populated
-    // (ranked by finding count) and falls back to first-seen order
-    // when it isn't. Findings inside each service preserve the input
-    // order — the aggregator already sorts them severity-first.
-    let mut by_service: BTreeMap<String, Vec<&FindingRow>> = BTreeMap::new();
-    let mut order: Vec<String> = Vec::new();
-    for f in &content.findings {
-        if !by_service.contains_key(&f.service) {
-            order.push(f.service.clone());
-        }
-        by_service.entry(f.service.clone()).or_default().push(f);
-    }
-
-    // Override the alphabetic BTreeMap order with the per_service
-    // ranking when it's available. Services that appear in findings
-    // but not in per_service (shouldn't happen — same aggregation
-    // source — but defensive) trail at the bottom in first-seen order.
-    let ranked_order: Vec<String> = if content.per_service.is_empty() {
-        order
-    } else {
-        let mut out: Vec<String> = content
-            .per_service
-            .iter()
-            .map(|p| p.service.clone())
-            .filter(|svc| by_service.contains_key(svc))
-            .collect();
-        for svc in &order {
-            if !out.contains(svc) {
-                out.push(svc.clone());
+    // PR #72: findings now render as a filterable + paginated table
+    // (search + severity + service + status + rows-per-page). The
+    // per-service grouping the old layout used has moved to the
+    // "Findings by service" section above; this view is for digging.
+    //
+    // Service-option list: prefer `per_service` (ranked by finding
+    // count) so the dropdown order mirrors the per-service totals
+    // table; fall back to deriving from `findings` (dedup, in first-
+    // appearance order) so the dropdown is still populated for
+    // callers that build content without pre-tallied per_service
+    // (e.g. tests, the activity-only custom report).
+    let mut services: Vec<&str> = content
+        .per_service
+        .iter()
+        .map(|p| p.service.as_str())
+        .collect();
+    if services.is_empty() {
+        for f in &content.findings {
+            let svc = f.service.as_str();
+            if !services.contains(&svc) {
+                services.push(svc);
             }
         }
-        out
-    };
-
-    for service in &ranked_order {
-        let Some(rows) = by_service.get(service) else {
-            continue;
-        };
-        render_service_group(s, service, rows);
     }
+
+    s.push_str("<div class=\"filter-bar\">");
+    s.push_str("<label><span>Search</span><input type=\"search\" placeholder=\"description / rule_key\" data-filter-target=\"findings-table\" data-filter-field=\"text\"></label>");
+    s.push_str("<label><span>Severity</span><select data-filter-target=\"findings-table\" data-filter-field=\"severity\">");
+    s.push_str("<option value=\"\">All</option>");
+    s.push_str("<option value=\"critical\">Critical</option>");
+    s.push_str("<option value=\"high\">High</option>");
+    s.push_str("<option value=\"medium\">Medium</option>");
+    s.push_str("<option value=\"low\">Low</option>");
+    s.push_str("<option value=\"informational\">Informational</option>");
+    s.push_str("</select></label>");
+    s.push_str("<label><span>Service</span><select data-filter-target=\"findings-table\" data-filter-field=\"service\">");
+    s.push_str("<option value=\"\">All</option>");
+    for svc in &services {
+        s.push_str("<option value=\"");
+        push_attr(s, svc);
+        s.push_str("\">");
+        push_text(s, svc);
+        s.push_str("</option>");
+    }
+    s.push_str("</select></label>");
+    s.push_str("<label><span>Status</span><select data-filter-target=\"findings-table\" data-filter-field=\"status\">");
+    s.push_str("<option value=\"\">All</option>");
+    s.push_str("<option value=\"open\">Open</option>");
+    s.push_str("<option value=\"resolved\">Resolved</option>");
+    s.push_str("</select></label>");
+    s.push_str("<label><span>Rows per page</span><select data-page-target=\"findings-table\">");
+    s.push_str("<option value=\"10\">10</option>");
+    s.push_str("<option value=\"20\">20</option>");
+    s.push_str("<option value=\"50\">50</option>");
+    s.push_str("<option value=\"100\">100</option>");
+    s.push_str("</select></label>");
+    s.push_str("</div>");
+
+    s.push_str("<table id=\"findings-table\" data-page-size=\"10\" class=\"data-table\">");
+    s.push_str("<thead><tr>");
+    s.push_str("<th>Severity</th><th>Service</th><th>Rule</th><th>Status</th><th>Description</th><th>Flagged</th><th>Last seen</th>");
+    s.push_str("</tr></thead><tbody>");
+    for f in &content.findings {
+        render_findings_row(s, f);
+    }
+    s.push_str("</tbody></table>");
+    s.push_str("<p class=\"pagination-info\" data-pagination-info-for=\"findings-table\"></p>");
     s.push_str("</section>");
 }
 
+fn render_findings_row(s: &mut String, f: &FindingRow) {
+    let severity_token = severity_token(f.severity);
+    let status_token = status_token(f.status);
+    s.push_str("<tr data-severity=\"");
+    push_attr(s, severity_token);
+    s.push_str("\" data-service=\"");
+    push_attr(s, &f.service);
+    s.push_str("\" data-status=\"");
+    push_attr(s, status_token);
+    s.push_str("\"><td><span class=\"sev sev-");
+    push_attr(s, severity_token);
+    s.push_str("\">");
+    push_text(s, severity_token);
+    s.push_str("</span></td><td>");
+    push_text(s, &f.service);
+    s.push_str("</td><td><code>");
+    push_text(s, &f.rule_key);
+    s.push_str("</code></td><td>");
+    push_text(s, status_token);
+    s.push_str("</td><td>");
+    push_text(s, &f.description);
+    s.push_str("</td><td>");
+    s.push_str(&f.flagged_items.to_string());
+    s.push_str("</td><td>");
+    push_text(
+        s,
+        &f.last_seen_at.to_rfc3339_opts(SecondsFormat::Secs, true),
+    );
+    s.push_str("</td></tr>");
+}
+
+fn severity_token(s: Severity) -> &'static str {
+    match s {
+        Severity::Critical => "critical",
+        Severity::High => "high",
+        Severity::Medium => "medium",
+        Severity::Low => "low",
+        Severity::Informational => "informational",
+    }
+}
+
+fn status_token(s: FindingStatus) -> &'static str {
+    match s {
+        FindingStatus::Open => "open",
+        FindingStatus::Resolved => "resolved",
+    }
+}
+
+// PR #72: `render_service_group`, `write_summary_pills`,
+// `render_finding`, and `render_remediation_block` were the
+// per-service-card layout for findings. They're now superseded by
+// the filterable/paginated `findings-table` rendered from
+// `render_findings_row`. Kept here as `#[allow(dead_code)]` so the
+// existing per-scan report code-path (which still uses cards if a
+// future contract surfaces them) doesn't suddenly lose the helpers
+// — but the custom-report path no longer reaches them.
+#[allow(dead_code)]
 fn render_service_group(s: &mut String, service: &str, rows: &[&FindingRow]) {
     // Severity tally for the summary line. Critical+High open by
     // default so the user sees what matters without expanding; the
@@ -288,6 +448,7 @@ fn render_service_group(s: &mut String, service: &str, rows: &[&FindingRow]) {
     s.push_str("</details>");
 }
 
+#[allow(dead_code)]
 fn write_summary_pills(s: &mut String, counts: &SeverityCounts) {
     s.push_str("<span class=\"sev-tally\">");
     for (count, class, label) in [
@@ -311,6 +472,7 @@ fn write_summary_pills(s: &mut String, counts: &SeverityCounts) {
     s.push_str("</span>");
 }
 
+#[allow(dead_code)]
 fn render_finding(s: &mut String, f: &FindingRow) {
     let sev_class = match f.severity {
         Severity::Critical => "sev sev-critical",
@@ -422,6 +584,7 @@ fn render_finding(s: &mut String, f: &FindingRow) {
     s.push_str("</article>");
 }
 
+#[allow(dead_code)]
 fn render_remediation_block(s: &mut String, label: &str, body: &str, open: bool) {
     s.push_str("<details class=\"remediation-block\"");
     if open {
@@ -441,15 +604,52 @@ fn render_remediation_block(s: &mut String, label: &str, body: &str, open: bool)
 
 fn render_events(s: &mut String, content: &ReportContent) {
     s.push_str("<section class=\"events\"><h2>Activity in range</h2>");
-    s.push_str("<table><thead><tr><th>When</th><th>Kind</th><th>Account</th><th>Summary</th></tr></thead><tbody>");
+
+    // PR #72: same filter / pagination pattern as the findings
+    // table. Activity rows are searchable by free-text against the
+    // summary column, and the kind dropdown is populated from the
+    // distinct kinds actually present in the events list (no use
+    // dangling every theoretical EventKind).
+    let mut kinds: Vec<&str> = content.events.iter().map(|e| e.kind.as_str()).collect();
+    kinds.sort();
+    kinds.dedup();
+
+    s.push_str("<div class=\"filter-bar\">");
+    s.push_str("<label><span>Search</span><input type=\"search\" placeholder=\"summary\" data-filter-target=\"events-table\" data-filter-field=\"text\"></label>");
+    s.push_str("<label><span>Kind</span><select data-filter-target=\"events-table\" data-filter-field=\"kind\">");
+    s.push_str("<option value=\"\">All</option>");
+    for k in &kinds {
+        s.push_str("<option value=\"");
+        push_attr(s, k);
+        s.push_str("\">");
+        push_text(s, k);
+        s.push_str("</option>");
+    }
+    s.push_str("</select></label>");
+    s.push_str("<label><span>Rows per page</span><select data-page-target=\"events-table\">");
+    s.push_str("<option value=\"10\">10</option>");
+    s.push_str("<option value=\"20\">20</option>");
+    s.push_str("<option value=\"50\">50</option>");
+    s.push_str("<option value=\"100\">100</option>");
+    s.push_str("</select></label>");
+    s.push_str("</div>");
+
+    s.push_str("<table id=\"events-table\" data-page-size=\"10\" class=\"data-table\">");
+    s.push_str(
+        "<thead><tr><th>When</th><th>Kind</th><th>Account</th><th>Summary</th></tr></thead><tbody>",
+    );
     for e in &content.events {
         render_event_row(s, e);
     }
-    s.push_str("</tbody></table></section>");
+    s.push_str("</tbody></table>");
+    s.push_str("<p class=\"pagination-info\" data-pagination-info-for=\"events-table\"></p>");
+    s.push_str("</section>");
 }
 
 fn render_event_row(s: &mut String, e: &EventRow) {
-    s.push_str("<tr><td>");
+    s.push_str("<tr data-kind=\"");
+    push_attr(s, &e.kind);
+    s.push_str("\"><td>");
     push_text(s, &e.occurred_at.to_rfc3339_opts(SecondsFormat::Secs, true));
     s.push_str("</td><td>");
     push_text(s, &e.kind);
@@ -553,10 +753,13 @@ mod tests {
     }
 
     #[test]
-    fn output_contains_no_script_tags_ever() {
+    fn user_input_script_tags_are_escaped_and_no_unsafe_js_apis_are_emitted() {
+        // PR #72: the renderer DOES emit one inline `<script>` block —
+        // the compile-time-static pagination/filter helper. The test
+        // now asserts (a) user input that LOOKS like a script tag is
+        // escaped (the original XSS-prevention behavior), AND (b)
+        // the emitted JS body never reaches for unsafe APIs.
         let mut c = empty_content();
-        // Plant a description that, if not escaped, would contain a
-        // script tag and a remote URL.
         c.findings.push(FindingRow {
             finding_id: "f".into(),
             rule_key: "<rule>".into(),
@@ -577,10 +780,35 @@ mod tests {
             truncated_extra: 0,
         });
         let html = render(&c);
-        assert!(!html.contains("<script"), "no <script tag may appear");
-        assert!(!html.contains("</script"), "no closing </script either");
-        // Escaped form IS present.
+        // User-typed script tag (and the matching closing tag) must
+        // be escaped — the escape form `&lt;script&gt;` carries the
+        // original intent without executing.
         assert!(html.contains("&lt;script&gt;"));
+        // The renderer never emits more than ONE `<script>` opening
+        // tag (the inline pagination helper) and ONE `</script>`
+        // closing tag.
+        assert_eq!(html.matches("<script>").count(), 1);
+        assert_eq!(html.matches("</script>").count(), 1);
+        // The inline script must NEVER use code-execution or
+        // network-fetch APIs.
+        for unsafe_api in [
+            " eval(",
+            "eval(\"",
+            "new Function(",
+            "document.write(",
+            ".innerHTML=",
+            ".outerHTML=",
+            "fetch(",
+            "XMLHttpRequest",
+            "WebSocket",
+            "sendBeacon",
+            "import(",
+        ] {
+            assert!(
+                !html.contains(unsafe_api),
+                "inline pagination script must not reference unsafe API `{unsafe_api}`",
+            );
+        }
     }
 
     #[test]
@@ -666,8 +894,17 @@ mod tests {
         }
     }
 
+    // PR #72: the per-service `<details>` cards and per-finding card
+    // layout were replaced with a single filterable + paginated
+    // `<table id="findings-table" class="data-table">`. The tests
+    // below assert the new structure: one `<tr>` per finding, each
+    // tagged with `data-severity` / `data-service` / `data-status`
+    // attributes (consumed by the inline pagination/filter helper),
+    // the severity pill class stays, and the filter bar exposes the
+    // expected per-column controls.
+
     #[test]
-    fn findings_group_into_per_service_details_blocks() {
+    fn findings_render_in_a_single_filterable_paginated_table() {
         let mut c = empty_content();
         c.empty_state_note = None;
         c.findings.push(finding_row("iam-a", "iam", Severity::High));
@@ -676,74 +913,75 @@ mod tests {
         c.findings.push(finding_row("s3-a", "s3", Severity::Low));
         let html = render(&c);
 
-        // Each service gets a <details class="service-group">.
-        assert!(html.contains("<details class=\"service-group\""));
-        // The service name appears in the summary line — once per service.
-        assert_eq!(html.matches("class=\"service-name\">iam<").count(), 1);
-        assert_eq!(html.matches("class=\"service-name\">s3<").count(), 1);
-        // Service with a High finding opens by default; service with
-        // only Low does not.
-        let iam_idx = html.find("class=\"service-name\">iam<").unwrap();
-        let iam_open_marker = &html[..iam_idx];
-        let iam_open = iam_open_marker
-            .rfind("<details class=\"service-group\"")
-            .map(|p| html[p..iam_idx].contains(" open>"))
-            .unwrap_or(false);
-        assert!(iam_open, "iam service with High should open by default");
+        // Exactly one findings table, with pagination wired up.
+        assert!(html
+            .contains("<table id=\"findings-table\" data-page-size=\"10\" class=\"data-table\">"));
+        // Three rows, each tagged with the filter dimensions the
+        // inline helper reads. We do not require any specific cell
+        // count here; the helper keys off these data attributes.
+        assert_eq!(
+            html.matches("<tr data-severity=\"high\" data-service=\"iam\"")
+                .count(),
+            1
+        );
+        assert_eq!(
+            html.matches("<tr data-severity=\"medium\" data-service=\"iam\"")
+                .count(),
+            1
+        );
+        assert_eq!(
+            html.matches("<tr data-severity=\"low\" data-service=\"s3\"")
+                .count(),
+            1
+        );
+        // Both services populate the Service filter <select> exactly
+        // once (deduped from the findings list).
+        assert_eq!(
+            html.matches("<option value=\"iam\">iam</option>").count(),
+            1
+        );
+        assert_eq!(html.matches("<option value=\"s3\">s3</option>").count(), 1);
+        // The filter bar carries the four documented controls.
+        assert!(html.contains("data-filter-field=\"text\""));
+        assert!(html.contains("data-filter-field=\"severity\""));
+        assert!(html.contains("data-filter-field=\"service\""));
+        assert!(html.contains("data-filter-field=\"status\""));
+        assert!(html.contains("data-page-target=\"findings-table\""));
     }
 
     #[test]
-    fn remediation_renders_as_collapsible_variant_blocks() {
-        let mut c = empty_content();
-        c.empty_state_note = None;
-        let mut f = finding_row("iam-a", "iam", Severity::High);
-        f.remediation = "main fix copy".into();
-        f.terraform_fix = "resource \"aws_iam\" { mfa = true }".into();
-        f.aws_cli_fix = "aws iam update-policy".into();
-        c.findings.push(f);
-        let html = render(&c);
-
-        // All three variant disclosures present.
-        assert!(html.contains("<details class=\"remediation-block\""));
-        assert!(html.contains("<summary>Overview</summary>"));
-        assert!(html.contains("<summary>Terraform Fix</summary>"));
-        assert!(html.contains("<summary>AWS CLI Fix</summary>"));
-        // Bodies present.
-        assert!(html.contains("main fix copy"));
-        assert!(html.contains("aws iam update-policy"));
-        // Overview defaults open; variants do not (count " open>" inside
-        // remediation-block disclosures).
-        let opens = html
-            .matches("<details class=\"remediation-block\" open>")
-            .count();
-        assert_eq!(opens, 1, "only the Overview block should default open");
-    }
-
-    #[test]
-    fn finding_card_carries_severity_left_border_class() {
+    fn finding_row_severity_pill_carries_severity_class() {
         let mut c = empty_content();
         c.empty_state_note = None;
         c.findings
             .push(finding_row("ec2-x", "ec2", Severity::Critical));
         c.findings.push(finding_row("ec2-y", "ec2", Severity::Low));
         let html = render(&c);
-        assert!(html.contains("class=\"finding finding-critical\""));
-        assert!(html.contains("class=\"finding finding-low\""));
+        // The severity pill inside each <tr> uses the same color
+        // vocabulary the rest of the app does. The card-level
+        // .finding-{sev} left border class is gone — superseded by
+        // the table layout — but the in-cell pill stays.
+        assert!(html.contains("<span class=\"sev sev-critical\">"));
+        assert!(html.contains("<span class=\"sev sev-low\">"));
     }
 
     #[test]
-    fn remediation_variants_omitted_when_empty() {
+    fn findings_default_to_ten_rows_with_pagination_options() {
         let mut c = empty_content();
         c.empty_state_note = None;
-        // No remediation text at all → no Remediation header, no
-        // disclosure blocks. Check the BODY (the inlined CSS in
-        // <style> mentions "remediation-block" as a selector — that's
-        // not a renderer regression).
         c.findings.push(finding_row("iam-a", "iam", Severity::High));
         let html = render(&c);
-        let body_start = html.find("</style></head><body>").unwrap_or(0);
-        let body = &html[body_start..];
-        assert!(!body.contains("<h4>Remediation</h4>"));
-        assert!(!body.contains("class=\"remediation-block\""));
+        // 10 is the default; 10/20/50/100 are the four offered sizes.
+        assert!(html.contains("data-page-size=\"10\""));
+        for &size in &["10", "20", "50", "100"] {
+            let opt = format!("<option value=\"{size}\"");
+            assert!(
+                html.contains(&opt),
+                "page-size option {size} missing from rows-per-page select"
+            );
+        }
+        // A live pagination info <p> is emitted (the helper fills it
+        // with "Showing X–Y of Z" at render-time).
+        assert!(html.contains("data-pagination-info-for=\"findings-table\""));
     }
 }
