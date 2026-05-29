@@ -429,7 +429,10 @@ export type EventKind =
   | "export"
   | "panic_wipe"
   | "settings_changed"
-  | "retention_purged";
+  | "retention_purged"
+  // PR #70 — emitted by the findings storage layer when a scan
+  // auto-resolves prior open findings via the resolution sweep.
+  | "findings_auto_resolved";
 
 /** One row of the activity log. `aws_account_id_masked` is `****dddd` — the
  * backend never returns the full account ID over IPC in event-log payloads. */
@@ -443,6 +446,15 @@ export type EventLogEntry = {
   scan_id: string | null;
   path: string | null;
   item_count: number | null;
+};
+
+/** PR #70 — Mirror of the Rust `EventLogExportOutcome` returned by
+ *  the three new themed-export commands. */
+export type EventLogExportOutcome = {
+  primary_path: string;
+  bytes_written: number;
+  format: "html" | "pdf" | "xlsx";
+  rows_exported: number;
 };
 
 export type EventLogFilter = {
@@ -1052,6 +1064,40 @@ export const ipc = {
   /** Total event-log row count. */
   eventlogCount(): Promise<number> {
     return invoke<number>("eventlog_count");
+  },
+
+  /**
+   * PR #70 — themed file exports for the activity log. Three formats
+   * (HTML / PDF / Excel); each carries the same filter shape used by
+   * `eventlogList`, plus a frontend-supplied output path (already
+   * routed through the OS save dialog).
+   */
+  eventlogExportHtml(
+    filter: EventLogFilter,
+    outputPath: string,
+  ): Promise<EventLogExportOutcome> {
+    return invoke<EventLogExportOutcome>("eventlog_export_html", {
+      filter,
+      outputPath,
+    });
+  },
+  eventlogExportPdf(
+    filter: EventLogFilter,
+    outputPath: string,
+  ): Promise<EventLogExportOutcome> {
+    return invoke<EventLogExportOutcome>("eventlog_export_pdf", {
+      filter,
+      outputPath,
+    });
+  },
+  eventlogExportXlsx(
+    filter: EventLogFilter,
+    outputPath: string,
+  ): Promise<EventLogExportOutcome> {
+    return invoke<EventLogExportOutcome>("eventlog_export_xlsx", {
+      filter,
+      outputPath,
+    });
   },
 
   /** Read both retention periods + the last-run timestamp. */

@@ -1,6 +1,6 @@
 [package]
 name = "cloudsaw"
-version = "2026.5.29"
+version = "2026.5.30"
 description = "CloudSaw — local-first AWS security scanner"
 authors = ["CloudSaw Contributors"]
 license = "Apache-2.0"
@@ -123,6 +123,12 @@ regex = { version = "1", default-features = false, features = ["std", "unicode-p
 # through the OS browser stack — the contract documents this split
 # in CONTRACT_15_VERIFICATION.md.
 printpdf = { version = "0.7", default-features = false }
+
+# PR #70 — Pure-Rust Excel (.xlsx) writer used by the activity-log
+# export pipeline. Same "no external system dep" posture as printpdf;
+# rust_xlsxwriter generates standards-compliant xlsx without needing
+# Office, LibreOffice, or COM. Used only by `eventlog::export`.
+rust_xlsxwriter = { version = "0.91", default-features = false }
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"

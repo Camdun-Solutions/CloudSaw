@@ -26,8 +26,52 @@ use super::error::SchedulerError;
 use super::storage;
 use super::types::{LastRunOutcome, Schedule, ScheduleEventKind};
 use crate::accounts;
+use crate::eventlog::{record_event, EventInput, EventKind};
 use crate::scanner;
 use rand_core::{OsRng, RngCore};
+
+/// PR #70 — mirror every Skipped emission into the activity log so the
+/// user sees scheduled-scan skips in the same surface they see
+/// scan completions/failures. The `reason` is the same stable token
+/// stored on the schedule_events row.
+fn log_scheduled_skipped(account_id: &str, reason: &str) {
+    record_event(
+        EventInput::new(
+            EventKind::ScheduledScanSkipped,
+            format!(
+                "Scheduled scan for {acct} skipped ({reason}).",
+                acct = accounts::mask_for_logs(account_id),
+            ),
+        )
+        .with_account(account_id)
+        .with_detail(reason.to_string()),
+    );
+}
+
+/// PR #70 — mirror Fired/CatchUp emissions into the activity log. The
+/// scanner emits its own ScanCompleted/Failed terminal event once the
+/// scan reaches a terminal state, so this entry sits alongside that
+/// pair to show "the scheduler triggered this run".
+fn log_scheduled_fired(account_id: &str, scan_id: &str, is_catch_up: bool) {
+    let summary = if is_catch_up {
+        format!(
+            "Scheduled catch-up scan {scan} fired for {acct}.",
+            scan = scan_id,
+            acct = accounts::mask_for_logs(account_id),
+        )
+    } else {
+        format!(
+            "Scheduled scan {scan} fired for {acct}.",
+            scan = scan_id,
+            acct = accounts::mask_for_logs(account_id),
+        )
+    };
+    record_event(
+        EventInput::new(EventKind::ScheduledScanFired, summary)
+            .with_account(account_id)
+            .with_scan_id(scan_id),
+    );
+}
 
 /// The runner's poll interval. Short enough that a minute-granularity
 /// schedule fires within the same minute; long enough that polling SQLite
@@ -213,6 +257,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
             Some("scanner_unavailable"),
             None,
         );
+        log_scheduled_skipped(account_id, "scanner_unavailable");
         return;
     }
 
@@ -245,6 +290,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
             Some("role_not_provisioned"),
             None,
         );
+        log_scheduled_skipped(account_id, "role_not_provisioned");
         return;
     }
 
@@ -284,6 +330,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
                 None,
                 Some(&record.scan_id),
             );
+            log_scheduled_fired(account_id, &record.scan_id, is_catch_up);
         }
         Err(scanner::ScannerError::AlreadyRunning) => {
             let _ = storage::record_run(
@@ -301,6 +348,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
                 Some("already_running"),
                 None,
             );
+            log_scheduled_skipped(account_id, "already_running");
         }
         Err(scanner::ScannerError::RoleNotProvisioned) => {
             let _ = storage::record_run(
@@ -318,6 +366,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
                 Some("role_not_provisioned"),
                 None,
             );
+            log_scheduled_skipped(account_id, "role_not_provisioned");
         }
         Err(scanner::ScannerError::NotBundled) | Err(scanner::ScannerError::IntegrityFailed) => {
             let _ = storage::record_run(
@@ -335,6 +384,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
                 Some("scanner_unavailable"),
                 None,
             );
+            log_scheduled_skipped(account_id, "scanner_unavailable");
         }
         Err(_) => {
             let _ = storage::record_run(
@@ -352,6 +402,7 @@ fn handle_due(schedule: &Schedule, now: DateTime<Utc>) {
                 Some("internal_error"),
                 None,
             );
+            log_scheduled_skipped(account_id, "internal_error");
         }
     }
 }

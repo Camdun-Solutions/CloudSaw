@@ -511,6 +511,42 @@ pub fn eventlog_count() -> Result<i64, AppError> {
     eventlog::count_events().map_err(AppError::from)
 }
 
+/// PR #70 — themed file exports for the activity log. The IPC takes
+/// the same filter shape used by `eventlog_list` (kinds + since +
+/// until) so the export modal can apply user-chosen filters before
+/// the renderer runs. The Rust handler picks the renderer based on
+/// the command name; the frontend wrapper picks the command based on
+/// the chosen format.
+#[tauri::command]
+pub fn eventlog_export_html(
+    filter: eventlog::EventLogFilter,
+    output_path: String,
+) -> Result<eventlog::export::EventLogExportOutcome, AppError> {
+    let path = std::path::PathBuf::from(output_path);
+    eventlog::export::export(eventlog::export::ExportFormat::Html, filter, &path)
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn eventlog_export_pdf(
+    filter: eventlog::EventLogFilter,
+    output_path: String,
+) -> Result<eventlog::export::EventLogExportOutcome, AppError> {
+    let path = std::path::PathBuf::from(output_path);
+    eventlog::export::export(eventlog::export::ExportFormat::Pdf, filter, &path)
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn eventlog_export_xlsx(
+    filter: eventlog::EventLogFilter,
+    output_path: String,
+) -> Result<eventlog::export::EventLogExportOutcome, AppError> {
+    let path = std::path::PathBuf::from(output_path);
+    eventlog::export::export(eventlog::export::ExportFormat::Xlsx, filter, &path)
+        .map_err(AppError::from)
+}
+
 #[tauri::command]
 pub fn retention_get_settings() -> Result<RetentionSettings, AppError> {
     retention::get_settings().map_err(AppError::from)
