@@ -374,14 +374,25 @@ fn upsert_finding(
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
+        // PR #82 — serialize the resource entity's scalar attribute map
+        // into the new `attributes_json` column. None when the walk
+        // returned an empty map; the column is nullable in SQL so the
+        // row stays valid. Identity columns (name/arn/id) are written
+        // alongside.
+        let attributes_json: Option<String> = if resource.attributes.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&resource.attributes).unwrap_or_default())
+        };
         match resource_existing {
             None => {
                 tx.execute(
                     "INSERT INTO finding_resources (
                         finding_id, aws_account_id, resource_path, invalid,
                         first_seen_at, last_seen_at,
-                        first_seen_scan_id, last_seen_scan_id
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6, ?6)",
+                        first_seen_scan_id, last_seen_scan_id,
+                        resource_name, resource_arn, resource_id_value, attributes_json
+                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6, ?6, ?7, ?8, ?9, ?10)",
                     params![
                         finding_id,
                         account_id,
@@ -389,6 +400,10 @@ fn upsert_finding(
                         i64::from(resource.invalid),
                         scan_ts,
                         scan_id,
+                        resource.resource_name,
+                        resource.resource_arn,
+                        resource.resource_id_value,
+                        attributes_json,
                     ],
                 )?;
                 summary.resources_inserted += 1;
@@ -397,14 +412,22 @@ fn upsert_finding(
                 if scan_ts >= existing_ts.as_str() {
                     let affected = tx.execute(
                         "UPDATE finding_resources
-                            SET invalid           = ?1,
-                                last_seen_at      = ?2,
-                                last_seen_scan_id = ?3
-                          WHERE finding_id = ?4 AND resource_path = ?5",
+                            SET invalid             = ?1,
+                                last_seen_at        = ?2,
+                                last_seen_scan_id   = ?3,
+                                resource_name       = ?4,
+                                resource_arn        = ?5,
+                                resource_id_value   = ?6,
+                                attributes_json     = ?7
+                          WHERE finding_id = ?8 AND resource_path = ?9",
                         params![
                             i64::from(resource.invalid),
                             scan_ts,
                             scan_id,
+                            resource.resource_name,
+                            resource.resource_arn,
+                            resource.resource_id_value,
+                            attributes_json,
                             finding_id,
                             resource.resource_path,
                         ],
@@ -530,7 +553,8 @@ pub fn get_finding_detail(finding_id: &str) -> Result<FindingDetail, FindingsErr
 
     let mut stmt = conn.prepare(
         "SELECT finding_id, aws_account_id, resource_path, invalid,
-                first_seen_at, last_seen_at
+                first_seen_at, last_seen_at,
+                resource_name, resource_arn, resource_id_value, attributes_json
            FROM finding_resources
           WHERE finding_id = ?1
        ORDER BY resource_path ASC",
@@ -823,6 +847,18 @@ fn row_to_resource(row: &rusqlite::Row<'_>) -> rusqlite::Result<FindingResource>
     let invalid: i64 = row.get(3)?;
     let first_seen_at: String = row.get(4)?;
     let last_seen_at: String = row.get(5)?;
+    // PR #82 — identity + attribute columns (nullable; old rows read as
+    // None). The attributes_json column is parsed back into a Map so the
+    // frontend can render every captured scalar without further
+    // unwrapping.
+    let resource_name: Option<String> = row.get(6)?;
+    let resource_arn: Option<String> = row.get(7)?;
+    let resource_id_value: Option<String> = row.get(8)?;
+    let attributes_json: Option<String> = row.get(9)?;
+    let attributes: serde_json::Map<String, serde_json::Value> = attributes_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
     Ok(FindingResource {
         finding_id,
         aws_account_id,
@@ -830,6 +866,10 @@ fn row_to_resource(row: &rusqlite::Row<'_>) -> rusqlite::Result<FindingResource>
         invalid: invalid != 0,
         first_seen_at: parse_required_ts(first_seen_at)?,
         last_seen_at: parse_required_ts(last_seen_at)?,
+        resource_name,
+        resource_arn,
+        resource_id_value,
+        attributes,
     })
 }
 

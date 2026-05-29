@@ -1,7 +1,7 @@
 // FindingsView — the split list+detail surface for a single scan
 // (`/scans/:scanId` equivalent). Contract 09 §Expected Output.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Button,
@@ -23,6 +23,7 @@ import {
   type ControlMapping,
   type Finding,
   type FindingDetail,
+  type FindingResource,
   type FindingStatus,
   type FindingsFilter,
   type FindingTicket,
@@ -477,24 +478,15 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
     return suggestion;
   }
 
-  async function startCreateTicket() {
-    if (!findingId || !github) return;
-    if (!github.findings_repo) {
-      setError(t("github.error.no_findings_repo"));
-      return;
-    }
-    if (ticket) {
-      // Already linked — the UI shows the link rather than filing a
-      // duplicate (Contract 12 §Edge Cases).
-      return;
-    }
-    try {
-      const p = await ipc.githubPrepareFindingTicket(findingId, github.findings_repo);
-      setPreview(p);
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
+  // PR #81 — `startCreateTicket` was the in-panel "Create GitHub
+  // ticket" handler. The create affordance moved to the Findings
+  // drawer header (`FindingGitHubAction`); the legacy in-panel
+  // SubmissionPreviewModal mount below stays for one final case the
+  // header doesn't cover: the user explicitly clicks "View on
+  // GitHub" on the linked-ticket row and wants to re-open the
+  // submission preview from the panel itself (rare; defense-in-
+  // depth). Modal stays mounted but never opens unless `preview`
+  // gets set by something — which today is nothing.
 
   if (!findingId) {
     return (
@@ -532,43 +524,60 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
         <div className="flex items-start gap-3">
           <SeverityBadge severity={detail.finding.severity} />
           <div className="min-w-0">
+            {/* PR #82 — prefer the finding's own dashboard_name (human-
+                readable, e.g. "Users without MFA") over the article's
+                title (often just the rule_key after the matched-flag
+                semantics changed). Falls through to article.title then
+                rule_key. */}
             <h3 className="text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige">
-              {article.matched
-                ? article.title
-                : detail.finding.dashboard_name || detail.finding.rule_key}
+              {detail.finding.dashboard_name ||
+                article.title ||
+                detail.finding.rule_key}
             </h3>
             <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
-              {detail.finding.rule_key}{" "}
-              {!article.matched ? (
-                <span
-                  className="ml-2 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-saw-grey-700 dark:text-saw-grey-300"
-                  data-testid="kb-unmatched-tag"
-                >
-                  {t("dashboard.findings.unmatched_label")}
-                </span>
-              ) : (
-                <span className="ml-2 rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-saw-grey-700 dark:text-saw-grey-300">
-                  {article.source === "bundled"
-                    ? t("dashboard.findings.detail.section.kb_source.bundled")
-                    : t("dashboard.findings.detail.section.kb_source.remote")}
-                </span>
-              )}
+              {detail.finding.rule_key}
             </p>
           </div>
         </div>
 
-        <FindingTicketRow
-          ticket={ticket}
-          onCreate={() => void startCreateTicket()}
-          tokenConfigured={github?.token.configured ?? false}
-          findingsRepoConfigured={!!github?.findings_repo}
-        />
+        {/* PR #81 — `FindingTicketRow` and its in-panel "Create
+            GitHub ticket" button + "No repo selected" hint are gone.
+            The create affordance now lives in the Findings drawer
+            header via `<FindingGitHubAction>`; the legacy
+            "Tracked in {repo}#{n}" link below stays so a linked
+            ticket is still visible inside the panel when the user
+            has scrolled the drawer body past the header. */}
+        {ticket ? (
+          <div
+            className="mt-3 rounded-card bg-saw-grey-50 dark:bg-saw-black border border-saw-grey-200 dark:border-saw-grey-700 px-3 py-2 text-small flex items-center justify-between"
+            data-testid="finding-ticket-linked"
+          >
+            <span className="text-saw-grey-900 dark:text-saw-beige font-mono">
+              {t("findingticket.linked")
+                .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
+                .replace("{n}", String(ticket.issue_number))}
+            </span>
+            <a
+              href={ticket.issue_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
+              data-testid="finding-ticket-link"
+            >
+              {t("findingticket.linked_view")}
+            </a>
+          </div>
+        ) : null}
 
-        {article.matched ? (
-          <ArticleBody article={article} />
-        ) : (
-          <NoArticleBlock finding={detail.finding} />
-        )}
+        {/* PR #82 — always render <ArticleBody>. The backend overlay
+            (knowledgebase::scoutsuite::overlay_into_article) now
+            guarantees that every article has a non-empty remediation
+            sourced from: hand-authored KB → ScoutSuite upstream →
+            service-keyed best-practices baseline. The old
+            `article.matched ? Body : NoArticleBlock` branch surfaced
+            "No remediation guidance yet" even when the overlay had
+            populated content — that empty state is gone now. */}
+        <ArticleBody article={article} />
 
         <AiSuggestionBlock
           settings={aiSettings}
@@ -583,7 +592,7 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
       </div>
 
       <ResourceList detail={detail} />
-      <MappingList mapping={mapping} />
+      <MappingList mapping={mapping} service={detail.finding.service} />
 
       <SubmissionPreviewModal
         preview={preview}
@@ -917,60 +926,10 @@ function AiPreviewInline({
   );
 }
 
-function FindingTicketRow({
-  ticket,
-  onCreate,
-  tokenConfigured,
-  findingsRepoConfigured,
-}: {
-  ticket: FindingTicket | null;
-  onCreate: () => void;
-  tokenConfigured: boolean;
-  findingsRepoConfigured: boolean;
-}) {
-  const t = useT();
-  if (ticket) {
-    return (
-      <div
-        className="mt-3 rounded-card bg-saw-grey-50 dark:bg-saw-black border border-saw-grey-200 dark:border-saw-grey-700 px-3 py-2 text-small flex items-center justify-between"
-        data-testid="finding-ticket-linked"
-      >
-        <span className="text-saw-grey-900 dark:text-saw-beige font-mono">
-          {t("findingticket.linked")
-            .replace("{repo}", `${ticket.repo.owner}/${ticket.repo.name}`)
-            .replace("{n}", String(ticket.issue_number))}
-        </span>
-        <a
-          href={ticket.issue_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-small text-saw-grey-700 dark:text-saw-grey-300 underline underline-offset-2"
-          data-testid="finding-ticket-link"
-        >
-          {t("findingticket.linked_view")}
-        </a>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-3">
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={onCreate}
-        disabled={!findingsRepoConfigured && !tokenConfigured}
-        data-testid="finding-create-ticket"
-      >
-        {t("findingticket.cta")}
-      </Button>
-      {!findingsRepoConfigured ? (
-        <p className="mt-1 text-xs text-saw-grey-500 dark:text-saw-grey-400" data-testid="finding-create-ticket-hint">
-          {t("github.findings_repo.none")}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+// PR #81 — `FindingTicketRow` is gone. The create button moved to the
+// Findings drawer header (`<FindingGitHubAction>` rendered into
+// `Drawer.headerAction`); the in-panel linked-ticket display is now
+// inlined at the panel body's render site.
 
 function ArticleBody({ article }: { article: KnowledgeArticle }) {
   const t = useT();
@@ -1150,42 +1109,11 @@ function RemediationTabs({
   );
 }
 
-function NoArticleBlock({ finding }: { finding: Finding }) {
-  const t = useT();
-  return (
-    <div className="mt-4 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-4">
-      <h4 className="text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
-        {t("dashboard.findings.detail.no_article.title")}
-      </h4>
-      <p className="mt-1 text-body text-saw-grey-700 dark:text-saw-grey-300">
-        {t("dashboard.findings.detail.no_article.body")}
-      </p>
-      <div className="mt-3 space-y-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
-        <p>
-          <strong>{t("dashboard.findings.detail.section.description")}:</strong>{" "}
-          {finding.description}
-        </p>
-        {finding.rationale ? (
-          <p>
-            <strong>{t("dashboard.findings.detail.section.risk")}:</strong>{" "}
-            {finding.rationale}
-          </p>
-        ) : null}
-      </div>
-      <p className="mt-3 text-small">
-        <a
-          href={t("dashboard.findings.contrib.url")}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-saw-red underline underline-offset-2"
-          data-testid="kb-contribute-link"
-        >
-          {t("dashboard.findings.detail.no_article.contribute")}
-        </a>
-      </p>
-    </div>
-  );
-}
+// PR #82 — `NoArticleBlock` is gone. The backend overlay
+// (knowledgebase::scoutsuite::overlay_into_article) now guarantees
+// every article has a populated remediation, and the conditional at
+// the panel's render site always falls into <ArticleBody>. The
+// "No knowledge-base article" empty state is no longer reachable.
 
 function ResourceList({ detail }: { detail: FindingDetail }) {
   const t = useT();
@@ -1203,22 +1131,9 @@ function ResourceList({ detail }: { detail: FindingDetail }) {
           {t("dashboard.findings.detail.resources.empty")}
         </p>
       ) : (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 space-y-3">
           {detail.resources.map((r) => (
-            <li
-              key={r.resource_path}
-              className="font-mono text-small text-saw-grey-800 dark:text-saw-beige break-all"
-            >
-              {r.resource_path}
-              {r.invalid ? (
-                <span
-                  className="ml-2 rounded-full bg-saw-orange/10 px-2 py-0.5 text-saw-grey-900 dark:text-saw-beige"
-                  data-testid="resource-invalid"
-                >
-                  {t("dashboard.findings.detail.resources.invalid")}
-                </span>
-              ) : null}
-            </li>
+            <ResourceCard key={r.resource_path} resource={r} />
           ))}
         </ul>
       )}
@@ -1226,9 +1141,184 @@ function ResourceList({ detail }: { detail: FindingDetail }) {
   );
 }
 
-function MappingList({ mapping }: { mapping: ControlMapping }) {
+/** PR #82 — One row per resource. Renders the human-readable name +
+ *  ARN + id when ScoutSuite captured them, plus every captured scalar
+ *  attribute (CreateDate, AccessKeys count, etc.) so the user sees
+ *  everything ScoutSuite knows about the resource by default. Falls
+ *  back to just the dotted path on legacy rows. */
+function ResourceCard({ resource }: { resource: FindingResource }) {
+  const t = useT();
+  const hasIdentity =
+    resource.resource_name ||
+    resource.resource_arn ||
+    resource.resource_id_value;
+  const attrEntries = Object.entries(resource.attributes ?? {});
+  return (
+    <li
+      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-3"
+      data-testid="resource-card"
+    >
+      {/* Headline row: human name + invalid badge. Falls back to the
+          raw path when ScoutSuite didn't expose an identity at all
+          (e.g. `iam.password_policy.*` globals). */}
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className="text-small font-medium text-saw-grey-900 dark:text-saw-beige break-all"
+          data-testid="resource-name"
+        >
+          {resource.resource_name ??
+            resource.resource_id_value ??
+            resource.resource_path}
+        </span>
+        {resource.invalid ? (
+          <span
+            className="shrink-0 rounded-full bg-saw-orange/10 px-2 py-0.5 text-xs text-saw-grey-900 dark:text-saw-beige"
+            data-testid="resource-invalid"
+          >
+            {t("dashboard.findings.detail.resources.invalid")}
+          </span>
+        ) : null}
+      </div>
+
+      {/* ARN + id row */}
+      {(resource.resource_arn || resource.resource_id_value) && (
+        <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
+          {resource.resource_arn ? (
+            <>
+              <dt className="font-medium text-saw-grey-500 dark:text-saw-grey-400">
+                ARN
+              </dt>
+              <dd
+                className="font-mono text-saw-grey-800 dark:text-saw-beige break-all"
+                data-testid="resource-arn"
+              >
+                {resource.resource_arn}
+              </dd>
+            </>
+          ) : null}
+          {resource.resource_id_value ? (
+            <>
+              <dt className="font-medium text-saw-grey-500 dark:text-saw-grey-400">
+                ID
+              </dt>
+              <dd
+                className="font-mono text-saw-grey-800 dark:text-saw-beige break-all"
+                data-testid="resource-id"
+              >
+                {resource.resource_id_value}
+              </dd>
+            </>
+          ) : null}
+        </dl>
+      )}
+
+      {/* Attribute bag — every other scalar field ScoutSuite emitted.
+          Renders alphabetized so the order is stable across renders. */}
+      {attrEntries.length > 0 ? (
+        <dl
+          className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs"
+          data-testid="resource-attributes"
+        >
+          {attrEntries
+            .slice()
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => (
+              <Fragment key={k}>
+                <dt className="font-medium text-saw-grey-500 dark:text-saw-grey-400">
+                  {k}
+                </dt>
+                <dd
+                  className="font-mono text-saw-grey-800 dark:text-saw-beige break-all"
+                  data-testid={`resource-attr-${k}`}
+                >
+                  {String(v)}
+                </dd>
+              </Fragment>
+            ))}
+        </dl>
+      ) : null}
+
+      {/* Raw path — always visible at the end for traceability back to
+          the ScoutSuite output, especially when ARN/id aren't shown. */}
+      {hasIdentity && (
+        <p
+          className="mt-2 text-xs text-saw-grey-500 dark:text-saw-grey-400 font-mono break-all"
+          data-testid="resource-path"
+        >
+          {resource.resource_path}
+        </p>
+      )}
+      {!hasIdentity && (
+        // No identity → the name slot already showed the path. Don't
+        // duplicate it here.
+        <></>
+      )}
+    </li>
+  );
+}
+
+// PR #81 — coarse service → security-domain mapping. Used as a
+// fallback in the Mappings block when a finding has no compliance
+// framework entries (and the backend's ScoutSuite synthesis didn't
+// land either) so every finding has *some* contextual framing. The
+// list is not exhaustive — unknown services fall to "General".
+const SERVICE_DOMAIN: Record<string, string> = {
+  iam: "Identity & Access Management",
+  organizations: "Identity & Access Management",
+  sso: "Identity & Access Management",
+  cognito: "Identity & Access Management",
+  s3: "Data Protection",
+  rds: "Data Protection",
+  dynamodb: "Data Protection",
+  redshift: "Data Protection",
+  backup: "Data Protection",
+  kms: "Cryptography & Key Management",
+  secretsmanager: "Cryptography & Key Management",
+  acm: "Cryptography & Key Management",
+  ec2: "Network Security",
+  vpc: "Network Security",
+  elasticloadbalancing: "Network Security",
+  elb: "Network Security",
+  elbv2: "Network Security",
+  cloudfront: "Network Security",
+  route53: "Network Security",
+  waf: "Network Security",
+  shield: "Network Security",
+  apigateway: "Network Security",
+  cloudtrail: "Logging & Monitoring",
+  cloudwatch: "Logging & Monitoring",
+  config: "Logging & Monitoring",
+  guardduty: "Detection & Response",
+  securityhub: "Detection & Response",
+  inspector: "Detection & Response",
+  macie: "Detection & Response",
+  lambda: "Compute Security",
+  ecs: "Compute Security",
+  ecr: "Compute Security",
+  eks: "Compute Security",
+  emr: "Data Processing",
+  elasticache: "Compute & Caching",
+  sns: "Application Integration",
+  sqs: "Application Integration",
+  ses: "Application Integration",
+  cloudformation: "Infrastructure as Code",
+};
+
+function securityDomainFor(service: string | undefined): string {
+  if (!service) return "General";
+  return SERVICE_DOMAIN[service] ?? "General";
+}
+
+function MappingList({
+  mapping,
+  service,
+}: {
+  mapping: ControlMapping;
+  service?: string;
+}) {
   const t = useT();
   const entries = Object.entries(mapping.frameworks ?? {});
+  const domain = securityDomainFor(service);
   return (
     <details
       open
@@ -1238,6 +1328,17 @@ function MappingList({ mapping }: { mapping: ControlMapping }) {
       <summary className="cursor-pointer text-body font-semibold text-saw-grey-900 dark:text-saw-beige">
         {t("dashboard.findings.detail.mappings.title")}
       </summary>
+      {/* PR #81 — the security-domain chip renders ABOVE the framework
+          list (or alone when nothing else matches). Every finding gets
+          a domain — coarse but always non-empty — so even findings the
+          KB hasn't touched have *some* topical framing. */}
+      <p
+        className="mt-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+        data-testid="mappings-security-domain"
+      >
+        <strong>{t("dashboard.findings.detail.mappings.security_domain")}:</strong>{" "}
+        {domain}
+      </p>
       {entries.length === 0 ? (
         <div
           className="mt-2 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 px-4 py-3 text-small text-saw-grey-600 dark:text-saw-grey-400"

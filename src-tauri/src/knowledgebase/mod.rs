@@ -32,6 +32,7 @@ pub mod error;
 pub mod parser;
 pub mod refresh;
 pub mod registry;
+pub mod scoutsuite;
 pub mod storage;
 pub mod types;
 

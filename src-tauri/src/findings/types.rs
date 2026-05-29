@@ -151,6 +151,19 @@ pub struct FindingResource {
     pub invalid: bool,
     pub first_seen_at: DateTime<Utc>,
     pub last_seen_at: DateTime<Utc>,
+    // PR #82 — identity fields walked out of the ScoutSuite output's
+    // deepest resource-entity ancestor. All optional; `None` means
+    // either the path didn't land on a dict with identifying scalars
+    // (e.g. `iam.password_policy.*` globals) or the row predates the
+    // 0014 migration that added the columns.
+    pub resource_name: Option<String>,
+    pub resource_arn: Option<String>,
+    pub resource_id_value: Option<String>,
+    /// Forward-compat attribute bag. Map of `{key: scalar JSON}` —
+    /// strings, numbers, and booleans only. Empty map when the walk
+    /// captured nothing (legacy rows, or entities without extra
+    /// scalars). The frontend renders every non-null key by default.
+    pub attributes: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Detail payload returned by `get_finding`. The finding row plus its full

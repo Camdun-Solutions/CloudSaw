@@ -79,6 +79,36 @@ export default function App() {
     }));
     setRoute("settings");
   }, []);
+
+  // PR #81 — deep-link target for the Findings route. The Home page's
+  // Top Findings rows fire this with the row's finding_id (plus the
+  // account + scan that produced it), and Findings.tsx applies the
+  // selection on mount: pre-selects account & scan, force-opens the
+  // service-group containing the finding, and opens the drawer for
+  // that finding. Nonce mirrors the `goToSettingsSection` pattern so
+  // a repeat-tap of the same finding still re-triggers the effect.
+  const [findingsTarget, setFindingsTarget] = useState<{
+    accountId: string;
+    scanId: string;
+    findingId: string;
+    service: string;
+    nonce: number;
+  } | null>(null);
+  const goToFinding = useCallback(
+    (target: {
+      accountId: string;
+      scanId: string;
+      findingId: string;
+      service: string;
+    }) => {
+      setFindingsTarget((prev) => ({
+        ...target,
+        nonce: (prev?.nonce ?? 0) + 1,
+      }));
+      setRoute("findings");
+    },
+    [],
+  );
   // Manual-open path for the error dialog. Wired into the lock-load
   // error fallback below and into the ErrorBoundary, so any failure
   // path can reach the bug-report flow.
@@ -357,6 +387,8 @@ export default function App() {
           route={route}
           setRoute={setRoute}
           settingsTarget={settingsTarget}
+          findingsTarget={findingsTarget}
+          onOpenFinding={goToFinding}
           onOpenReport={openReport}
         />
         <ErrorReportDialog
@@ -379,6 +411,8 @@ function AppShell({
   setRoute,
   onOpenReport,
   settingsTarget,
+  findingsTarget,
+  onOpenFinding,
 }: {
   route: Route;
   setRoute: (r: Route) => void;
@@ -387,6 +421,22 @@ function AppShell({
    *  `goToSettingsSection` helper. Settings uses `initialSectionNonce`
    *  to detect repeat taps even when the section value is unchanged. */
   settingsTarget: { section: SettingsSection; nonce: number } | null;
+  /** PR #81 — deep-link target for Findings, set by Home's Top
+   *  Findings click handler. Pre-selects account/scan, force-opens
+   *  the row's service group, and opens the drawer. */
+  findingsTarget: {
+    accountId: string;
+    scanId: string;
+    findingId: string;
+    service: string;
+    nonce: number;
+  } | null;
+  onOpenFinding: (target: {
+    accountId: string;
+    scanId: string;
+    findingId: string;
+    service: string;
+  }) => void;
 }) {
   if (route === "settings") {
     return (
@@ -410,9 +460,12 @@ function AppShell({
     // The legacy Dashboard.tsx still has a findings tab and is
     // still reachable via the "dashboard" route, but the TopNav
     // Findings button now lands on the new page.
-    return <Findings />;
+    return <Findings initialTarget={findingsTarget} />;
   }
   return (
-    <Home onOpenSettings={() => setRoute("settings")} />
+    <Home
+      onOpenSettings={() => setRoute("settings")}
+      onOpenFinding={onOpenFinding}
+    />
   );
 }

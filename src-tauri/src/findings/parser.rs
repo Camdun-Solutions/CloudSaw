@@ -38,7 +38,7 @@
 // them so the UI can show coverage, but their normalized severity falls to
 // Informational regardless of the raw level.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -88,6 +88,19 @@ pub struct ParsedFinding {
 pub struct ParsedResource {
     pub resource_path: String,
     pub invalid: bool,
+    // PR #82 — identity fields walked out of the deepest "resource
+    // entity" ancestor of the ScoutSuite item path. All optional —
+    // they're empty for findings whose path doesn't land on a dict
+    // with `name`/`arn`/`id` scalars (e.g. password_policy globals).
+    pub resource_name: Option<String>,
+    pub resource_arn: Option<String>,
+    pub resource_id_value: Option<String>,
+    /// Forward-compat: every other scalar field captured at the
+    /// resource entity level (creation timestamp, key counts, tag
+    /// map, etc.). Serialized to JSON when persisted so the UI can
+    /// render every key without forcing a schema change for each
+    /// new attribute ScoutSuite emits.
+    pub attributes: BTreeMap<String, serde_json::Value>,
 }
 
 /// The set of finding-type prefixes CloudSaw "recognizes" in v1. Unknown
@@ -238,9 +251,25 @@ pub fn parse_scoutsuite(json: &Value) -> ParsedScoutOutput {
                     .into_iter()
                     .map(|path| {
                         let invalid = !looks_like_valid_resource_path(&path);
+                        // PR #82 — walk the deepest resource-entity
+                        // ancestor of the item path. `services` is the
+                        // root of the ScoutSuite output tree; the path's
+                        // first segment is the service (`iam`, `s3`,
+                        // …), and we walk down from there to find the
+                        // last dict carrying `name`/`arn`/`id` scalars.
+                        // Failure modes (path doesn't exist, walk lands
+                        // on a non-object, no identity fields anywhere
+                        // on the path) all surface as empty optionals,
+                        // and the UI falls back to the raw path.
+                        let (resource_name, resource_arn, resource_id_value, attributes) =
+                            walk_resource_entity(Some(services), &path);
                         ParsedResource {
                             resource_path: path,
                             invalid,
+                            resource_name,
+                            resource_arn,
+                            resource_id_value,
+                            attributes,
                         }
                     })
                     .collect();
@@ -291,6 +320,140 @@ pub fn finding_id_for(aws_account_id: &str, rule_key: &str) -> String {
     hasher.update(b":");
     hasher.update(rule_key.as_bytes());
     hex::encode(hasher.finalize())
+}
+
+/// PR #82 — Walk a ScoutSuite item path through the `services` tree and
+/// return the resource entity's identity fields + scalars. The "resource
+/// entity" is the deepest dict along the path that carries any of
+/// `name` / `arn` / `id` (or their PascalCase variants) — typically the
+/// `iam.users.<uid>` / `s3.buckets.<id>` / `ec2.regions.<r>.instances.
+/// <iid>` level. Returns nulls when no entity is found (e.g.
+/// `iam.password_policy.MaxPasswordAge` walks to a flat config block
+/// with no identifying scalars).
+///
+/// The fourth tuple slot is every OTHER scalar field at the entity level
+/// (CreateDate, AccessKeys count, etc.) so the UI can render every key
+/// without forcing a schema change for each new attribute ScoutSuite
+/// emits.
+fn walk_resource_entity(
+    services: Option<&serde_json::Map<String, Value>>,
+    path: &str,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    BTreeMap<String, Value>,
+) {
+    let services = match services {
+        Some(s) => s,
+        None => return (None, None, None, BTreeMap::new()),
+    };
+    let parts: Vec<&str> = path.split('.').collect();
+    let mut deepest_obj: Option<&serde_json::Map<String, Value>> = None;
+    let mut walker: Option<&Value> = None;
+    for (idx, part) in parts.iter().enumerate() {
+        let next = if idx == 0 {
+            services.get(*part)
+        } else if let Some(v) = walker {
+            v.get(*part)
+        } else {
+            None
+        };
+        let next_val = match next {
+            Some(v) => v,
+            None => break,
+        };
+        if let Some(obj) = next_val.as_object() {
+            if has_identity_scalar(obj) {
+                deepest_obj = Some(obj);
+            }
+        }
+        walker = Some(next_val);
+    }
+
+    let obj = match deepest_obj {
+        Some(o) => o,
+        None => return (None, None, None, BTreeMap::new()),
+    };
+    let name = pick_string(
+        obj,
+        &[
+            "name",
+            "Name",
+            "UserName",
+            "RoleName",
+            "PolicyName",
+            "GroupName",
+            "BucketName",
+        ],
+    );
+    let arn = pick_string(obj, &["arn", "Arn", "ARN"]);
+    let id_value = pick_string(obj, &["id", "Id", "ID"]);
+    let mut attributes: BTreeMap<String, Value> = BTreeMap::new();
+    // PR #82 — copy every other scalar (string / number / bool) at the
+    // entity level, skipping the three identity columns we already
+    // captured. Skip nested arrays/objects to keep the JSON payload
+    // small; the frontend can render those later if needed.
+    for (k, v) in obj {
+        let key = k.as_str();
+        if matches!(
+            key,
+            "name"
+                | "Name"
+                | "UserName"
+                | "RoleName"
+                | "PolicyName"
+                | "GroupName"
+                | "BucketName"
+                | "arn"
+                | "Arn"
+                | "ARN"
+                | "id"
+                | "Id"
+                | "ID"
+        ) {
+            continue;
+        }
+        match v {
+            Value::Null => {}
+            Value::Bool(_) | Value::Number(_) | Value::String(_) => {
+                attributes.insert(k.clone(), v.clone());
+            }
+            _ => {}
+        }
+    }
+    (name, arn, id_value, attributes)
+}
+
+fn has_identity_scalar(obj: &serde_json::Map<String, Value>) -> bool {
+    const KEYS: &[&str] = &[
+        "name",
+        "Name",
+        "UserName",
+        "RoleName",
+        "PolicyName",
+        "GroupName",
+        "BucketName",
+        "arn",
+        "Arn",
+        "ARN",
+        "id",
+        "Id",
+        "ID",
+    ];
+    KEYS.iter()
+        .any(|k| matches!(obj.get(*k), Some(v) if v.is_string()))
+}
+
+fn pick_string(obj: &serde_json::Map<String, Value>, candidates: &[&str]) -> Option<String> {
+    for k in candidates {
+        if let Some(s) = obj.get(*k).and_then(|v| v.as_str()) {
+            if !s.is_empty() {
+                return Some(s.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Shape-check for a resource path. We don't need a strict ARN parser —

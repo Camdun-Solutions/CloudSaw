@@ -104,6 +104,18 @@ fn seed(aws_account_id: String) -> Result<ParseSummary, AppError> {
             .map(|n| ParsedResource {
                 resource_path: format!("{service}.resources.id.demo-resource-{}", n + 1),
                 invalid: false,
+                // PR #82 — dev seed data fills in identity fields so
+                // the dev/demo Findings view shows the new resource-
+                // detail rendering, not the empty-fallback. These
+                // values are obviously synthetic and only land via the
+                // dev-only `seed_demo_findings` IPC.
+                resource_name: Some(format!("demo-resource-{}", n + 1)),
+                resource_arn: Some(format!(
+                    "arn:aws:{service}:us-east-1:123456789012:resource/demo-resource-{}",
+                    n + 1
+                )),
+                resource_id_value: Some(format!("demo-resource-{}", n + 1)),
+                attributes: std::collections::BTreeMap::new(),
             })
             .collect();
         findings.push(ParsedFinding {

@@ -1,0 +1,1367 @@
+{
+  "acm-certificate-with-transparency-logging-disabled": {
+    "references": [
+      "https://aws.amazon.com/blogs/security/how-to-get-ready-for-certificate-transparency/"
+    ]
+  },
+  "cloudformation-stack-with-role": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html"
+    ]
+  },
+  "cloudfront-distribution-cleartext-origin": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html"
+    ]
+  },
+  "cloudfront-distribution-insecure-origin": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html"
+    ]
+  },
+  "cloudfront-distribution-insufficient-viewer-security": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-viewercertificate.html"
+    ]
+  },
+  "cloudtrail-duplicated-global-services-logging": {
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html#cloudtrail-concepts-global-service-events"
+    ]
+  },
+  "cloudtrail-no-cloudwatch-integration": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.4",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.4",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.4",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Configure each Trail to have a CloudWatch Logs group attached"
+  },
+  "cloudtrail-no-data-logging": {
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html"
+    ]
+  },
+  "cloudtrail-no-encryption-with-kms": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.7",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.7",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.7",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html"
+    ],
+    "remediation": "Ensure each Trail is encrypted with a KMS key"
+  },
+  "cloudtrail-no-global-services-logging": {
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html#cloudtrail-concepts-global-service-events"
+    ]
+  },
+  "cloudtrail-no-log-file-validation": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.2",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.2",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-intro.html"
+    ],
+    "remediation": "Ensure that each Trail has Enable log file validation set to Yes"
+  },
+  "cloudtrail-no-logging": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.1",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.1",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.1",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
+    ],
+    "remediation": "Configure all Trails to enable Logging, set Apply trail to all regions and ensure that Read/Write Events are set to ALL"
+  },
+  "cloudtrail-not-configured": {
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
+    ]
+  },
+  "cloudtrail-partial-data-logging": {
+    "references": [
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html"
+    ]
+  },
+  "cloudwatch-alarm-without-actions": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html"
+    ]
+  },
+  "config-recorder-not-configured": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.5",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.5",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.5",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://aws.amazon.com/blogs/mt/aws-config-best-practices/"
+    ],
+    "remediation": "Enable AWS Config in all regions, define the resources you want to record in each region and include global resources (IAM resources)"
+  },
+  "ec2-ami-public": {
+    "references": [
+      "https://aws.amazon.com/security/security-bulletins/reminder-about-safely-sharing-and-using-public-amis/"
+    ]
+  },
+  "ec2-default-security-group-in-use": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.4",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.4",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.3",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-4.3"
+    ],
+    "remediation": "Ensure resources are not within default security groups. Instead, create a custom security group tailored to each resource needs."
+  },
+  "ec2-default-security-group-with-rules": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.4",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.4",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.3",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-4.3"
+    ],
+    "remediation": "Ensure the default security group of every VPC restricts all traffic"
+  },
+  "ec2-ebs-default-encryption-disabled": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#encryption-by-default"
+    ],
+    "remediation": "Enable encryption by default for EBS volumes in all regions."
+  },
+  "ec2-ebs-snapshot-not-encrypted": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html"
+    ]
+  },
+  "ec2-ebs-snapshot-public": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modifying-snapshot-permissions.html"
+    ]
+  },
+  "ec2-ebs-volume-not-encrypted": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html"
+    ]
+  },
+  "ec2-instance-type": {
+    "references": [
+      "https://aws.amazon.com/ec2/instance-types/"
+    ]
+  },
+  "ec2-instance-types": {
+    "references": [
+      "https://aws.amazon.com/ec2/instance-types/"
+    ]
+  },
+  "ec2-instance-with-public-ip": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-instance-addressing.html"
+    ]
+  },
+  "ec2-instance-with-user-data-secrets": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html"
+    ]
+  },
+  "ec2-security-group-opens-known-port-to-all": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.1",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.1",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.2",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.1",
+        "version": "1.2.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.2",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Remove the inbound rules that expose open ports"
+  },
+  "ec2-unused-security-group": {
+    "references": [
+      "https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html"
+    ]
+  },
+  "elb-listener-allowing-cleartext": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-listener-config.html"
+    ]
+  },
+  "elb-no-access-logs": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html"
+    ]
+  },
+  "elb-older-ssl-policy": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-security-policy-table.html"
+    ]
+  },
+  "elbv2-http-request-smuggling": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html",
+      "https://medium.com/@emilefugulin/http-desync-attacks-with-python-and-aws-1ba07d2c860f",
+      "https://99designs.com/blog/engineering/request-smuggling/",
+      "https://portswigger.net/web-security/request-smuggling"
+    ]
+  },
+  "elbv2-listener-allowing-cleartext": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-https-load-balancers.html",
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html",
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html"
+    ]
+  },
+  "elbv2-no-access-logs": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html",
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html"
+    ]
+  },
+  "elbv2-no-deletion-protection": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#deletion-protection"
+    ]
+  },
+  "elbv2-older-ssl-policy": {
+    "references": [
+      "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies"
+    ]
+  },
+  "iam-assume-role-lacks-external-id-and-mfa": {
+    "references": [
+      "https://research.nccgroup.com/2019/12/18/demystifying-aws-assumerole-and-stsexternalid/",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html"
+    ]
+  },
+  "iam-assume-role-no-mfa": {
+    "references": [
+      "https://research.nccgroup.com/2019/12/18/demystifying-aws-assumerole-and-stsexternalid/"
+    ]
+  },
+  "iam-assume-role-policy-allows-all": {
+    "references": [
+      "https://research.nccgroup.com/2019/12/18/demystifying-aws-assumerole-and-stsexternalid/"
+    ]
+  },
+  "iam-ec2-role-without-instances": {
+    "references": [
+      "https://aws.amazon.com/about-aws/whats-new/2019/11/identify-unused-iam-roles-easily-and-remove-them-confidently-by-using-the-last-used-timestamp/"
+    ]
+  },
+  "iam-group-with-inline-policies": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#best-practice-managed-vs-inline",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html"
+    ]
+  },
+  "iam-group-with-no-users": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#use-groups-for-permissions"
+    ]
+  },
+  "iam-inline-policy-allows-NotActions": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html",
+      "https://aws.amazon.com/blogs/security/back-to-school-understanding-the-iam-policy-grammar/"
+    ]
+  },
+  "iam-inline-policy-allows-non-sts-action": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    ]
+  },
+  "iam-inline-policy-for-role": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    ]
+  },
+  "iam-lightspin-user-action-denied-for-group": {
+    "references": [
+      "https://blog.lightspin.io/aws-iam-groups-authorization-bypass",
+      "https://github.com/lightspin-tech/red-shadow"
+    ],
+    "remediation": "Define all relevant users in the resource field of the affected policies to avoid ineffective IAM actions and deny all group actions. The alternative would be to use the condition \"iam:ResourceTag\" in the policy."
+  },
+  "iam-managed-policy-allows-NotActions": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html",
+      "https://aws.amazon.com/blogs/security/back-to-school-understanding-the-iam-policy-grammar/"
+    ]
+  },
+  "iam-managed-policy-allows-full-privileges": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.24",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.22",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+      "https://aws.amazon.com/blogs/security/back-to-school-understanding-the-iam-policy-grammar/"
+    ],
+    "remediation": "Ensure no managed policies are configured with <samp>Effect: Allow</samp>, <samp>Action: *</samp> and <samp>Resource: *</samp>"
+  },
+  "iam-managed-policy-allows-non-sts-action": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    ]
+  },
+  "iam-managed-policy-for-role": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    ]
+  },
+  "iam-managed-policy-no-attachments": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html#customer-managed-policies"
+    ]
+  },
+  "iam-no-support-role": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.22",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.20",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Attach the AWSSupportAccess to a role or group"
+  },
+  "iam-password-policy-expiration-threshold": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.11",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.11",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.11",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.11"
+    ],
+    "remediation": "Enable password expiration and set the expiration period to 90 days or less"
+  },
+  "iam-password-policy-minimum-length": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.9",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.9",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.9",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.9",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
+    ],
+    "remediation": "Ensure the password policy is configured to require a minimum length"
+  },
+  "iam-password-policy-no-expiration": {
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.11"
+    ]
+  },
+  "iam-password-policy-no-lowercase-required": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.6",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.6",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.6",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.6",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
+    ],
+    "remediation": "Ensure the password policy is configured to require at least one lowercase letter"
+  },
+  "iam-password-policy-no-number-required": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.8",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.8",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.8",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.8",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
+    ],
+    "remediation": "Ensure the password policy is configured to require at least one number"
+  },
+  "iam-password-policy-no-symbol-required": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.7",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.7",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.7",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.7",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
+    ],
+    "remediation": "Ensure the password policy is configured to require at least one symbol"
+  },
+  "iam-password-policy-no-uppercase-required": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.5",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.5",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.5",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.5",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_complex-password",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_complex-password"
+    ],
+    "remediation": "Ensure the password policy is configured to require at least one uppercase letter"
+  },
+  "iam-password-policy-reuse-enabled": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.10",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.10",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.10",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.10"
+    ],
+    "remediation": "Ensure the password policy is configured to prevent password reuse"
+  },
+  "iam-role-with-inline-policies": {
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#best-practice-managed-vs-inline",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html"
+    ]
+  },
+  "iam-root-account-no-hardware-mfa": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.13",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.14",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.14",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.13",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_mfa"
+    ],
+    "remediation": "Enable MFA for the root account"
+  },
+  "iam-root-account-no-mfa": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.13",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.13",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.13",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_mfa"
+    ],
+    "remediation": "Enable MFA for the root account"
+  },
+  "iam-root-account-used-recently": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.1",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.1",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.1",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-standards-cis-controls-1.1",
+      "https://docs.aws.amazon.com/general/latest/gr/aws_tasks-that-require-root.html",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_review-access",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_document-processes",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_monitor-access"
+    ],
+    "remediation": "Follow the remediation instructions of the Ensure IAM policies are attached only to groups or roles recommendation"
+  },
+  "iam-root-account-with-active-certs": {
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-standards-cis-controls-1.1",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use"
+    ]
+  },
+  "iam-root-account-with-active-keys": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.12",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.12",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.12",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-standards-cis-controls-1.1",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_review-access",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-acct_document-processes"
+    ],
+    "remediation": "Delete or disable active root account access keys"
+  },
+  "iam-unused-credentials-not-disabled": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.3",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.3",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.3",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Ensure that all credentials (including passwords and access keys) have been used and changed in the last _ARG_0_ days"
+  },
+  "iam-user-no-key-rotation": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.4",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.4",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.4",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#rotate-credentials"
+    ],
+    "remediation": "Rotate access keys that have not been changed recently"
+  },
+  "iam-user-unused-access-key-initial-setup": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.23",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.21",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Do not setup access keys during initial user setup. Instead, require users to create the keys themselves or put in a support ticket to have them created"
+  },
+  "iam-user-with-multiple-access-keys": {
+    "references": [
+      "https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html"
+    ]
+  },
+  "iam-user-with-password-and-key": {
+    "references": [
+      "https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html",
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_admin-change-user.html"
+    ]
+  },
+  "iam-user-with-policies": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.15",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.16",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.16",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Ensure IAM policies are only attached to groups or roles"
+  },
+  "iam-user-without-mfa": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.2",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "1.2",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#enable-mfa-for-privileged-users",
+      "https://docs.aws.amazon.com/organizations/latest/userguide/best-practices_member-acct.html#best-practices_mbr-acct_mfa"
+    ],
+    "remediation": "Enable MFA for all users in the AWS account"
+  },
+  "kms-cmk-rotation-disabled": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.8",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.8",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.8",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html"
+    ],
+    "remediation": "For every KMS Customer Master Keys (CMKs), ensure that Rotate this key every year is enabled"
+  },
+  "logs-no-alarm-aws-configuration-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.9",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.9",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.9",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect AWS configuration changes."
+  },
+  "logs-no-alarm-cloudtrail-configuration-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.5",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.5",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.5",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor CloudTrail configuration changes."
+  },
+  "logs-no-alarm-cmk-deletion": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.7",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.7",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.7",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect recently disabled or deleted master keys."
+  },
+  "logs-no-alarm-console-authentication-failures": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.6",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.6",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.6",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor failed authentication attempts."
+  },
+  "logs-no-alarm-iam-policy-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.4",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.4",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.4",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor the usage of the root account."
+  },
+  "logs-no-alarm-nacl-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.11",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.11",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.11",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect NACL changes."
+  },
+  "logs-no-alarm-network-gateways-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.12",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.12",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.12",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect network gateways changes."
+  },
+  "logs-no-alarm-root-usage": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.3",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.3",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.3",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor the usage of the root account."
+  },
+  "logs-no-alarm-route-table-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.13",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.13",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.13",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect route table changes."
+  },
+  "logs-no-alarm-s3-policy-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.8",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.8",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.8",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect policy changes in S3 buckets."
+  },
+  "logs-no-alarm-security-group-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.10",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.10",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.10",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor security group changes."
+  },
+  "logs-no-alarm-signin-without-mfa": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.2",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.2",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.2",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor console log ins without MFA."
+  },
+  "logs-no-alarm-unauthorized-api-calls": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.1",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.1",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.1",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to monitor unauthorized API calls."
+  },
+  "logs-no-alarm-vpc-changes": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.14",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.14",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "3.14",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Enable a CloudWatch alarm to detect VPC changes."
+  },
+  "rds-instance-backup-disabled": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html",
+      "https://aws.amazon.com/rds/details/backup/",
+      "https://aws.amazon.com/rds/faqs/"
+    ]
+  },
+  "rds-instance-ca-certificate-deprecated": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html"
+    ]
+  },
+  "rds-instance-no-minor-upgrade": {
+    "references": [
+      "https://aws.amazon.com/blogs/database/best-practices-for-upgrading-amazon-rds-to-major-and-minor-versions-of-postgresql/",
+      "https://aws.amazon.com/about-aws/whats-new/2018/12/amazon-rds-enhances-auto-minor-version-upgrades/"
+    ]
+  },
+  "rds-instance-publicly-accessible": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding"
+    ]
+  },
+  "rds-instance-short-backup-retention-period": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html",
+      "https://aws.amazon.com/rds/details/backup/",
+      "https://aws.amazon.com/rds/faqs/"
+    ]
+  },
+  "rds-instance-single-az": {
+    "references": [
+      "https://aws.amazon.com/rds/features/multi-az/"
+    ]
+  },
+  "rds-instance-storage-not-encrypted": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html"
+    ]
+  },
+  "rds-postgres-instance-with-invalid-certificate": {
+    "references": [
+      "https://aws.amazon.com/about-aws/whats-new/2017/02/amazon-rds-for-sql-server-supports-forced-ssl/",
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/SQLServer.Concepts.General.SSL.Using.html"
+    ]
+  },
+  "rds-snapshot-public": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ShareSnapshot.html"
+    ]
+  },
+  "redshift-cluster-database-not-encrypted": {
+    "references": [
+      "https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-db-encryption.html"
+    ]
+  },
+  "redshift-cluster-no-version-upgrade": {
+    "references": [
+      "https://docs.aws.amazon.com/redshift/latest/APIReference/API_ModifyCluster.html"
+    ]
+  },
+  "redshift-cluster-publicly-accessible": {
+    "references": [
+      "https://docs.aws.amazon.com/redshift/latest/gsg/getting-started.html"
+    ]
+  },
+  "redshift-parameter-group-logging-disabled": {
+    "references": [
+      "https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html"
+    ]
+  },
+  "redshift-parameter-group-ssl-not-required": {
+    "references": [
+      "https://docs.aws.amazon.com/redshift/latest/mgmt/connecting-ssl-support.html"
+    ]
+  },
+  "route53-domain-no-autorenew": {
+    "references": [
+      "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-enable-disable-auto-renewal.html"
+    ]
+  },
+  "route53-domain-no-transferlock": {
+    "references": [
+      "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/domain-lock.html"
+    ]
+  },
+  "route53-domain-transferlock-not-authorized": {
+    "references": [
+      "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/registrar-tld-list.html"
+    ]
+  },
+  "s3-bucket-allowing-cleartext": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
+    ]
+  },
+  "s3-bucket-no-default-encryption": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html",
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html"
+    ]
+  },
+  "s3-bucket-no-logging": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.6",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.6",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.6",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
+    ],
+    "remediation": "Ensure that S3 buckets have Logging enabled"
+  },
+  "s3-bucket-no-mfa-delete": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
+    ]
+  },
+  "s3-bucket-no-versioning": {
+    "references": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/dev/security-best-practices.html"
+    ]
+  },
+  "s3-bucket-world-policy-star": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.3",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.3",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.3",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Remove any Statement having an Effect set to Allow and a Principal set to \"*\" or {\"AWS\":\"*\"} in the affected bucket policy"
+  },
+  "ses-identity-dkim-not-enabled": {
+    "references": [
+      "https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-email-authentication-dkim.html"
+    ]
+  },
+  "ses-identity-dkim-not-verified": {
+    "references": [
+      "https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-email-authentication-dkim.html"
+    ]
+  },
+  "sqs-queue-server-side-encryption-disabled": {
+    "references": [
+      "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html"
+    ]
+  },
+  "vpc-routing-tables-with-peering": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.5",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.4",
+        "version": "1.2.0"
+      }
+    ],
+    "remediation": "Ensure route tables contain the least number of subnets or hosts as is required to accomplish the purpose for peering"
+  },
+  "vpc-subnet-without-flow-log": {
+    "compliance": [
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.3",
+        "version": "1.0.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "4.3",
+        "version": "1.1.0"
+      },
+      {
+        "name": "CIS Amazon Web Services Foundations",
+        "reference": "2.9",
+        "version": "1.2.0"
+      }
+    ],
+    "references": [
+      "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html"
+    ],
+    "remediation": "Create a flow log for each subnet."
+  }
+}
