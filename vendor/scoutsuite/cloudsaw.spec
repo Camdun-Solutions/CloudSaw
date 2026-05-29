@@ -23,8 +23,21 @@
 
 import glob
 import os
+import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+# PR #79 — PyInstaller evaluates the spec BEFORE adding `pathex` to
+# `sys.path` for Analysis, so `collect_submodules('ScoutSuite.core')`
+# at spec-eval time would silently return an empty list and the
+# fail-fast assertion further down would fire on every fresh build.
+# Adding the spec's directory to sys.path here mirrors what Analysis
+# does later — `collect_submodules` walks the package via importlib,
+# so the vendored ScoutSuite tree has to be importable for it to
+# enumerate anything.
+_SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
+if _SPEC_DIR not in sys.path:
+    sys.path.insert(0, _SPEC_DIR)
 
 block_cipher = None
 
