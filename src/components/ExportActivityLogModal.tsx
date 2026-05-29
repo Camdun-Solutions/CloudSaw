@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { save } from "@tauri-apps/plugin-dialog";
 
-import { Button, Modal, Select } from "@/components";
+import { Button, Modal } from "@/components";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
 import {
@@ -27,8 +27,10 @@ import {
 
 type Format = "html" | "pdf" | "xlsx";
 
-const KIND_OPTIONS: ReadonlyArray<{ value: EventKind | "all"; key: string }> = [
-  { value: "all", key: "eventlog.filter.all" },
+// PR #71: multi-select activity-type checkbox grid. The pseudo
+// "all" sentinel from the old single-select dropdown is gone —
+// an empty `selectedKinds` set is the new "all" signal.
+const KIND_OPTIONS: ReadonlyArray<{ value: EventKind; key: string }> = [
   { value: "scan_completed", key: "eventlog.kind.scan_completed" },
   { value: "scan_failed", key: "eventlog.kind.scan_failed" },
   { value: "scan_canceled", key: "eventlog.kind.scan_canceled" },
@@ -68,7 +70,10 @@ export default function ExportActivityLogModal({ open, onClose }: Props) {
   const [format, setFormat] = useState<Format>("html");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [kind, setKind] = useState<EventKind | "all">("all");
+  // PR #71: Activity Type is now a multi-select. Empty set === "all
+  // kinds." A modal-local state ensures the user can incrementally
+  // toggle kinds with checkboxes without juggling a sentinel value.
+  const [selectedKinds, setSelectedKinds] = useState<Set<EventKind>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<EventLogExportOutcome | null>(null);
@@ -79,11 +84,20 @@ export default function ExportActivityLogModal({ open, onClose }: Props) {
     setFormat("html");
     setStart("");
     setEnd("");
-    setKind("all");
+    setSelectedKinds(new Set());
     setError(null);
     setOutcome(null);
     setSubmitting(false);
   }, [open]);
+
+  function toggleKind(k: EventKind) {
+    setSelectedKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
 
   function close() {
     if (submitting) return;
@@ -116,7 +130,7 @@ export default function ExportActivityLogModal({ open, onClose }: Props) {
     if (!picked) return; // user canceled
 
     const filter: EventLogFilter = {
-      kinds: kind === "all" ? undefined : [kind],
+      kinds: selectedKinds.size === 0 ? undefined : Array.from(selectedKinds),
       since: start.length > 0 ? `${start}T00:00:00Z` : null,
       until: end.length > 0 ? `${end}T23:59:59Z` : null,
       include_cleared: true,
@@ -132,6 +146,13 @@ export default function ExportActivityLogModal({ open, onClose }: Props) {
             : ipc.eventlogExportHtml;
       const r = await fn(filter, picked);
       setOutcome(r);
+      // PR #71: keep the success outcome visible briefly so the user
+      // sees the row-count + path before the modal dismisses. This
+      // matches the close-on-success behavior the Custom Report
+      // modal gained in the same PR.
+      window.setTimeout(() => {
+        onClose();
+      }, 700);
     } catch (e) {
       setError(formatError(e));
     } finally {
@@ -248,16 +269,35 @@ export default function ExportActivityLogModal({ open, onClose }: Props) {
           </label>
         </div>
 
-        <Select<EventKind | "all">
-          label={t("eventlog.export.kind_label")}
-          value={kind}
-          options={KIND_OPTIONS.map((o) => ({
-            value: o.value,
-            label: t(o.key),
-          }))}
-          onChange={(v) => setKind(v)}
-          data-testid="export-activitylog-kind"
-        />
+        {/* PR #71: activity-type filter is now a checkbox grid so the
+            user can pick MULTIPLE kinds instead of being forced to
+            "one kind OR all". Leaving every box unchecked exports
+            every kind. */}
+        <fieldset data-testid="export-activitylog-kind">
+          <legend className="text-small font-medium text-saw-grey-900 dark:text-saw-beige">
+            {t("eventlog.export.kind_label")}
+          </legend>
+          <p className="mt-1 text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("eventlog.export.kind_hint")}
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
+            {KIND_OPTIONS.map((o) => (
+              <label
+                key={o.value}
+                className="flex items-center gap-2 rounded px-1.5 py-0.5 text-small text-saw-grey-700 hover:bg-saw-grey-100 dark:text-saw-grey-300 dark:hover:bg-saw-grey-800"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedKinds.has(o.value)}
+                  onChange={() => toggleKind(o.value)}
+                  data-testid={`export-activitylog-kind-${o.value}`}
+                  className="h-4 w-4 rounded border-saw-grey-300 bg-saw-white text-saw-red focus:ring-saw-red dark:border-saw-grey-600 dark:bg-saw-grey-800 dark:checked:bg-saw-red dark:focus:ring-saw-red"
+                />
+                <span>{t(o.key)}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         {error ? (
           <p

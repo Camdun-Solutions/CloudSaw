@@ -213,14 +213,18 @@ export default function Home({ onOpenSettings }: Props) {
         ) : null}
 
         {hasAccounts ? (
+          // PR #71: Top findings now renders FIRST. Recent activity
+          // is secondary context; the dominant card on the dashboard
+          // should be "what's broken right now," not "what did I do
+          // recently."
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <RecentActivityCard
-              scans={recentScans}
-              accounts={accounts ?? []}
-            />
             <TopFindingsCard
               findings={topFindings}
               latestScan={latestScan}
+            />
+            <RecentActivityCard
+              scans={recentScans}
+              accounts={accounts ?? []}
             />
           </div>
         ) : null}

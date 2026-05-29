@@ -50,13 +50,32 @@ fn generate_logo_base64() {
     let body = match std::fs::read(&logo_path) {
         Ok(bytes) => {
             let encoded = base64_encode(&bytes);
-            format!("pub const LOGO_PNG_BASE64: &str = \"{encoded}\";\n")
+            // PR #71: also emit the raw bytes as a literal so the
+            // eventlog Excel export can embed the logo via
+            // `Image::new_from_buffer`. Same source artwork, no
+            // extra file IO at run-time. We use byte-literal escaping
+            // (e.g. `\x00`) so the generated source compiles cleanly
+            // regardless of platform line endings.
+            let mut raw = String::with_capacity(bytes.len() * 4 + 64);
+            raw.push_str("pub const LOGO_PNG_BYTES: &[u8] = &[");
+            for (i, b) in bytes.iter().enumerate() {
+                if i % 16 == 0 {
+                    raw.push_str("\n    ");
+                }
+                raw.push_str(&format!("0x{b:02x},"));
+            }
+            raw.push_str("\n];\n");
+            format!("pub const LOGO_PNG_BASE64: &str = \"{encoded}\";\n{raw}")
         }
         Err(_) => {
             // Logo missing during dev (icons not regenerated). Empty
             // string makes the HTML report fall back to no logo;
-            // existing CSS hides the <img> on `src=""`.
-            "pub const LOGO_PNG_BASE64: &str = \"\";\n".to_string()
+            // existing CSS hides the <img> on `src=""`. The byte
+            // slice falls back to empty too — the eventlog Excel
+            // renderer checks `is_empty()` before calling
+            // `insert_image`.
+            "pub const LOGO_PNG_BASE64: &str = \"\";\npub const LOGO_PNG_BYTES: &[u8] = &[];\n"
+                .to_string()
         }
     };
 

@@ -328,39 +328,91 @@ fn render_pdf(entries: &[EventLogEntry]) -> Result<Vec<u8>, EventLogError> {
         y -= LINE_H * 2.0;
     }
 
-    // Entries — one compact row per event.
+    // PR #71: tabular column header to match the HTML/Excel
+    // presentations. Built-in Helvetica is Latin-1 only so we stick
+    // to plain text + fixed-width column offsets. Column layout
+    // (mm): when 18, kind 56, summary 92, acct 168, count 188.
+    const COL_WHEN: f32 = MARGIN;
+    const COL_KIND: f32 = MARGIN + 38.0;
+    const COL_SUMMARY: f32 = MARGIN + 74.0;
+    const COL_ACCT: f32 = MARGIN + 150.0;
+    const COL_COUNT: f32 = MARGIN + 174.0;
+    {
+        let layer = doc.get_page(page_idx).get_layer(layer_idx);
+        layer.use_text("WHEN (UTC)", META_FONT_SIZE, Mm(COL_WHEN), Mm(y), &bold);
+        layer.use_text("KIND", META_FONT_SIZE, Mm(COL_KIND), Mm(y), &bold);
+        layer.use_text("SUMMARY", META_FONT_SIZE, Mm(COL_SUMMARY), Mm(y), &bold);
+        layer.use_text("ACCOUNT", META_FONT_SIZE, Mm(COL_ACCT), Mm(y), &bold);
+        layer.use_text("COUNT", META_FONT_SIZE, Mm(COL_COUNT), Mm(y), &bold);
+        y -= LINE_H;
+        // Thin separator line under the header. printpdf 0.7's Line
+        // struct only carries `points` + `is_closed`, so a 2-point
+        // open polyline draws as a stroked line.
+        use printpdf::{Line, Point};
+        layer.set_outline_color(printpdf::Color::Rgb(printpdf::Rgb::new(
+            0.7, 0.7, 0.7, None,
+        )));
+        layer.set_outline_thickness(0.25);
+        layer.add_line(Line {
+            points: vec![
+                (Point::new(Mm(MARGIN), Mm(y + 1.5)), false),
+                (Point::new(Mm(PAGE_W - MARGIN), Mm(y + 1.5)), false),
+            ],
+            is_closed: false,
+        });
+        y -= 1.5;
+    }
+
+    // Entries — one row per event with column-aligned fields and a
+    // hairline rule between rows.
     for e in entries {
         if y < MARGIN + 18.0 {
-            // New page.
+            // New page — re-emit the column headers on the fresh
+            // page so the table reads as one continuous artifact.
             let (new_page, new_layer) = doc.add_page(Mm(PAGE_W), Mm(PAGE_H), "page-extra");
             page_idx = new_page;
             layer_idx = new_layer;
             y = PAGE_H - MARGIN;
+            let layer = doc.get_page(page_idx).get_layer(layer_idx);
+            layer.use_text("WHEN (UTC)", META_FONT_SIZE, Mm(COL_WHEN), Mm(y), &bold);
+            layer.use_text("KIND", META_FONT_SIZE, Mm(COL_KIND), Mm(y), &bold);
+            layer.use_text("SUMMARY", META_FONT_SIZE, Mm(COL_SUMMARY), Mm(y), &bold);
+            layer.use_text("ACCOUNT", META_FONT_SIZE, Mm(COL_ACCT), Mm(y), &bold);
+            layer.use_text("COUNT", META_FONT_SIZE, Mm(COL_COUNT), Mm(y), &bold);
+            y -= LINE_H + 1.5;
         }
         let layer = doc.get_page(page_idx).get_layer(layer_idx);
-        let when = e.occurred_at.format("%Y-%m-%d %H:%M:%SZ").to_string();
+        let when = e.occurred_at.format("%Y-%m-%d %H:%M").to_string();
         let acct = e.aws_account_id_masked.as_deref().unwrap_or("—");
         let count = e
             .item_count
             .map(|n| n.to_string())
             .unwrap_or_else(|| "—".to_string());
-        let header_line = format!(
-            "{} · {} · acct={} · count={}",
-            when,
-            e.kind.as_str(),
-            acct,
-            count
-        );
-        layer.use_text(header_line, BODY_FONT_SIZE, Mm(MARGIN), Mm(y), &bold);
-        y -= LINE_H;
-        let summary = truncate(&e.summary, 110);
-        layer.use_text(summary, BODY_FONT_SIZE, Mm(MARGIN + 4.0), Mm(y), &regular);
+        let summary = truncate(&e.summary, 60);
+        layer.use_text(when, BODY_FONT_SIZE, Mm(COL_WHEN), Mm(y), &mono);
+        layer.use_text(e.kind.as_str(), BODY_FONT_SIZE, Mm(COL_KIND), Mm(y), &mono);
+        layer.use_text(summary, BODY_FONT_SIZE, Mm(COL_SUMMARY), Mm(y), &regular);
+        layer.use_text(acct, BODY_FONT_SIZE, Mm(COL_ACCT), Mm(y), &mono);
+        layer.use_text(count, BODY_FONT_SIZE, Mm(COL_COUNT), Mm(y), &mono);
         y -= LINE_H;
         if let Some(detail) = &e.detail {
             let trimmed = truncate(detail, 110);
-            layer.use_text(trimmed, META_FONT_SIZE, Mm(MARGIN + 4.0), Mm(y), &mono);
+            layer.use_text(trimmed, META_FONT_SIZE, Mm(COL_SUMMARY), Mm(y), &regular);
             y -= LINE_H;
         }
+        // Hairline rule between rows.
+        layer.set_outline_color(printpdf::Color::Rgb(printpdf::Rgb::new(
+            0.88, 0.88, 0.88, None,
+        )));
+        layer.set_outline_thickness(0.1);
+        use printpdf::{Line, Point};
+        layer.add_line(Line {
+            points: vec![
+                (Point::new(Mm(MARGIN), Mm(y + 1.2)), false),
+                (Point::new(Mm(PAGE_W - MARGIN), Mm(y + 1.2)), false),
+            ],
+            is_closed: false,
+        });
         y -= 1.5;
     }
 
@@ -394,7 +446,7 @@ fn truncate(s: &str, max: usize) -> String {
 // --- Excel -----------------------------------------------------------------
 
 fn render_xlsx(entries: &[EventLogEntry]) -> Result<Vec<u8>, EventLogError> {
-    use rust_xlsxwriter::{Color, Format, FormatAlign, Workbook};
+    use rust_xlsxwriter::{Color, Format, FormatAlign, Image, Workbook};
 
     let mut wb = Workbook::new();
     let sheet = wb.add_worksheet();
@@ -402,7 +454,12 @@ fn render_xlsx(entries: &[EventLogEntry]) -> Result<Vec<u8>, EventLogError> {
         .set_name("Activity log")
         .map_err(|e| EventLogError::Other(format!("xlsx name: {e}")))?;
 
-    // Brand banner row: span A1:E1 with the saw-red color + white text.
+    // PR #71: brand banner row now opens with the embedded logo
+    // anchored in column A (when bytes are available — empty in dev
+    // builds without icons) and the title pinned beside it. The row
+    // is taller (40px) to give the 128px logo room to breathe at the
+    // default zoom. Without the bytes, the merged cell takes the full
+    // span and the title still reads as the dominant element.
     let banner_fmt = Format::new()
         .set_background_color(Color::RGB(0x00D5_2836))
         .set_font_color(Color::White)
@@ -410,11 +467,35 @@ fn render_xlsx(entries: &[EventLogEntry]) -> Result<Vec<u8>, EventLogError> {
         .set_font_size(14.0)
         .set_align(FormatAlign::VerticalCenter)
         .set_align(FormatAlign::Left);
+    let has_logo = !LOGO_PNG_BYTES.is_empty();
+    if has_logo {
+        sheet
+            .merge_range(0, 1, 0, 5, "CloudSaw — Activity log", &banner_fmt)
+            .map_err(|e| EventLogError::Other(format!("xlsx merge: {e}")))?;
+        // Empty brand-color cell behind the logo so the saw-red runs
+        // edge-to-edge across the row.
+        sheet
+            .write_string_with_format(0, 0, "", &banner_fmt)
+            .map_err(|e| EventLogError::Other(format!("xlsx logo bg: {e}")))?;
+        match Image::new_from_buffer(LOGO_PNG_BYTES) {
+            Ok(image) => {
+                let scaled = image.set_scale_height(0.18).set_scale_width(0.18);
+                sheet
+                    .insert_image(0, 0, &scaled)
+                    .map_err(|e| EventLogError::Other(format!("xlsx logo: {e}")))?;
+            }
+            Err(_) => {
+                // Image creation can fail on malformed bytes — fall
+                // back silently and let the title carry the brand.
+            }
+        }
+    } else {
+        sheet
+            .merge_range(0, 0, 0, 5, "CloudSaw — Activity log", &banner_fmt)
+            .map_err(|e| EventLogError::Other(format!("xlsx merge: {e}")))?;
+    }
     sheet
-        .merge_range(0, 0, 0, 4, "CloudSaw — Activity log", &banner_fmt)
-        .map_err(|e| EventLogError::Other(format!("xlsx merge: {e}")))?;
-    sheet
-        .set_row_height(0, 28.0)
+        .set_row_height(0, 40.0)
         .map_err(|e| EventLogError::Other(format!("xlsx row h: {e}")))?;
 
     // Meta line on row 2.
