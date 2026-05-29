@@ -740,22 +740,66 @@ pub fn ai_get_settings() -> Result<AiSettings, AppError> {
     ai::get_settings().map_err(AppError::from)
 }
 
+// --- AI multi-provider (PR #74) ------------------------------------------
+//
+// New IPC surface for the Connected Providers UI. The legacy single-
+// provider commands below now route through this layer; the frontend
+// uses the new ones directly. The keychain is the only place a real
+// key lives — the records returned here carry only `key_last4`.
+
 #[tauri::command]
+pub fn ai_list_providers() -> Result<Vec<ai::ProviderRecord>, AppError> {
+    ai::list_providers().map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_add_provider(
+    provider_type: Provider,
+    nickname: String,
+    key: String,
+) -> Result<ai::ProviderRecord, AppError> {
+    ai::add_provider(provider_type, nickname, key).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_update_provider(
+    provider_id: String,
+    nickname: Option<String>,
+    new_key: Option<String>,
+) -> Result<ai::ProviderRecord, AppError> {
+    ai::update_provider(provider_id, nickname, new_key).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_delete_provider(provider_id: String) -> Result<(), AppError> {
+    ai::delete_provider(provider_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn ai_set_active_provider(provider_id: String) -> Result<(), AppError> {
+    ai::set_active_provider(provider_id).map_err(AppError::from)
+}
+
+#[tauri::command]
+#[allow(deprecated)]
 pub fn ai_set_provider(provider: Option<Provider>) -> Result<(), AppError> {
     ai::set_provider(provider).map_err(AppError::from)
 }
 
 #[tauri::command]
+#[allow(deprecated)]
 pub fn ai_set_provider_key(provider: Provider, key: String) -> Result<(), AppError> {
     ai::set_provider_key(provider, key).map_err(AppError::from)
 }
 
 #[tauri::command]
+#[allow(deprecated)]
 pub fn ai_clear_provider_key(provider: Provider) -> Result<(), AppError> {
     ai::clear_provider_key(provider).map_err(AppError::from)
 }
 
 #[tauri::command]
+#[allow(deprecated)]
 pub fn ai_has_provider_key(provider: Provider) -> Result<bool, AppError> {
     ai::has_provider_key(provider).map_err(AppError::from)
 }

@@ -664,6 +664,22 @@ export type AiSettings = {
   flags: ContextFlags;
 };
 
+/** PR #74 — Multi-provider AI: one record per Connected Provider row.
+ *
+ * The real API key NEVER crosses the IPC boundary in this shape. It
+ * lives only in the OS keychain at `cloudsaw.llm_api_key` with
+ * `account = provider_id`. The `key_last4` field below is what the UI
+ * uses to render the "****ABCD" mask. */
+export type ProviderRecord = {
+  provider_id: string;
+  provider_type: AiProvider;
+  nickname: string;
+  key_last4: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type FindingDigest = {
   rule_key: string;
   service: string;
@@ -678,6 +694,11 @@ export type FindingDigest = {
  * `aiSendRequest` so what the user saw IS what gets sent. */
 export type AiRequestPreview = {
   provider: AiProvider;
+  /** PR #74 — `provider_id` of the connected provider whose keychain
+   * slot will sign this request. The preview surfaces this so the
+   * "what we're about to send" modal can name the exact connected-
+   * provider row by nickname. */
+  provider_id: string;
   model: string;
   system_prompt: string;
   user_message: string;
@@ -1264,17 +1285,74 @@ export const ipc = {
   // --- AI Suggestion Layer (Contract 13) ------------------------------
 
   /** Read provider selection, key status, business context, and the
-   * "this looks identifying" flags in one round-trip. */
+   * "this looks identifying" flags in one round-trip. The `provider`
+   * + `key_connected` fields describe the currently-active provider
+   * (PR #74 — `aiListProviders()` returns the full Connected list). */
   aiGetSettings(): Promise<AiSettings> {
     return invoke<AiSettings>("ai_get_settings");
   },
 
+  // --- AI Multi-Provider (PR #74) --------------------------------------
+
+  /** List every connected provider row, oldest first. The real keys
+   * STAY in the OS keychain — these records carry only `key_last4`
+   * for the "****ABCD" UI mask. */
+  aiListProviders(): Promise<ProviderRecord[]> {
+    return invoke<ProviderRecord[]>("ai_list_providers");
+  },
+
+  /** Add a new connected provider. The key is stored ONLY in the OS
+   * keychain (account = newly-generated `provider_id`); the record
+   * returned carries the last 4 chars + nickname for UI. The first
+   * provider becomes active automatically. */
+  aiAddProvider(
+    providerType: AiProvider,
+    nickname: string,
+    key: string,
+  ): Promise<ProviderRecord> {
+    return invoke<ProviderRecord>("ai_add_provider", {
+      providerType,
+      nickname,
+      key,
+    });
+  },
+
+  /** Rename a provider and/or rotate its key. Both fields are
+   * optional — `null` means "don't touch". Returns the updated row. */
+  aiUpdateProvider(
+    providerId: string,
+    nickname: string | null,
+    newKey: string | null,
+  ): Promise<ProviderRecord> {
+    return invoke<ProviderRecord>("ai_update_provider", {
+      providerId,
+      nickname,
+      newKey,
+    });
+  },
+
+  /** Delete a connected provider row + its keychain entry. If the row
+   * was active, the layer goes dormant until the user picks another. */
+  aiDeleteProvider(providerId: string): Promise<void> {
+    return invoke<void>("ai_delete_provider", { providerId });
+  },
+
+  /** Choose which connected provider is active. Empty string clears
+   * the selection. */
+  aiSetActiveProvider(providerId: string): Promise<void> {
+    return invoke<void>("ai_set_active_provider", { providerId });
+  },
+
+  /** Legacy single-provider shim (PR #74-deprecated — kept for the
+   * onboarding wizard's "pick a provider" step until PR M's wizard
+   * rework lands). Routes through the providers table. */
   aiSetProvider(provider: AiProvider | null): Promise<void> {
     return invoke<void>("ai_set_provider", { provider });
   },
 
-  /** Store the user-supplied API key. The value goes ONLY to the OS
-   * keychain — never SQLite, never logs, never URLs. */
+  /** Legacy single-provider shim (PR #74-deprecated). Creates a
+   * default-nicknamed Connected Provider — useful only for the
+   * onboarding wizard. New surfaces should call `aiAddProvider`. */
   aiSetProviderKey(provider: AiProvider, key: string): Promise<void> {
     return invoke<void>("ai_set_provider_key", { provider, key });
   },

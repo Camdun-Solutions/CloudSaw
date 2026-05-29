@@ -34,6 +34,7 @@ import {
   type LockPeriod,
   type LockSettings,
   type PanicWipeResult,
+  type ProviderRecord,
   type ReportSettings as ReportSettingsT,
   type RetentionPeriod,
   type RetentionSettings,
@@ -1548,14 +1549,281 @@ function GithubSection() {
 
 // --- AI Suggestion Layer (Contract 13) ----------------------------------
 
+/** PR #74 — Add Provider modal. Three fields: Provider Type +
+ * Nickname + API Key. The key never re-renders after submit; the
+ * keychain owns it from here on. */
+function AddProviderModal({
+  open,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const t = useT();
+  const formatError = useIpcError();
+  const [providerType, setProviderType] = useState<AiProvider>("anthropic");
+  const [nickname, setNickname] = useState("");
+  const [keyInput, setKeyInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Reset state every time the modal opens so a previous attempt
+  // doesn't leak its (rejected) key into the next session.
+  useEffect(() => {
+    if (open) {
+      setProviderType("anthropic");
+      setNickname("");
+      setKeyInput("");
+      setBusy(false);
+      setErr(null);
+    }
+  }, [open]);
+
+  async function submit() {
+    setErr(null);
+    if (!nickname.trim()) {
+      setErr(t("ai.providers.error.no_nickname"));
+      return;
+    }
+    if (!keyInput.trim()) {
+      setErr(t("ai.providers.error.no_key"));
+      return;
+    }
+    setBusy(true);
+    try {
+      await ipc.aiAddProvider(providerType, nickname.trim(), keyInput);
+      setKeyInput("");
+      onSaved();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) return null;
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t("ai.providers.add_title")}
+      data-testid="ai-provider-add-modal"
+    >
+      <div className="flex flex-col gap-4">
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("ai.provider.label")}</span>
+          <select
+            value={providerType}
+            onChange={(e) => setProviderType(e.target.value as AiProvider)}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+            data-testid="ai-provider-add-type"
+          >
+            <option value="anthropic">{t("ai.provider.anthropic")}</option>
+            <option value="openai">{t("ai.provider.openai")}</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("ai.providers.nickname")}</span>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value.slice(0, 60))}
+            placeholder={t("ai.providers.nickname_placeholder")}
+            maxLength={60}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+            data-testid="ai-provider-add-nickname"
+          />
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("ai.providers.nickname_hint")}
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("ai.key.label")}</span>
+          <input
+            type="password"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder={
+              providerType === "anthropic"
+                ? t("ai.key.placeholder_anthropic")
+                : t("ai.key.placeholder_openai")
+            }
+            autoComplete="off"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
+            data-testid="ai-provider-add-key"
+          />
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("ai.key.hint")}
+          </span>
+        </label>
+        {err ? (
+          <p role="alert" className="text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+        <div className="mt-2 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            data-testid="ai-provider-add-cancel"
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void submit()}
+            disabled={busy || !nickname.trim() || !keyInput.trim()}
+            data-testid="ai-provider-add-submit"
+          >
+            {busy ? t("ai.key.saving") : t("ai.providers.add")}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** PR #74 — Edit Provider modal. Lets the user rename the row and/or
+ * paste a new key. Both fields are optional; the IPC accepts `null`
+ * for "don't touch." The provider type can NOT be changed (it's the
+ * shape of the API the keychain key satisfies). */
+function EditProviderModal({
+  provider,
+  onClose,
+  onSaved,
+}: {
+  provider: ProviderRecord | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const t = useT();
+  const formatError = useIpcError();
+  const [nickname, setNickname] = useState("");
+  const [keyInput, setKeyInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (provider) {
+      setNickname(provider.nickname);
+      setKeyInput("");
+      setBusy(false);
+      setErr(null);
+    }
+  }, [provider]);
+
+  if (!provider) return null;
+
+  async function submit() {
+    if (!provider) return;
+    setErr(null);
+    const trimmedNick = nickname.trim();
+    if (!trimmedNick) {
+      setErr(t("ai.providers.error.no_nickname"));
+      return;
+    }
+    const nicknameChanged = trimmedNick !== provider.nickname;
+    const keyChanged = keyInput.trim().length > 0;
+    if (!nicknameChanged && !keyChanged) {
+      onClose();
+      return;
+    }
+    setBusy(true);
+    try {
+      await ipc.aiUpdateProvider(
+        provider.provider_id,
+        nicknameChanged ? trimmedNick : null,
+        keyChanged ? keyInput : null,
+      );
+      setKeyInput("");
+      onSaved();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t("ai.providers.edit_title")}
+      data-testid="ai-provider-edit-modal"
+    >
+      <div className="flex flex-col gap-4">
+        <div className="text-small text-saw-grey-600 dark:text-saw-grey-400">
+          {t(`ai.provider.${provider.provider_type}`)} · ****
+          {provider.key_last4 || "XXXX"}
+        </div>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("ai.providers.nickname")}</span>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value.slice(0, 60))}
+            maxLength={60}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+            data-testid="ai-provider-edit-nickname"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("ai.providers.new_key")}</span>
+          <input
+            type="password"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder={t("ai.providers.new_key_placeholder")}
+            autoComplete="off"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
+            data-testid="ai-provider-edit-key"
+          />
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("ai.providers.new_key_hint")}
+          </span>
+        </label>
+        {err ? (
+          <p role="alert" className="text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+        <div className="mt-2 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            data-testid="ai-provider-edit-cancel"
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void submit()}
+            disabled={busy}
+            data-testid="ai-provider-edit-submit"
+          >
+            {busy ? t("ai.key.saving") : t("common.save")}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function AiSection() {
   const t = useT();
   const formatError = useIpcError();
   const [settings, setSettings] = useState<AiSettingsT | null>(null);
-  const [provider, setProvider] = useState<AiProvider | "">("");
-  const [keyInput, setKeyInput] = useState("");
-  const [keyBusy, setKeyBusy] = useState(false);
-  const [keySaved, setKeySaved] = useState(false);
+  // PR #74 — multi-provider list. Renders one row per connected
+  // provider; each row has a meatball menu with Edit / Delete.
+  const [providers, setProviders] = useState<ProviderRecord[]>([]);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editProvider, setEditProvider] = useState<ProviderRecord | null>(null);
+  const [deleteProvider, setDeleteProvider] = useState<ProviderRecord | null>(
+    null,
+  );
   const [context, setContext] = useState<BusinessContext | null>(null);
   const [ctxSaved, setCtxSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1567,9 +1835,12 @@ function AiSection() {
 
   const reload = useCallback(async () => {
     try {
-      const s = await ipc.aiGetSettings();
+      const [s, list] = await Promise.all([
+        ipc.aiGetSettings(),
+        ipc.aiListProviders(),
+      ]);
       setSettings(s);
-      setProvider(s.provider ?? "");
+      setProviders(list);
       setContext(s.context);
     } catch (e) {
       setErr(formatError(e));
@@ -1582,40 +1853,23 @@ function AiSection() {
 
   if (!settings || !context) return null;
 
-  async function saveProvider() {
+  async function setActive(providerId: string) {
     setErr(null);
+    setOpenMenuId(null);
     try {
-      await ipc.aiSetProvider(provider === "" ? null : provider);
+      await ipc.aiSetActiveProvider(providerId);
       await reload();
     } catch (e) {
       setErr(formatError(e));
     }
   }
-  async function saveKey() {
+
+  async function confirmDelete() {
+    if (!deleteProvider) return;
     setErr(null);
-    if (provider === "") {
-      setErr(t("ai.error.no_provider"));
-      return;
-    }
-    setKeyBusy(true);
-    setKeySaved(false);
     try {
-      await ipc.aiSetProviderKey(provider, keyInput);
-      setKeyInput("");
-      setKeySaved(true);
-      window.setTimeout(() => setKeySaved(false), 3000);
-      await reload();
-    } catch (e) {
-      setErr(formatError(e));
-    } finally {
-      setKeyBusy(false);
-    }
-  }
-  async function clearKey() {
-    setErr(null);
-    if (provider === "") return;
-    try {
-      await ipc.aiClearProviderKey(provider);
+      await ipc.aiDeleteProvider(deleteProvider.provider_id);
+      setDeleteProvider(null);
       await reload();
     } catch (e) {
       setErr(formatError(e));
@@ -1711,84 +1965,179 @@ function AiSection() {
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-          <span>{t("ai.provider.label")}</span>
-          <select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value as AiProvider | "")}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
-            data-testid="ai-provider-select"
-          >
-            <option value="">{t("ai.provider.none")}</option>
-            <option value="anthropic">{t("ai.provider.anthropic")}</option>
-            <option value="openai">{t("ai.provider.openai")}</option>
-          </select>
-        </label>
-        <div>
+        {/* PR #74 — Connected Providers list. Each row shows
+            "{nickname} ({provider_type})" + ****XXXX + an active
+            indicator. The meatball menu offers Edit (modal, nickname
+            and/or new key) and Delete (red destructive). "Add
+            provider" opens the new-provider modal with the same
+            shape. The real key only ever lives in the keychain — the
+            ipc surface returns `key_last4` only. */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
+              {t("ai.providers.title")}
+            </div>
+            <div className="text-small text-saw-grey-600 dark:text-saw-grey-400 mt-1">
+              {t("ai.providers.subtitle")}
+            </div>
+          </div>
           <Button
-            variant="secondary"
-            onClick={() => void saveProvider()}
-            data-testid="ai-provider-save"
+            variant="primary"
+            onClick={() => setAddOpen(true)}
+            data-testid="ai-provider-add"
           >
-            {provider === "" ? t("ai.provider.clear") : t("ai.provider.set")}
+            {t("ai.providers.add")}
           </Button>
         </div>
+        {providers.length === 0 ? (
+          <div
+            className="rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-4 text-small text-saw-grey-700 dark:text-saw-grey-300"
+            data-testid="ai-providers-empty"
+          >
+            {t("ai.providers.empty")}
+          </div>
+        ) : (
+          <ul
+            className="flex flex-col gap-2"
+            data-testid="ai-providers-list"
+          >
+            {providers.map((p) => (
+              <li
+                key={p.provider_id}
+                className="relative flex items-center justify-between gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-4 py-3"
+                data-testid={`ai-provider-row-${p.provider_id}`}
+              >
+                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-body text-saw-grey-900 dark:text-saw-beige">
+                    <span className="font-medium truncate">{p.nickname}</span>
+                    <span className="text-small text-saw-grey-500 dark:text-saw-grey-400">
+                      ({t(`ai.provider.${p.provider_type}`)})
+                    </span>
+                    {p.is_active ? (
+                      <span
+                        className="ml-1 inline-flex items-center rounded-pill bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-xs font-medium text-saw-grey-700 dark:text-saw-grey-300"
+                        data-testid={`ai-provider-active-${p.provider_id}`}
+                      >
+                        {t("ai.providers.active")}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-small font-mono text-saw-grey-500 dark:text-saw-grey-400">
+                    ****{p.key_last4 || "XXXX"}
+                  </div>
+                </div>
+                {!p.is_active ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => void setActive(p.provider_id)}
+                    data-testid={`ai-provider-activate-${p.provider_id}`}
+                  >
+                    {t("ai.providers.set_active")}
+                  </Button>
+                ) : null}
+                <div className="relative">
+                  <button
+                    type="button"
+                    aria-label={t("ai.providers.actions")}
+                    onClick={() =>
+                      setOpenMenuId(
+                        openMenuId === p.provider_id ? null : p.provider_id,
+                      )
+                    }
+                    className="rounded-card p-2 text-saw-grey-600 dark:text-saw-grey-300 hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 focus:outline-none focus:ring-2 focus:ring-saw-red"
+                    data-testid={`ai-provider-menu-${p.provider_id}`}
+                  >
+                    {/* Meatball glyph — three horizontal dots. */}
+                    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                      <circle cx="3" cy="8" r="1.5" fill="currentColor" />
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                      <circle cx="13" cy="8" r="1.5" fill="currentColor" />
+                    </svg>
+                  </button>
+                  {openMenuId === p.provider_id ? (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full mt-1 z-10 min-w-[140px] rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark shadow-lg"
+                      data-testid={`ai-provider-menu-popup-${p.provider_id}`}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setEditProvider(p);
+                          setOpenMenuId(null);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-small text-saw-grey-900 dark:text-saw-beige hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800"
+                        data-testid={`ai-provider-edit-${p.provider_id}`}
+                      >
+                        {t("ai.providers.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setDeleteProvider(p);
+                          setOpenMenuId(null);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-small text-saw-red hover:bg-saw-red/5"
+                        data-testid={`ai-provider-delete-${p.provider_id}`}
+                      >
+                        {t("ai.providers.delete")}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
 
-        {provider !== "" ? (
-          <>
-            <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
-              <span>{t("ai.key.label")}</span>
-              <input
-                type="password"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder={
-                  provider === "anthropic"
-                    ? t("ai.key.placeholder_anthropic")
-                    : t("ai.key.placeholder_openai")
-                }
-                autoComplete="off"
-                className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
-                data-testid="ai-key-input"
-              />
-              <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">{t("ai.key.hint")}</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                onClick={() => void saveKey()}
-                disabled={keyBusy || keyInput.trim().length === 0}
-                data-testid="ai-key-save"
-              >
-                {keyBusy ? t("ai.key.saving") : t("ai.key.save")}
-              </Button>
-              {settings.key_connected ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => void clearKey()}
-                  data-testid="ai-key-clear"
-                >
-                  {t("ai.key.clear")}
-                </Button>
-              ) : null}
-            </div>
-            <p
-              className="text-small text-saw-grey-700 dark:text-saw-grey-300"
-              data-testid="ai-key-status"
-            >
-              {settings.key_connected
-                ? t("ai.key.connected")
-                : t("ai.key.not_connected")}
+        <AddProviderModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onSaved={() => {
+            setAddOpen(false);
+            void reload();
+          }}
+        />
+        <EditProviderModal
+          provider={editProvider}
+          onClose={() => setEditProvider(null)}
+          onSaved={() => {
+            setEditProvider(null);
+            void reload();
+          }}
+        />
+        {deleteProvider ? (
+          <Modal
+            open
+            onClose={() => setDeleteProvider(null)}
+            title={t("ai.providers.delete_title")}
+            data-testid="ai-provider-delete-modal"
+          >
+            <p className="text-body text-saw-grey-800 dark:text-saw-beige">
+              {t("ai.providers.delete_confirm").replace(
+                "{nickname}",
+                deleteProvider.nickname,
+              )}
             </p>
-            {keySaved ? (
-              <p
-                role="status"
-                className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-grey-700 dark:text-saw-grey-300"
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setDeleteProvider(null)}
+                data-testid="ai-provider-delete-cancel"
               >
-                {t("ai.key.connected")}
-              </p>
-            ) : null}
-          </>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => void confirmDelete()}
+                data-testid="ai-provider-delete-confirm"
+              >
+                {t("ai.providers.delete")}
+              </Button>
+            </div>
+          </Modal>
         ) : null}
       </div>
     </section>

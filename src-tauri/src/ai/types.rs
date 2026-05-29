@@ -199,6 +199,13 @@ pub struct FindingDigest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiRequestPreview {
     pub provider: Provider,
+    /// PR #74 — `provider_id` of the connected provider row whose
+    /// keychain slot will be used to authorize this request. Required
+    /// for the multi-provider model: the same `provider` type may have
+    /// several rows, each with its own key. The send path reads the
+    /// key from `cloudsaw.llm_api_key` with `account = provider_id`.
+    #[serde(default)]
+    pub provider_id: String,
     pub model: String,
     /// The system prompt the provider receives. Constant template;
     /// no per-call substitution other than the digest values below.

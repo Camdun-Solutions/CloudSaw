@@ -124,7 +124,14 @@ struct CapturedRequest {
     title: String,
     body: String,
     labels: Vec<String>,
+    // `repo_owner` / `repo_name` are captured for completeness of the
+    // request record even though no current assertion reads them —
+    // leaving them available makes it trivial for future tests to
+    // verify routing. Marked `dead_code` to keep `clippy -D warnings`
+    // green.
+    #[allow(dead_code)]
     repo_owner: String,
+    #[allow(dead_code)]
     repo_name: String,
 }
 

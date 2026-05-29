@@ -50,7 +50,11 @@ const OPENAI_DEFAULT_MODEL: &str = "gpt-4o-mini";
 /// Build the preview the UI must show to the user. The result is the
 /// EXACT payload that would be sent to the provider — there is no
 /// further rewriting in the client.
-pub fn build_preview(provider: Provider, finding_id: &str) -> Result<AiRequestPreview, AiError> {
+pub fn build_preview(
+    provider: Provider,
+    provider_id: &str,
+    finding_id: &str,
+) -> Result<AiRequestPreview, AiError> {
     if finding_id.len() != 64 || !finding_id.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(AiError::InvalidInput("finding_id"));
     }
@@ -85,6 +89,7 @@ pub fn build_preview(provider: Provider, finding_id: &str) -> Result<AiRequestPr
 
     Ok(AiRequestPreview {
         provider,
+        provider_id: provider_id.to_string(),
         model: model.to_string(),
         system_prompt,
         user_message,

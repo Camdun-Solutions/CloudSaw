@@ -50,6 +50,45 @@ pub fn has(provider: Provider) -> Result<bool, AiError> {
     Ok(get(provider)?.is_some())
 }
 
+// PR #74 — per-provider-id keychain helpers. The multi-provider model
+// (see ai::providers) stores one key per `provider_id` slug instead of
+// one per provider TYPE. Legacy single-provider rows kept their
+// account name (`anthropic` | `openai`) as the provider_id so the
+// existing keychain entry is reusable without a transfer step.
+
+/// Set the key for an `add()`-generated provider_id. Trim + shape-check
+/// before persisting.
+pub fn set_for_id(provider_id: &str, value: Zeroizing<String>) -> Result<(), AiError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(AiError::InvalidInput("ai_api_key"));
+    }
+    keychain::set(LLM_KEY_SERVICE, provider_id, trimmed).map_err(|_| AiError::Network)
+}
+
+/// Read the key for a provider_id. Returns `None` if the keychain
+/// entry was deleted out-of-band (e.g. by `keychain::wipe_all`).
+pub fn get_for_id(provider_id: &str) -> Result<Option<Zeroizing<String>>, AiError> {
+    match keychain::get(LLM_KEY_SERVICE, provider_id) {
+        Ok(Some(s)) => Ok(Some(Zeroizing::new(s))),
+        Ok(None) => Ok(None),
+        Err(_) => Err(AiError::Network),
+    }
+}
+
+/// Remove the keychain entry for a provider_id. Soft-errors are
+/// surfaced as `AiError::Network`; "no such entry" is `Ok(())`.
+pub fn clear_for_id(provider_id: &str) -> Result<(), AiError> {
+    keychain::delete(LLM_KEY_SERVICE, provider_id)
+        .map(|_| ())
+        .map_err(|_| AiError::Network)
+}
+
+/// Whether the keychain has a key for a provider_id.
+pub fn has_for_id(provider_id: &str) -> Result<bool, AiError> {
+    Ok(get_for_id(provider_id)?.is_some())
+}
+
 /// Shape check per provider. We accept Anthropic's `sk-ant-…` and
 /// OpenAI's `sk-…` (length-bounded). The check is intentionally lax —
 /// providers rotate prefixes, so the network layer is the authority on
