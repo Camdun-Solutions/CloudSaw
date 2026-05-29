@@ -33,8 +33,7 @@ use super::types::{ControlReference, KnowledgeArticle};
 /// Static raw JSON, generated from `vendor/scoutsuite/ScoutSuite/providers/
 /// aws/rules/findings/*.json` by the extraction script. Bumped whenever the
 /// vendored ScoutSuite source updates.
-const SCOUTSUITE_METADATA_JSON: &str =
-    include_str!("../../knowledgebase/scoutsuite_metadata.json");
+const SCOUTSUITE_METADATA_JSON: &str = include_str!("../../knowledgebase/scoutsuite_metadata.json");
 
 /// Lazy-parsed map keyed by ScoutSuite rule_key (e.g. `iam-user-no-mfa`).
 /// Re-using OnceLock keeps the parse cost paid exactly once per process.
@@ -118,8 +117,7 @@ pub fn overlay_into_article(
     // paragraph counts as trivial (matched=false) and gets replaced;
     // an article whose remediation is empty whitespace gets replaced
     // too. A real article with content always wins.
-    let should_overlay_remediation =
-        !article.matched || article.remediation.trim().is_empty();
+    let should_overlay_remediation = !article.matched || article.remediation.trim().is_empty();
     if should_overlay_remediation {
         if let Some(remediation) = entry.and_then(|e| e.remediation.as_ref()) {
             article.remediation = remediation.clone();

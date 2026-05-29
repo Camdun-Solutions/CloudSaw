@@ -230,11 +230,14 @@ fn qa_happy_remote_refresh_replaces_content_when_applied() {
     assert_eq!(article.description, "From remote bundle.");
 
     // A finding from the bundled set is now NOT available — the remote
-    // bundle is the authoritative source while active.
+    // bundle is the authoritative source while active. PR #82 made the
+    // overlay always synthesize a baseline `remediation`, so `matched`
+    // is no longer a sad-path signal; the "no real article" signal is
+    // now an empty `description` (the default article shape).
     let bundled_lookup = knowledgebase::get_article("iam-user-no-mfa").unwrap();
     assert!(
-        !bundled_lookup.matched,
-        "remote bundle replaces bundled set"
+        bundled_lookup.description.is_empty(),
+        "remote bundle replaces bundled set: no description for bundled finding when remote is active"
     );
 
     // ... but disabling reverts to bundled.
@@ -253,17 +256,26 @@ fn qa_happy_remote_refresh_replaces_content_when_applied() {
 // ============================================================================
 
 #[test]
-fn qa_error_uncovered_finding_returns_default_with_matched_false() {
+fn qa_error_uncovered_finding_returns_default_with_baseline_remediation() {
+    // PR #82 changed the contract: every finding now gets a remediation
+    // (hand-authored → ScoutSuite upstream → service-keyed baseline) and
+    // `matched` is promoted to true whenever the overlay populates one,
+    // so the frontend renders the article body for every finding.
+    // The "no hand-authored article" signal is now an empty `description`
+    // (`KnowledgeArticle::default_for` no longer pre-fills it).
     let _sb = Sandbox::new("error-uncovered");
     let a = knowledgebase::get_article("ec2-eldritch-horror-finding-not-real").unwrap();
-    assert!(!a.matched);
     assert!(
-        !a.description.is_empty(),
-        "default article still renders something"
+        a.description.is_empty(),
+        "no hand-authored article → default shape has empty description"
     );
     assert!(
         !a.remediation.is_empty(),
-        "default article still gives a hint"
+        "service-keyed baseline still gives a hint"
+    );
+    assert!(
+        a.matched,
+        "overlay promotes matched=true once baseline remediation lands"
     );
 }
 
@@ -508,8 +520,16 @@ fn qa_state_bundled_to_remote_to_failure_to_revert() {
     let a3 = knowledgebase::get_article("iam-user-no-mfa").unwrap();
     assert!(a3.matched);
     assert_eq!(a3.source, KnowledgeSource::Bundled);
+    // PR #82: `matched` is no longer the sad-path signal — the overlay
+    // synthesizes a baseline remediation for any rule_key, so `matched`
+    // is true even for findings whose markdown body isn't in the active
+    // source. An empty `description` is the real "no article found"
+    // signal (the default shape leaves it blank).
     let after = knowledgebase::get_article("state-article").unwrap();
-    assert!(!after.matched, "remote-only article gone after disable");
+    assert!(
+        after.description.is_empty(),
+        "remote-only article gone after disable: no description in bundled source"
+    );
 }
 
 #[test]

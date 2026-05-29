@@ -375,7 +375,18 @@ fn walk_resource_entity(
         Some(o) => o,
         None => return (None, None, None, BTreeMap::new()),
     };
-    let name = pick_string(obj, &["name", "Name", "UserName", "RoleName", "PolicyName", "GroupName", "BucketName"]);
+    let name = pick_string(
+        obj,
+        &[
+            "name",
+            "Name",
+            "UserName",
+            "RoleName",
+            "PolicyName",
+            "GroupName",
+            "BucketName",
+        ],
+    );
     let arn = pick_string(obj, &["arn", "Arn", "ARN"]);
     let id_value = pick_string(obj, &["id", "Id", "ID"]);
     let mut attributes: BTreeMap<String, Value> = BTreeMap::new();
@@ -387,9 +398,19 @@ fn walk_resource_entity(
         let key = k.as_str();
         if matches!(
             key,
-            "name" | "Name" | "UserName" | "RoleName" | "PolicyName" | "GroupName" | "BucketName"
-                | "arn" | "Arn" | "ARN"
-                | "id" | "Id" | "ID"
+            "name"
+                | "Name"
+                | "UserName"
+                | "RoleName"
+                | "PolicyName"
+                | "GroupName"
+                | "BucketName"
+                | "arn"
+                | "Arn"
+                | "ARN"
+                | "id"
+                | "Id"
+                | "ID"
         ) {
             continue;
         }
@@ -406,18 +427,25 @@ fn walk_resource_entity(
 
 fn has_identity_scalar(obj: &serde_json::Map<String, Value>) -> bool {
     const KEYS: &[&str] = &[
-        "name", "Name", "UserName", "RoleName", "PolicyName", "GroupName", "BucketName",
-        "arn", "Arn", "ARN",
-        "id", "Id", "ID",
+        "name",
+        "Name",
+        "UserName",
+        "RoleName",
+        "PolicyName",
+        "GroupName",
+        "BucketName",
+        "arn",
+        "Arn",
+        "ARN",
+        "id",
+        "Id",
+        "ID",
     ];
     KEYS.iter()
         .any(|k| matches!(obj.get(*k), Some(v) if v.is_string()))
 }
 
-fn pick_string(
-    obj: &serde_json::Map<String, Value>,
-    candidates: &[&str],
-) -> Option<String> {
+fn pick_string(obj: &serde_json::Map<String, Value>, candidates: &[&str]) -> Option<String> {
     for k in candidates {
         if let Some(s) = obj.get(*k).and_then(|v| v.as_str()) {
             if !s.is_empty() {
