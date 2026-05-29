@@ -70,7 +70,9 @@ export default function ReportBugFlag() {
             setOpen(true);
           }}
           aria-label={t("report_bug.flag_label")}
-          title={t("report_bug.flag_label")}
+          // PR #69: `title` removed — the custom hover chip below
+          // already surfaces the label, and the native tooltip
+          // created a second copy showing on top of it.
           className="inline-flex h-6 w-6 items-center justify-center rounded text-saw-grey-500 hover:text-saw-grey-700 dark:text-saw-grey-400 dark:hover:text-saw-grey-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-saw-red"
           data-testid="report-bug-flag-button"
         >
@@ -105,7 +107,10 @@ export default function ReportBugFlag() {
           <p className="text-body text-saw-grey-700 dark:text-saw-grey-300">
             {t("report_bug.modal_body")}
           </p>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          {/* PR #69: center the two CTAs. The previous layout pinned
+              the buttons against the left edge; the user wanted the
+              row centered within the modal body. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Button
               variant="primary"
               onClick={() => void openExternal(GITHUB_ISSUES_URL)}

@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, Modal, PasswordField, Select, Switch } from "@/components";
+import { Button, Modal, PasswordField, Select, Switch, TagInput } from "@/components";
 import { useAppearance } from "@/hooks/useAppearance";
 import { useT } from "@/hooks/useT";
 import { useIpcError } from "@/hooks/useIpcError";
@@ -16,6 +16,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import Accounts from "@/routes/Accounts";
 import ActivityLog from "@/routes/ActivityLog";
 import ScheduledScans from "@/routes/ScheduledScans";
+import { CustomReportModal } from "@/components";
 import {
   isScanNotificationsEnabled,
   setScanNotificationsEnabled,
@@ -23,6 +24,8 @@ import {
 
 import {
   ipc,
+  JOB_ROLE_MAX_LEN,
+  KNOWN_COMPLIANCE_FRAMEWORKS,
   type AiProvider,
   type AiSettings as AiSettingsT,
   type BusinessContext,
@@ -112,9 +115,6 @@ const CHOICE_TO_PERIOD = (c: PeriodChoice): LockPeriod => {
 };
 
 type Props = {
-  onClose: () => void;
-  /** Open the custom-report builder (Contract 15B). */
-  onOpenCustomReport?: () => void;
   /** Optional deep-link target. When set, Settings opens with the
    *  given left-nav section pre-selected instead of the default
    *  `app_lock`. PR #63 (scan-modal Settings CTAs) uses this to land
@@ -129,8 +129,6 @@ type Props = {
 };
 
 export default function Settings({
-  onClose,
-  onOpenCustomReport,
   initialSection,
   initialSectionNonce,
 }: Props) {
@@ -193,15 +191,8 @@ export default function Settings({
     }
   }
 
-  async function onLock() {
-    try {
-      await ipc.applockLock();
-      await refresh();
-      onClose();
-    } catch (err) {
-      setSaveError(formatError(err));
-    }
-  }
+  // PR #69: `onLock` helper removed alongside the App-lock "Lock now"
+  // button — the persistent TopNav already exposes a lock icon.
 
   if (!state) return null;
 
@@ -285,7 +276,14 @@ export default function Settings({
           })}
         </nav>
 
-        <div className="min-w-0 flex-1" data-testid="settings-panel">
+        {/* PR #69: right-panel cards now align with the sticky left
+            nav's top edge. Sections previously carried their own
+            `mt-6` which pushed the top edge ~24px below the nav.
+            Spacing between stacked sections inside a single panel
+            (the Reset section + Panic section, etc.) comes from
+            `space-y-6` here so single-section panels render flush
+            and stacked panels still breathe. */}
+        <div className="min-w-0 flex-1 space-y-6" data-testid="settings-panel">
 
       {activeSection === "app_lock" && (
       <section
@@ -359,13 +357,9 @@ export default function Settings({
             >
               {t("applock.settings.change_password")}
             </Button>
-            <Button
-              variant="ghost"
-              onClick={onLock}
-              data-testid="settings-lock-now"
-            >
-              {t("applock.settings.lock_now")}
-            </Button>
+            {/* PR #69: "Lock now" removed from App lock settings —
+                the persistent TopNav already exposes a lock icon,
+                so the duplicate button was redundant. */}
           </div>
         </div>
       </section>
@@ -402,9 +396,7 @@ export default function Settings({
           of the section). The Settings wrapper for this entry is
           just a direct render. */}
       {activeSection === "activity_log" && <ActivityLog />}
-      {activeSection === "report" && (
-        <ReportSection onOpenCustomReport={onOpenCustomReport} />
-      )}
+      {activeSection === "report" && <ReportSection />}
       {activeSection === "retention" && <RetentionSection />}
       {activeSection === "updates" && <UpdatesSection />}
       {activeSection === "github" && <GithubSection />}
@@ -620,7 +612,7 @@ function UpdatesSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-updates"
       aria-labelledby="settings-updates-title"
     >
@@ -847,7 +839,7 @@ function RetentionSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-retention"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -998,7 +990,7 @@ function PanicSection() {
           user who just wants a fresh-install experience finds the
           less destructive option first. */}
       <section
-        className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+        className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
         data-testid="settings-section-reset"
       >
         <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -1022,7 +1014,7 @@ function PanicSection() {
       </section>
 
       <section
-        className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-red/40 p-6"
+        className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-red/40 p-6"
         data-testid="settings-section-panic"
       >
         <h2 className="text-h3 font-semibold text-saw-red">{t("panic.section_title")}</h2>
@@ -1431,7 +1423,7 @@ function GithubSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-github"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -1566,7 +1558,6 @@ function AiSection() {
   const [keySaved, setKeySaved] = useState(false);
   const [context, setContext] = useState<BusinessContext | null>(null);
   const [ctxSaved, setCtxSaved] = useState(false);
-  const [complianceInput, setComplianceInput] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -1575,7 +1566,6 @@ function AiSection() {
       setSettings(s);
       setProvider(s.provider ?? "");
       setContext(s.context);
-      setComplianceInput(s.context.compliance.join(", "));
     } catch (e) {
       setErr(formatError(e));
     }
@@ -1631,12 +1621,10 @@ function AiSection() {
     if (!context) return;
     setCtxSaved(false);
     try {
-      const compliance = complianceInput
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-      const next: BusinessContext = { ...context, compliance };
-      await ipc.aiSetBusinessContext(next);
+      // PR #69: compliance is now stored directly on the context
+      // (managed by the TagInput pill editor) instead of a
+      // comma-delimited string buffer.
+      await ipc.aiSetBusinessContext(context);
       setCtxSaved(true);
       window.setTimeout(() => setCtxSaved(false), 3000);
       await reload();
@@ -1667,7 +1655,7 @@ function AiSection() {
 
   return (
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-ai"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -1798,14 +1786,36 @@ function AiSection() {
             className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
             data-testid="ai-ctx-industry"
           />
-          {settings.flags.industry_identifying ? (
-            <span
-              className="text-xs text-saw-red"
-              data-testid="ai-ctx-industry-warn"
-            >
-              {t("ai.context.industry_warn")}
+          {/* PR #69: identifying-content warning hint removed. */}
+        </label>
+
+        {/* PR #69: Job role textarea, capped at 500 chars. Sits
+            directly below the Industry field. */}
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
+          <span>{t("ai.context.job_role")}</span>
+          <textarea
+            value={context.job_role}
+            onChange={(e) =>
+              setContext({
+                ...context,
+                job_role: e.target.value.slice(0, JOB_ROLE_MAX_LEN),
+              })
+            }
+            placeholder={t("ai.context.job_role_placeholder")}
+            maxLength={JOB_ROLE_MAX_LEN}
+            rows={3}
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige"
+            data-testid="ai-ctx-job-role"
+          />
+          <span
+            className="flex items-center justify-between text-xs text-saw-grey-500 dark:text-saw-grey-400"
+            data-testid="ai-ctx-job-role-meta"
+          >
+            <span>{t("ai.context.job_role_hint")}</span>
+            <span>
+              {context.job_role.length}/{JOB_ROLE_MAX_LEN}
             </span>
-          ) : null}
+          </span>
         </label>
 
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
@@ -1829,24 +1839,25 @@ function AiSection() {
           </select>
         </label>
 
+        {/* PR #69: Compliance obligations are now a pill editor.
+            Typing surfaces suggestions from KNOWN_COMPLIANCE_FRAMEWORKS
+            (US + EU + Asia). Enter / comma / clicking a suggestion
+            adds the value as a pill; custom values not in the list
+            are accepted via the comma delimiter. The identifying-
+            content warning was removed per user spec. */}
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.compliance")}</span>
-          <input
-            type="text"
-            value={complianceInput}
-            onChange={(e) => setComplianceInput(e.target.value)}
+          <TagInput
+            value={context.compliance}
+            onChange={(next) =>
+              setContext({ ...context, compliance: next })
+            }
+            suggestions={KNOWN_COMPLIANCE_FRAMEWORKS}
             placeholder={t("ai.context.compliance_placeholder")}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
+            maxTags={20}
+            maxTagLength={40}
             data-testid="ai-ctx-compliance"
           />
-          {settings.flags.compliance_identifying ? (
-            <span
-              className="text-xs text-saw-red"
-              data-testid="ai-ctx-compliance-warn"
-            >
-              {t("ai.context.compliance_warn")}
-            </span>
-          ) : null}
         </label>
 
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
@@ -1922,11 +1933,7 @@ function AiSection() {
 
 // --- Report exporter section (Contract 15) -----------------------------
 
-function ReportSection({
-  onOpenCustomReport,
-}: {
-  onOpenCustomReport?: () => void;
-}) {
+function ReportSection() {
   const t = useT();
   const formatError = useIpcError();
   const [settings, setSettings] = useState<ReportSettingsT | null>(null);
@@ -1934,6 +1941,9 @@ function ReportSection({
   const [pickerBusy, setPickerBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // PR #69: Custom report is now a modal inside the Reports tab,
+  // not a separate route.
+  const [customOpen, setCustomOpen] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -1980,8 +1990,33 @@ function ReportSection({
   }
 
   return (
+    <>
+    {/* PR #69: Custom report gets its own subsection above the
+        auto-export settings. Title + description + a single
+        primary CTA that opens the modal. */}
     <section
-      className="mt-6 max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      data-testid="settings-section-custom-report"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
+        {t("report.custom.section_title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
+        {t("report.custom.section_subtitle")}
+      </p>
+      <div className="mt-4">
+        <Button
+          variant="primary"
+          onClick={() => setCustomOpen(true)}
+          data-testid="settings-open-custom-report"
+        >
+          {t("report.custom.cta")}
+        </Button>
+      </div>
+    </section>
+
+    <section
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-report"
     >
       <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -1992,18 +2027,6 @@ function ReportSection({
       </p>
 
       <div className="mt-4 flex flex-col gap-4">
-        {onOpenCustomReport ? (
-          <div>
-            <Button
-              variant="secondary"
-              onClick={onOpenCustomReport}
-              data-testid="settings-open-custom-report"
-            >
-              {t("report.custom.cta")}
-            </Button>
-          </div>
-        ) : null}
-
         <label className="flex items-start gap-2 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <input
             type="checkbox"
@@ -2078,5 +2101,11 @@ function ReportSection({
         ) : null}
       </div>
     </section>
+
+    <CustomReportModal
+      open={customOpen}
+      onClose={() => setCustomOpen(false)}
+    />
+    </>
   );
 }

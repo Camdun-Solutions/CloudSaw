@@ -134,6 +134,14 @@ impl TeamSize {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BusinessContext {
     pub industry: String,
+    /// PR #69 — Job role / "what the user uses CloudSaw for". Up to
+    /// 500 characters (validated in `write_context`). Surfaces in
+    /// the AI prompt builder so suggestions can take the user's
+    /// role into account (e.g. "I'm the lone SRE for a mid-size
+    /// SaaS"). Free-form; the user owns whether to disclose
+    /// anything identifying.
+    #[serde(default)]
+    pub job_role: String,
     pub environment_type: EnvironmentType,
     pub compliance: Vec<String>,
     pub risk_tolerance: RiskTolerance,

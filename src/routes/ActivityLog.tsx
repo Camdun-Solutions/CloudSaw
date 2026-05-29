@@ -106,7 +106,7 @@ export default function ActivityLog() {
 
   return (
     <section
-      className="mt-6 max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-5xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-activity_log"
     >
       {/* PR #67: Export button anchored at the top-right of the
