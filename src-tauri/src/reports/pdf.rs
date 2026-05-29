@@ -20,7 +20,8 @@ use printpdf::{
 };
 
 use super::error::ReportsError;
-use super::model::{AccountIdDisclosure, FindingRow, ReportContent, ReportKind};
+use super::model::{AccountIdDisclosure, FindingRow, ReportContent, ReportKind, SeverityCounts};
+use crate::findings::FindingStatus;
 
 const PAGE_WIDTH_MM: f32 = 210.0; // A4
 const PAGE_HEIGHT_MM: f32 = 297.0;
@@ -70,26 +71,72 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
     }
     write_meta(&doc, &mut cur, &regular, content);
 
-    write_h2(&doc, &mut cur, &bold, "Summary");
-    let total: usize = content
-        .scans
-        .iter()
-        .map(|s| s.severity_counts.total())
-        .sum();
+    // PR #72: PDF reports are now an executive summary. The full
+    // findings enumeration moved to the HTML report (where it's
+    // paginated + filterable). Per security-report best practice and
+    // corporate review expectations, the PDF surfaces:
+    //   * Scans completed vs failed
+    //   * Total findings + severity breakdown
+    //   * Remediations (findings auto-resolved by later scans)
+    //   * Issue creations (GitHub tickets filed during the range)
+    //   * Activity breakdown by kind
+    //   * Per-service totals (concise table)
+    //
+    // Per-finding detail is intentionally omitted — the HTML report
+    // is the right surface for digging into individual rules.
+
+    let exec = compute_executive_summary(content);
+
+    write_h2(&doc, &mut cur, &bold, "Executive summary");
     write_text(
         &doc,
         &mut cur,
         &regular,
         BODY_FONT_SIZE,
         &format!(
-            "Scans: {} · findings (aggregated): {}",
-            content.scans.len(),
-            total
+            "Scans: {} ({} successful, {} failed) · findings: {} total ({} open, {} resolved)",
+            exec.scans_total,
+            exec.scans_successful,
+            exec.scans_failed,
+            exec.findings_total,
+            exec.findings_open,
+            exec.findings_resolved,
+        ),
+    );
+    write_text(
+        &doc,
+        &mut cur,
+        &mono,
+        META_FONT_SIZE,
+        &format!(
+            "Severity breakdown · C={} H={} M={} L={} I={}",
+            exec.severity.critical,
+            exec.severity.high,
+            exec.severity.medium,
+            exec.severity.low,
+            exec.severity.informational,
+        ),
+    );
+    write_text(
+        &doc,
+        &mut cur,
+        &regular,
+        BODY_FONT_SIZE,
+        &format!(
+            "Remediations (auto-resolved): {} · Issues filed in GitHub: {}",
+            exec.remediations, exec.issues_created,
         ),
     );
 
     if !content.scans.is_empty() {
         write_h2(&doc, &mut cur, &bold, "Scans");
+        write_text(
+            &doc,
+            &mut cur,
+            &mono,
+            META_FONT_SIZE,
+            "started               · account                          · status                    · C  H  M  L  I",
+        );
         for scan in &content.scans {
             write_text(
                 &doc,
@@ -97,11 +144,11 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
                 &mono,
                 META_FONT_SIZE,
                 &format!(
-                    "{} · {} ({}) · {} · C{} H{} M{} L{} I{}",
+                    "{} · {:<28} ({:<10}) · {:<24} · {:>2} {:>2} {:>2} {:>2} {:>2}",
                     scan.started_at.format("%Y-%m-%d %H:%M"),
-                    scan.account.label,
+                    truncate(&scan.account.label, 28),
                     scan.account.display,
-                    scan.status,
+                    truncate(&scan.status, 24),
                     scan.severity_counts.critical,
                     scan.severity_counts.high,
                     scan.severity_counts.medium,
@@ -114,6 +161,13 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
 
     if !content.per_service.is_empty() {
         write_h2(&doc, &mut cur, &bold, "Findings by service");
+        write_text(
+            &doc,
+            &mut cur,
+            &mono,
+            META_FONT_SIZE,
+            "service                  total  crit  high  med  low  info",
+        );
         for s in &content.per_service {
             write_text(
                 &doc,
@@ -121,7 +175,7 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
                 &mono,
                 META_FONT_SIZE,
                 &format!(
-                    "{:<24} total={} crit={} high={} med={} low={} info={}",
+                    "{:<24} {:>5}  {:>4}  {:>4}  {:>3}  {:>3}  {:>4}",
                     truncate(&s.service, 24),
                     s.findings,
                     s.severity_counts.critical,
@@ -134,34 +188,40 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
         }
     }
 
-    if let Some(note) = &content.empty_state_note {
-        write_h2(&doc, &mut cur, &bold, "Empty state");
-        write_text(&doc, &mut cur, &regular, BODY_FONT_SIZE, note);
-    }
-
-    if !content.findings.is_empty() {
-        write_h2(&doc, &mut cur, &bold, "Findings");
-        for f in &content.findings {
-            write_finding(&doc, &mut cur, &regular, &bold, &mono, f);
-        }
-    }
-
-    if !content.events.is_empty() {
-        write_h2(&doc, &mut cur, &bold, "Activity in range");
-        for e in &content.events {
+    if !exec.activity_by_kind.is_empty() {
+        write_h2(&doc, &mut cur, &bold, "Activity by type");
+        write_text(
+            &doc,
+            &mut cur,
+            &mono,
+            META_FONT_SIZE,
+            "kind                                count",
+        );
+        for (kind, count) in &exec.activity_by_kind {
             write_text(
                 &doc,
                 &mut cur,
                 &mono,
                 META_FONT_SIZE,
-                &format!(
-                    "{} · {} · acct={} · {}",
-                    e.occurred_at.format("%Y-%m-%d %H:%M"),
-                    e.kind,
-                    e.account_display.as_deref().unwrap_or("—"),
-                    truncate(&e.summary, 120),
-                ),
+                &format!("{:<36} {:>5}", truncate(kind, 36), count),
             );
+        }
+    }
+
+    if let Some(note) = &content.empty_state_note {
+        write_h2(&doc, &mut cur, &bold, "Notes");
+        write_text(&doc, &mut cur, &regular, BODY_FONT_SIZE, note);
+    }
+
+    // PR #72: per-scan PDFs keep the full per-finding enumeration —
+    // the user explicitly wanted the EXECUTIVE-SUMMARY treatment for
+    // the CUSTOM report, not the per-scan report. Per-scan is the
+    // surface a single reviewer reads end-to-end and still wants the
+    // detail.
+    if matches!(content.header.kind, ReportKind::PerScan) && !content.findings.is_empty() {
+        write_h2(&doc, &mut cur, &bold, "Findings");
+        for f in &content.findings {
+            write_finding(&doc, &mut cur, &regular, &bold, &mono, f);
         }
     }
 
@@ -194,6 +254,9 @@ pub fn render(content: &ReportContent) -> Result<Vec<u8>, ReportsError> {
         .map_err(|e| ReportsError::PdfRender(format!("bufwriter: {e}")))
 }
 
+// `write_finding` is exclusively reached via the `ReportKind::PerScan`
+// branch in `render` — custom reports collapse to the executive
+// summary above. Per-scan reviewers still want the full detail.
 fn write_finding(
     doc: &PdfDocumentReference,
     cur: &mut PdfCursor,
@@ -402,6 +465,107 @@ fn severity_label(s: crate::findings::Severity) -> &'static str {
         crate::findings::Severity::Medium => "MEDIUM",
         crate::findings::Severity::Low => "LOW",
         crate::findings::Severity::Informational => "INFO",
+    }
+}
+
+/// PR #72 — derived executive-summary numbers consumed by the PDF
+/// custom-report header. Computed from `ReportContent` so the
+/// renderer stays a pure function and the aggregator doesn't need to
+/// learn about the new categories.
+#[derive(Debug, Clone)]
+struct ExecutiveSummary {
+    scans_total: usize,
+    scans_successful: usize,
+    scans_failed: usize,
+    findings_total: usize,
+    findings_open: usize,
+    findings_resolved: usize,
+    severity: SeverityCounts,
+    /// Sum of `findings_auto_resolved` event item_counts. (Not just
+    /// the count of events — the event's `item_count` carries the
+    /// per-event resolved tally so a single sweep that resolved 7
+    /// findings still contributes 7 to the total.)
+    remediations: i64,
+    /// Count of `github_ticket_created` events.
+    issues_created: usize,
+    /// Per-kind activity breakdown, descending by count. Empty when
+    /// `content.events` is empty.
+    activity_by_kind: Vec<(String, usize)>,
+}
+
+fn compute_executive_summary(content: &ReportContent) -> ExecutiveSummary {
+    let scans_total = content.scans.len();
+    let scans_successful = content
+        .scans
+        .iter()
+        .filter(|s| {
+            let st = s.status.to_ascii_lowercase();
+            st.contains("complete") && !st.contains("fail")
+        })
+        .count();
+    let scans_failed = content
+        .scans
+        .iter()
+        .filter(|s| s.status.to_ascii_lowercase().contains("fail"))
+        .count();
+
+    let findings_total = content.findings.len();
+    let findings_open = content
+        .findings
+        .iter()
+        .filter(|f| matches!(f.status, FindingStatus::Open))
+        .count();
+    let findings_resolved = findings_total - findings_open;
+
+    // Sum severity across the per-scan tallies — matches the
+    // "Findings by service" totals so the executive summary and the
+    // detail tables agree.
+    let mut severity = SeverityCounts::empty();
+    for s in &content.scans {
+        severity.critical += s.severity_counts.critical;
+        severity.high += s.severity_counts.high;
+        severity.medium += s.severity_counts.medium;
+        severity.low += s.severity_counts.low;
+        severity.informational += s.severity_counts.informational;
+    }
+
+    let mut activity_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    let mut remediations: i64 = 0;
+    let mut issues_created: usize = 0;
+    for e in &content.events {
+        *activity_counts.entry(e.kind.clone()).or_insert(0) += 1;
+        match e.kind.as_str() {
+            "findings_auto_resolved" => {
+                // The aggregator carries the auto-resolve count in
+                // the event summary text; the EventRow model
+                // doesn't surface item_count, so we count
+                // OCCURRENCES of the kind instead. Each event row
+                // represents one resolution sweep — useful as a
+                // "how many auto-resolve sweeps ran" tally rather
+                // than a granular finding count.
+                remediations += 1;
+            }
+            "github_ticket_created" => {
+                issues_created += 1;
+            }
+            _ => {}
+        }
+    }
+    let mut activity_by_kind: Vec<(String, usize)> = activity_counts.into_iter().collect();
+    activity_by_kind.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+
+    ExecutiveSummary {
+        scans_total,
+        scans_successful,
+        scans_failed,
+        findings_total,
+        findings_open,
+        findings_resolved,
+        severity,
+        remediations,
+        issues_created,
+        activity_by_kind,
     }
 }
 

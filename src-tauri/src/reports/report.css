@@ -107,4 +107,27 @@ th { background: #F3F4F6; font-weight: 600; }
 .truncated { color: #6B7280; font-size: 12px; }
 footer { color: #6B7280; font-size: 12px; margin-top: 32px;
          border-top: 1px solid #E5E7EB; padding-top: 8px; }
-@media print { body { margin: 12mm; } }
+/* PR #72: filter bar + paginated data tables for the custom report's
+   findings and activity-log sections. */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 12px 0 6px;
+              padding: 10px 12px; background: #F9FAFB; border: 1px solid #E5E7EB;
+              border-radius: 6px; }
+.filter-bar label { display: flex; flex-direction: column; gap: 3px; min-width: 130px;
+                    font-size: 12px; color: #4B5563; }
+.filter-bar input, .filter-bar select {
+    padding: 4px 8px; border: 1px solid #D1D5DB; border-radius: 4px;
+    background: #FFFFFF; font-size: 13px; color: #1F1F1F; }
+.filter-bar input:focus, .filter-bar select:focus {
+    outline: 2px solid #D7263D; outline-offset: 0; border-color: #D7263D; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead th { background: #F3F4F6; color: #374151; font-weight: 600;
+                       border-bottom: 2px solid #E5E7EB; }
+.data-table tbody tr:nth-child(even) { background: #FAFAFA; }
+.data-table tbody tr:hover { background: #FEF2F2; }
+.data-table td code { font-family: ui-monospace, monospace; font-size: 13px;
+                      background: #F3F4F6; padding: 1px 4px; border-radius: 3px; }
+.data-table td .sev { display: inline-block; min-width: 78px; text-align: center; }
+.pagination-info { color: #6B7280; font-size: 12px; margin: 4px 0 12px; }
+@media print { body { margin: 12mm; }
+               .filter-bar { display: none; }
+               .data-table tbody tr { display: table-row !important; } }
