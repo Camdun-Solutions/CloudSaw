@@ -225,6 +225,63 @@ pub fn add(
     Ok(get(&provider_id)?.expect("just-inserted provider row missing"))
 }
 
+/// Add an *empty* provider row — no keychain entry, no `key_last4`.
+/// Used exclusively by the legacy `ai::set_provider(Some(p))` shim
+/// to preserve the pre-#74 "pick the provider, THEN connect the
+/// key" two-step. The empty row auto-promotes to active if no
+/// provider is currently active (same rule as `add`).
+///
+/// `prepare_request` against an empty row returns `NoProviderKey`
+/// because `key::has_for_id` reads the keychain (which is empty
+/// for this row), not the SQLite row.
+pub fn add_empty(
+    provider_type: Provider,
+    nickname: String,
+) -> Result<ProviderRecord, AiError> {
+    let nickname = nickname.trim().to_string();
+    if nickname.is_empty() || nickname.len() > NICKNAME_MAX_LEN {
+        return Err(AiError::InvalidInput("nickname"));
+    }
+    let provider_id = new_provider_id()?;
+    let now = Utc::now().to_rfc3339();
+
+    let conn = open()?;
+    let active_id = read_setting(&conn, ACTIVE_PROVIDER_KEY)?;
+    conn.execute(
+        "INSERT INTO ai_providers (provider_id, provider_type, nickname, key_last4,
+                                   created_at, updated_at)
+         VALUES (?1, ?2, ?3, '', ?4, ?4)",
+        params![provider_id, provider_type.as_str(), nickname, now],
+    )?;
+    if active_id.is_empty() {
+        write_setting(&conn, ACTIVE_PROVIDER_KEY, &provider_id)?;
+    }
+    drop(conn);
+    Ok(get(&provider_id)?.expect("just-inserted empty provider row missing"))
+}
+
+/// Clear the keychain credential for a row without deleting the row
+/// itself. Used by the legacy `ai::clear_provider_key` shim, whose
+/// pre-#74 contract was "remove the key but keep the provider
+/// selection" — letting the UI report `key_connected = false` while
+/// leaving the active-provider choice undisturbed.
+///
+/// Subsequent `set_provider_key` calls rotate via `update_provider`
+/// and re-populate `key_last4`. The row's `provider_id` is stable
+/// throughout.
+pub fn clear_key_for_row(provider_id: &str) -> Result<(), AiError> {
+    let _ = get(provider_id)?.ok_or(AiError::NoProvider)?;
+    key::clear_for_id(provider_id)?;
+    let conn = open()?;
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE ai_providers SET key_last4 = '', updated_at = ?1
+         WHERE provider_id = ?2",
+        params![now, provider_id],
+    )?;
+    Ok(())
+}
+
 /// Update a provider's nickname and/or rotate its key. Either field
 /// may be `None`; `None` means "don't touch". The provider_id is
 /// stable across updates.

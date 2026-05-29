@@ -148,38 +148,77 @@ pub fn set_active_provider(provider_id: String) -> Result<(), AiError> {
 /// Legacy single-provider shim. PR #74 supersedes this with the
 /// multi-provider model — `set_active_provider(provider_id)`. Kept so
 /// integration tests and the (now-replaced) single-provider settings
-/// page keep compiling; routes through `providers::set_active` by
-/// looking up the first row of the requested type, or clears the
-/// active selection when given `None`.
+/// page keep compiling.
+///
+/// Semantics (matching the pre-#74 contract):
+///   * `None` → clear the active selection (layer becomes dormant);
+///     existing connected-provider rows are NOT touched (callers use
+///     `clear_provider_key` or `delete_provider` for that).
+///   * `Some(p)` with a matching row → set that row active.
+///   * `Some(p)` with no matching row → create an *empty* placeholder
+///     row of type `p` (no key, no last4) and promote it to active.
+///     The follow-up `set_provider_key(p, k)` then rotates the key
+///     in place. This preserves the legacy "pick provider, THEN
+///     connect key, THEN get `NoProviderKey` until both happen"
+///     state machine that QA contracts assert on.
 #[deprecated(note = "Use set_active_provider(provider_id) — see PR #74 multi-provider model")]
 pub fn set_provider(provider: Option<Provider>) -> Result<(), AiError> {
     match provider {
         None => set_active_provider(String::new()),
         Some(p) => {
-            let found = providers::list()?
+            if let Some(rec) = providers::list()?
                 .into_iter()
                 .find(|r| r.provider_type == p)
-                .ok_or(AiError::NoProvider)?;
-            set_active_provider(found.provider_id)
+            {
+                set_active_provider(rec.provider_id)
+            } else {
+                // Create an empty placeholder row + auto-promote. The
+                // row has no keychain entry yet, so `prepare_request`
+                // correctly returns `NoProviderKey` until a key is
+                // connected.
+                let default_nick = match p {
+                    Provider::Anthropic => "Anthropic".to_string(),
+                    Provider::Openai => "OpenAI".to_string(),
+                };
+                providers::add_empty(p, default_nick).map(|_| ())
+            }
         }
     }
 }
 
-/// Legacy single-provider shim. Adds a new row with the default
-/// nickname (the provider's display name) so the legacy
-/// "set the key for provider X" call still produces a working
-/// Connected Provider. PR #74 supersedes with `add_provider`.
+/// Legacy single-provider shim. Upserts: if a row of the given type
+/// already exists, rotates its key in place; otherwise adds a new
+/// row with the provider's display name as the nickname. PR #74
+/// supersedes with `add_provider` (explicit nickname) +
+/// `update_provider` (explicit rotation).
+///
+/// The upsert keeps the legacy test pattern stable — repeated
+/// `set_provider_key(provider, k)` calls don't accumulate
+/// duplicate rows the way a straight `add_provider` would.
 #[deprecated(note = "Use add_provider(provider_type, nickname, key) — see PR #74")]
 pub fn set_provider_key(provider: Provider, value: String) -> Result<(), AiError> {
-    let default_nick = match provider {
-        Provider::Anthropic => "Anthropic".to_string(),
-        Provider::Openai => "OpenAI".to_string(),
-    };
-    add_provider(provider, default_nick, value).map(|_| ())
+    let existing = providers::list()?
+        .into_iter()
+        .find(|r| r.provider_type == provider);
+    if let Some(rec) = existing {
+        update_provider(rec.provider_id, None, Some(value)).map(|_| ())
+    } else {
+        let default_nick = match provider {
+            Provider::Anthropic => "Anthropic".to_string(),
+            Provider::Openai => "OpenAI".to_string(),
+        };
+        add_provider(provider, default_nick, value).map(|_| ())
+    }
 }
 
-/// Legacy single-provider shim. Deletes any rows matching the given
-/// type. PR #74 supersedes with `delete_provider(provider_id)`.
+/// Legacy single-provider shim. Per the pre-#74 contract, "clear key"
+/// removes the credential but does NOT discard the user's provider
+/// selection. The row therefore stays in place with its
+/// `key_last4` blanked; the OS keychain entry is wiped so
+/// `key::has_for_id` returns false and `prepare_request` returns
+/// `NoProviderKey` until the user connects a new key.
+///
+/// PR #74's full row-deletion path is `delete_provider(provider_id)`.
 #[deprecated(note = "Use delete_provider(provider_id) — see PR #74")]
 pub fn clear_provider_key(provider: Provider) -> Result<(), AiError> {
     let matching: Vec<String> = providers::list()?
@@ -187,21 +226,28 @@ pub fn clear_provider_key(provider: Provider) -> Result<(), AiError> {
         .filter(|r| r.provider_type == provider)
         .map(|r| r.provider_id)
         .collect();
-    for id in matching {
-        providers::delete(&id)?;
+    for id in &matching {
+        providers::clear_key_for_row(id)?;
     }
-    eventlog::record_event(EventInput::new(
-        EventKind::SettingsChanged,
-        format!("AI provider key cleared ({}).", provider.as_str()),
-    ));
+    if !matching.is_empty() {
+        eventlog::record_event(EventInput::new(
+            EventKind::SettingsChanged,
+            format!("AI provider key cleared ({}).", provider.as_str()),
+        ));
+    }
     Ok(())
 }
 
 #[deprecated(note = "Use list_providers().iter().any(|r| r.provider_type == p) — see PR #74")]
 pub fn has_provider_key(provider: Provider) -> Result<bool, AiError> {
-    Ok(providers::list()?
-        .iter()
-        .any(|r| r.provider_type == provider))
+    // Same semantics as the per-id check: a row alone isn't enough —
+    // the keychain has to carry the matching credential too.
+    for rec in providers::list()? {
+        if rec.provider_type == provider && key::has_for_id(&rec.provider_id)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Read the business context that the request builder reads from.
