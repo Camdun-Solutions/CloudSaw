@@ -155,10 +155,22 @@ jobs:
       # paths into the final bundle. macOS releases in 2026.5.14 and
       # earlier shipped without `icmp_message_types.json` despite
       # earlier versions of the spec listing it via the directory-
-      # tuple form (see SPEC_NOTES.md 2026-05-27 entry). This step
-      # uses `pyi-archive_viewer --brief` to list the bundle's TOC
-      # and greps for each required data file; missing files fail
-      # the build BEFORE we ship a broken binary to users.
+      # tuple form (see SPEC_NOTES.md 2026-05-27 entry).
+      #
+      # PR #79 — restructured into two complementary checks:
+      #   1. `archive_viewer` TOC grep for the DATA files we ship
+      #      via `datas` (this archive view only sees the outer
+      #      PKG/CArchive, NOT the inner PYZ where Python modules
+      #      live, so it can't be used to verify bytecode entries).
+      #   2. A `--help` smoke test that actually executes the binary
+      #      and fails the build if it raises any
+      #      `ModuleNotFoundError`. Python module bundling is far
+      #      more likely to silently regress than data files —
+      #      `tempfile`/`json` content shape on `ScoutSuite/core/
+      #      ruleset.py` triggers Defender false-positives on some
+      #      runners (2026-05-29 user report), and the spec's
+      #      `collect_submodules` calls can silently miss modules
+      #      whose source disappears at scan-time.
       - name: verify bundled scoutsuite data files
         shell: bash
         run: |
@@ -174,16 +186,12 @@ jobs:
           esac
           BIN="src-tauri/vendor/scoutsuite/$TRIPLE/$BIN_NAME"
           echo "Listing PyInstaller TOC for $BIN"
-          # pyi-archive_viewer reads the embedded TOC. --brief
-          # prints one entry per line: path, then file type. We
-          # grep for the required files; failure to find one fails
-          # the build via `set -e`.
           TOC=$(python -m PyInstaller.utils.cliutils.archive_viewer --brief "$BIN" 2>&1 || true)
-          # Print a small preview so debugging is one log scroll
-          # away when this step ever fires.
           echo "----- TOC (first 30 lines) -----"
           echo "$TOC" | head -n 30
           echo "----- /TOC -----"
+          # Data files only — Python modules live in the PYZ which
+          # this view doesn't expose.
           REQUIRED=(
             "ScoutSuite/data/icmp_message_types.json"
             "ScoutSuite/data/protocols.json"
@@ -191,8 +199,6 @@ jobs:
             "ScoutSuite/providers/aws/metadata.json"
             "ScoutSuite/providers/aws/rules"
             "ScoutSuite/output/data"
-            "ScoutSuite/providers/aws/provider.pyc"
-            "ScoutSuite/providers/aws/authentication_strategy.pyc"
           )
           MISSING=()
           for f in "${REQUIRED[@]}"; do
@@ -201,14 +207,66 @@ jobs:
             fi
           done
           if [ "${#MISSING[@]}" -gt 0 ]; then
-            echo "::error::scoutsuite bundle is missing required entries on ${{ matrix.platform.name }}:"
+            echo "::error::scoutsuite bundle is missing required data files on ${{ matrix.platform.name }}:"
             for f in "${MISSING[@]}"; do
               echo "::error::  - $f"
             done
             echo "::error::Check vendor/scoutsuite/cloudsaw.spec and SPEC_NOTES.md."
             exit 1
           fi
-          echo "All required scoutsuite bundle entries present."
+          echo "All required scoutsuite data files present in TOC."
+
+      # PR #79 — Python module verification via smoke-test execute.
+      # Running `--help` exercises the import chain that loads at
+      # `ScoutSuite/__main__.py` startup (cli_parser, console,
+      # ruleset, processingengine, exceptions, server) plus the
+      # registered provider tree. Any `ModuleNotFoundError` here
+      # means a Python module silently dropped out of the bundle —
+      # exactly the 2026-05-29 ruleset.py regression we shipped on
+      # Windows when Defender quarantined the source at PyInstaller
+      # analysis time. Filter the output for `ModuleNotFoundError`
+      # explicitly so the build fails BEFORE the binary reaches
+      # codesign / Tauri bundling.
+      - name: smoke-test bundled scoutsuite (--help)
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platform.name }}" in
+            windows) BIN_NAME="scoutsuite.exe" ;;
+            *)       BIN_NAME="scoutsuite"     ;;
+          esac
+          case "${{ matrix.platform.name }}" in
+            linux)   TRIPLE="x86_64-unknown-linux-gnu" ;;
+            macos)   TRIPLE="aarch64-apple-darwin"    ;;
+            windows) TRIPLE="x86_64-pc-windows-msvc"  ;;
+          esac
+          BIN="src-tauri/vendor/scoutsuite/$TRIPLE/$BIN_NAME"
+          echo "Running smoke test: $BIN --help"
+          OUTPUT=$("$BIN" --help 2>&1 || true)
+          # Print enough context for a human reader to triage.
+          echo "----- scoutsuite --help (first 40 lines) -----"
+          echo "$OUTPUT" | head -n 40
+          echo "----- /scoutsuite --help -----"
+          if echo "$OUTPUT" | grep -qE "ModuleNotFoundError|ImportError"; then
+            echo "::error::scoutsuite bundle raised ModuleNotFoundError on ${{ matrix.platform.name }}:"
+            echo "$OUTPUT" | grep -E "ModuleNotFoundError|ImportError" | head -n 10 | while read -r line; do
+              echo "::error::  $line"
+            done
+            echo "::error::A Python module declared in cloudsaw.spec did not make it into the bundle."
+            echo "::error::Most likely cause: source file was missing/unreadable at PyInstaller analysis time."
+            exit 1
+          fi
+          # Also fail if the binary couldn't even show help (e.g.
+          # bootloader broken). A real --help run prints "usage:" on
+          # stdout/stderr from argparse. We don't insist on exit-0
+          # because some argparse setups exit non-zero on --help
+          # depending on subparser registration.
+          if ! echo "$OUTPUT" | grep -qE "usage:|--help|positional arguments"; then
+            echo "::error::scoutsuite --help produced no recognizable argparse output on ${{ matrix.platform.name }}."
+            echo "::error::See the smoke-test output above for the actual bytes the bundle emitted."
+            exit 1
+          fi
+          echo "Smoke test passed: scoutsuite bundle imports cleanly."
 
       - name: install linux tauri prereqs
         if: matrix.platform.name == 'linux'

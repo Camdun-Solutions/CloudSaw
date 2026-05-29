@@ -120,7 +120,28 @@ datas += collect_data_files('policyuniverse')
 # providers via string→module lookup; PyInstaller's static analyzer
 # misses some. We declare the per-provider package roots so the
 # analyzer follows the entire provider subtree.
+#
+# 2026-05-29 (PR #79): pulled the whole `ScoutSuite` and
+# `ScoutSuite.core` subtrees into the hiddenimports list. The previous
+# spec relied on PyInstaller's static analysis of `scout.py` to follow
+# `from ScoutSuite.core.ruleset import Ruleset` at line 14 of
+# `ScoutSuite/__main__.py`. That worked on Linux + macOS CI runners
+# but did NOT work on a Windows developer machine whose Defender
+# real-time scanner flagged `ScoutSuite/core/ruleset.py` as a
+# false-positive (ThreatID 2147963851 — generic ML detection on the
+# `tempfile.TemporaryFile + json.dumps + write` shape used by the
+# `TmpRuleset` class) and quarantined the file every time PyInstaller
+# tried to read it during analysis. The bundled binary was missing
+# `ScoutSuite.core.ruleset` and every scan died at startup with
+# `ModuleNotFoundError: No module named 'ScoutSuite.core.ruleset'`.
+# Pre-declaring the whole `ScoutSuite.core` tree means PyInstaller
+# still emits a clean import error at SPEC-EVAL time (not at runtime)
+# if a file is missing — and the assertion immediately below the
+# `collect_submodules` calls turns that into a fail-fast for CI.
 hiddenimports = []
+hiddenimports += collect_submodules('ScoutSuite.core')
+hiddenimports += collect_submodules('ScoutSuite.output')
+hiddenimports += collect_submodules('ScoutSuite.providers')
 hiddenimports += collect_submodules('ScoutSuite.providers.aws')
 hiddenimports += collect_submodules('ScoutSuite.providers.azure')
 hiddenimports += collect_submodules('ScoutSuite.providers.gcp')
@@ -128,6 +149,32 @@ hiddenimports += collect_submodules('ScoutSuite.providers.aliyun')
 hiddenimports += collect_submodules('ScoutSuite.providers.oci')
 hiddenimports += collect_submodules('ScoutSuite.providers.do')
 hiddenimports += collect_submodules('ScoutSuite.providers.kubernetes')
+
+# Fail-fast: each module name `ScoutSuite.__main__` statically imports
+# MUST appear in the resolved hiddenimports list (or be picked up by
+# PyInstaller's own analyzer). Asserting at spec-eval time means a
+# build that's about to ship a binary missing one of these modules
+# dies BEFORE the `tauri build` glue can see it — surfacing the
+# regression in CI logs instead of as a runtime ModuleNotFoundError
+# on a user's first scan. Mirrors the data-file assertions on lines
+# 90-95. The set comes from `ScoutSuite/__main__.py:10-18`.
+_REQUIRED_CORE_MODULES = [
+    'ScoutSuite.core.cli_parser',
+    'ScoutSuite.core.console',
+    'ScoutSuite.core.exceptions',
+    'ScoutSuite.core.processingengine',
+    'ScoutSuite.core.ruleset',
+    'ScoutSuite.core.server',
+]
+for mod in _REQUIRED_CORE_MODULES:
+    assert mod in hiddenimports, (
+        f'{mod} missing from hiddenimports — `collect_submodules`'
+        f' could not enumerate ScoutSuite.core. Most likely the source'
+        f' file `vendor/scoutsuite/{mod.replace(".", "/")}.py` is'
+        f' missing from disk (quarantined by an antivirus heuristic,'
+        f' deleted, or never checked out). See SPEC_NOTES.md for the'
+        f' 2026-05-29 PR #79 entry.'
+    )
 
 # Common boto3/botocore extension paths PyInstaller often misses:
 hiddenimports += [

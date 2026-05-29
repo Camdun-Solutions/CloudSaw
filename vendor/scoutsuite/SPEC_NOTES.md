@@ -83,6 +83,78 @@ known to have these freezing hazards:
 **Fake-creds scan**: Same `aws --access-keys ... AKIA...EXAMPLE ...` invocation → identical outcome to Linux (started ScoutSuite, resolved auth strategy, AWS rejected the token, graceful exit). The spec is genuinely cross-platform; no per-OS branching needed.
 **What's still untested**: macOS native build. Same approach (Python 3.11 + venv + native `pyinstaller cloudsaw.spec`) should produce a working binary, but Mach-O signing and the codesign-before-bundle pipeline are macOS-only concerns that will be verified by the release.yml step on the macOS runner.
 
+## 2026-05-29 — Windows Defender false-positive on `ScoutSuite/core/ruleset.py` + spec defenses
+
+**Symptom**: Scans on a Windows dev box failed at startup with
+`ModuleNotFoundError: No module named 'ScoutSuite.core.ruleset'`
+captured in `<scan-dir>/scoutsuite-stderr.log`. The bundled
+`scoutsuite.exe` was missing `ScoutSuite/core/ruleset.pyc` from
+its PYZ archive even though the source file was checked into the
+repo.
+
+**Root cause**: Windows Defender's ML-based real-time scanner
+(ThreatID 2147963851, generic `Trojan:Win32` ML detection)
+flagged `vendor/scoutsuite/ScoutSuite/core/ruleset.py` as
+suspicious. The triggering shape is the `TmpRuleset.__init__`
+pattern that:
+
+  1. Builds a Python dict (`tmp_ruleset = {...}`)
+  2. Serializes it via `json.dumps`
+  3. Writes the JSON to a `tempfile.TemporaryFile('w+t')`
+  4. Reads it back and `exec`-shaped JSON parse
+
+That sequence has a real-malware analogue (drop-payload-to-temp-
+then-execute), and Defender's ML model misfires on it. The file
+content is unambiguously benign — `git blame` shows it traces
+straight to upstream ScoutSuite without CloudSaw-side
+modifications other than the import line for the
+`_cloudsaw_paths` helper.
+
+Defender quarantines the file the moment PyInstaller's analyzer
+tries to read it during build, so PyInstaller silently skips it
+and emits a `missing module named ScoutSuite.core.ruleset`
+warning in `build/cloudsaw/warn-cloudsaw.txt`. The resulting
+binary boots into ScoutSuite, prints "Authenticating to cloud
+provider," then dies the moment `from ScoutSuite.core.ruleset
+import Ruleset` runs at `ScoutSuite/__main__.py:14`.
+
+**Change**: Three-part defense, all in this PR:
+
+  1. Spec: pre-declared every `ScoutSuite.core`,
+     `ScoutSuite.output`, and `ScoutSuite.providers` submodule via
+     `collect_submodules` calls. A fail-fast assertion below the
+     `collect_submodules` block asserts each module
+     `ScoutSuite/__main__.py` statically imports is in the
+     resolved hiddenimports list. A missing source file now
+     surfaces as a build-time error, not a runtime
+     ModuleNotFoundError.
+
+  2. CI verification (release.yml): split the existing
+     `verify bundled scoutsuite data files` step into (a) the
+     same TOC grep for data files in the outer PKG archive +
+     (b) a new `smoke-test bundled scoutsuite (--help)` step
+     that actually runs the bundled binary and fails the build
+     if it raises `ModuleNotFoundError` / `ImportError`. The
+     archive-viewer view ONLY exposes the outer PKG; Python
+     modules live in the inner PYZ archive and the old grep
+     for `.pyc` paths would have always misreported. The
+     execute-then-grep approach catches any silent module drop,
+     not just the ruleset one.
+
+  3. Documentation: added `WINDOWS_DEFENDER.md` in this
+     directory with the exact PowerShell incantation
+     developers can run as Administrator to add a per-path
+     exclusion for the repo. The exclusion is the canonical
+     Windows workaround — once the project dir is excluded,
+     Defender stops quarantining the file during builds.
+     End users are NOT affected: the signed release binary
+     bundles the module *inside* `scoutsuite.exe`, where
+     Defender can't reach it without unpacking the executable.
+
+**Real-creds verification**: pending — the developer who hit the
+original failure runs the spec + a CI artifact-built binary
+against a real AWS profile post-merge.
+
 ## 2026-05-27 — explicit-glob datas for ScoutSuite/data tree (macOS bundling fix)
 
 **Symptom**: `[Errno 2] No such file or directory: '/var/folders/.../T/_MEIEv49Fb/ScoutSuite/core/../data/icmp_message_types.json'` at scan-time on 2026.5.14 on macOS. Once the AWS provider's `SecurityGroups` class definition runs (`vendor/scoutsuite/ScoutSuite/providers/aws/resources/ec2/securitygroups.py:9`), it calls `load_data('icmp_message_types.json', ...)` which walks `ScoutSuite/core/../data/`. Windows bundles produced the same day worked fine.
