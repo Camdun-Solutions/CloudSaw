@@ -90,9 +90,22 @@ pub fn current_version() -> Result<String, KnowledgebaseError> {
 }
 
 pub fn get_article(finding_id: &str) -> Result<KnowledgeArticle, KnowledgebaseError> {
-    with_content(|c| match c.articles.get(finding_id) {
-        Some(entry) => parser::parse_article(finding_id, c.source, &entry.body),
-        None => KnowledgeArticle::default_for(finding_id, c.source),
+    with_content(|c| {
+        let article = match c.articles.get(finding_id) {
+            Some(entry) => parser::parse_article(finding_id, c.source, &entry.body),
+            None => KnowledgeArticle::default_for(finding_id, c.source),
+        };
+        // PR #81 — overlay ScoutSuite's upstream rule metadata for fields
+        // the bundled markdown article (or the default fallback) leaves
+        // blank. Tailored guidance from a CloudSaw-authored markdown
+        // file always wins; the upstream text is purely a baseline so a
+        // finding without a hand-written article still surfaces a
+        // remediation hint instead of the generic "consult AWS docs"
+        // boilerplate. Mirrors the user's 2026-05-29 ask:
+        //   "Every finding should have a recommended fix for basic
+        //    security. Tailored recommendations will come from the AI
+        //    suggestion layer when enabled."
+        super::scoutsuite::overlay_into_article(finding_id, article)
     })
 }
 
@@ -117,6 +130,15 @@ pub fn get_control_mappings(finding_id: &str) -> Result<ControlMapping, Knowledg
                 frameworks.insert(framework_id.clone(), controls.clone());
             }
         }
+        // PR #81 — synthesize a `cis` framework entry from ScoutSuite's
+        // upstream rule annotations when the hand-authored mapping set
+        // doesn't already cover this finding under `cis`. The other
+        // four frameworks (soc2 / iso27001 / hipaa / nist) come from
+        // mappings.json only; ScoutSuite doesn't tag them.
+        let cis_from_scoutsuite = super::scoutsuite::cis_controls_for(finding_id);
+        if !cis_from_scoutsuite.is_empty() && !frameworks.contains_key("cis") {
+            frameworks.insert("cis".to_string(), cis_from_scoutsuite);
+        }
         ControlMapping {
             finding_id: finding_id.to_string(),
             frameworks,
@@ -126,14 +148,30 @@ pub fn get_control_mappings(finding_id: &str) -> Result<ControlMapping, Knowledg
 
 pub fn list_frameworks() -> Result<Vec<Framework>, KnowledgebaseError> {
     with_content(|c| {
-        c.mappings
+        let mut out: Vec<Framework> = c
+            .mappings
             .frameworks
             .iter()
             .map(|(id, def)| Framework {
                 id: id.clone(),
                 name: def.name.clone(),
             })
-            .collect()
+            .collect();
+        // PR #81 — `cis` is synthesized at lookup time by
+        // `get_control_mappings` from ScoutSuite's upstream rule
+        // annotations. Surface it in the framework list so the UI can
+        // render the display name without a one-off lookup table on
+        // the frontend.
+        if !out.iter().any(|f| f.id == "cis") {
+            out.push(Framework {
+                id: "cis".to_string(),
+                name: "CIS Amazon Web Services Foundations".to_string(),
+            });
+            // Re-sort so the list order stays stable for downstream
+            // callers / snapshot tests.
+            out.sort_by(|a, b| a.id.cmp(&b.id));
+        }
+        out
     })
 }
 
