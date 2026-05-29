@@ -36,6 +36,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
+  Drawer,
   EmptyState,
   Logo,
   Select,
@@ -111,7 +112,16 @@ export default function Findings(_props: Props) {
   const [service, setService] = useState<string>("any");
   const [status, setStatus] = useState<StatusFilter>("any");
   const [query, setQuery] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // PR #80: clicking a finding row used to expand a detail panel
+  // INLINE beneath the row (`expandedId`). Switched to a right-side
+  // drawer so the user's per-service browse list stays intact while
+  // they read the detail. State semantics changed: `selectedFinding`
+  // is null when the drawer is closed, otherwise carries the row's
+  // id (and we look up the service tag from `findings` so the drawer
+  // header can name the parent context).
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(
+    null,
+  );
 
   const [error, setError] = useState<string | null>(null);
 
@@ -149,7 +159,7 @@ export default function Findings(_props: Props) {
     setScans(null);
     setScanId(null);
     setFindings(null);
-    setExpandedId(null);
+    setSelectedFindingId(null);
     (async () => {
       try {
         const list = await ipc.scannerListRecent(accountId, 20);
@@ -187,7 +197,7 @@ export default function Findings(_props: Props) {
     }
     let cancelled = false;
     setFindings(null);
-    setExpandedId(null);
+    setSelectedFindingId(null);
     (async () => {
       try {
         const list = await ipc.findingsList(scanId);
@@ -457,10 +467,7 @@ export default function Findings(_props: Props) {
                       worst={g.worst}
                       items={g.items}
                       openByDefault={g.openByDefault}
-                      expandedId={expandedId}
-                      onToggleFinding={(id) =>
-                        setExpandedId((cur) => (cur === id ? null : id))
-                      }
+                      onSelectFinding={setSelectedFindingId}
                     />
                   ))
                 )}
@@ -469,28 +476,84 @@ export default function Findings(_props: Props) {
           );
         })()}
       </section>
+
+      {/* PR #80 — right-side drawer carries the detail panel for the
+          finding the user clicked. The drawer mounts once at the
+          route root so navigation back to it (via the service-group
+          tab list) re-uses the same instance and doesn't re-fire
+          the IPC fetches in `FindingDetailPanel`. */}
+      <FindingDrawer
+        findingId={selectedFindingId}
+        findings={findings ?? []}
+        onClose={() => setSelectedFindingId(null)}
+      />
     </main>
   );
 }
 
 // --- Subcomponents -----------------------------------------------------
 
+// PR #80 — severity tabs inside an expanded service group. The
+// previous layout dumped every finding for the service into a flat
+// `<ul>` ordered by severity. With a hundred findings per service
+// (common on AWS) the user had to scroll past every critical to
+// reach a high. Tabs let them jump straight to the band they care
+// about; the default is the worst band present, so a service whose
+// top severity is high doesn't render a useless Critical tab.
+const TAB_SEVERITIES: Severity[] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "informational",
+];
+
 function ServiceGroup({
   service,
   worst,
   items,
   openByDefault,
-  expandedId,
-  onToggleFinding,
+  onSelectFinding,
 }: {
   service: string;
   worst: Severity;
   items: Finding[];
   openByDefault: boolean;
-  expandedId: string | null;
-  onToggleFinding: (id: string) => void;
+  onSelectFinding: (id: string) => void;
 }) {
   const t = useT();
+
+  // Bucket items by severity once per render — the tab strip and
+  // the row list both read from this.
+  const buckets = useMemo(() => {
+    const out: Record<Severity, Finding[]> = {
+      critical: [],
+      high: [],
+      medium: [],
+      low: [],
+      informational: [],
+    };
+    for (const f of items) out[f.severity].push(f);
+    return out;
+  }, [items]);
+
+  // Only render tabs for severities that actually have findings in
+  // this service. The first non-empty bucket (in severity order) is
+  // the default — that's also `worst` by construction, but
+  // computing locally keeps the component self-contained.
+  const presentTabs = TAB_SEVERITIES.filter((s) => buckets[s].length > 0);
+  const [active, setActive] = useState<Severity>(worst);
+
+  // If the active tab no longer has items (e.g. an external filter
+  // narrowed the set), snap to the worst remaining tab. Re-runs
+  // whenever the bucket shape changes.
+  useEffect(() => {
+    if (presentTabs.length === 0) return;
+    if (!presentTabs.includes(active)) {
+      setActive(presentTabs[0]);
+    }
+  }, [presentTabs, active]);
+
   return (
     <details
       open={openByDefault}
@@ -509,13 +572,55 @@ function ServiceGroup({
           {t("findings.group.toggle_hint")}
         </span>
       </summary>
-      <ul className="divide-y divide-saw-grey-100 dark:divide-saw-grey-800">
-        {items.map((f) => (
+
+      {/* Severity tab strip. Each tab is labeled with its severity
+          word + count. Only present-tabs render so the strip never
+          shows an empty Critical chip for a service whose worst is
+          high. */}
+      <div
+        role="tablist"
+        aria-label={t("findings.group.severity_tabs_aria")}
+        data-testid="findings-severity-tabs"
+        className="flex flex-wrap gap-1 border-b border-saw-grey-100 dark:border-saw-grey-800 bg-saw-grey-50 dark:bg-saw-black px-3 py-2"
+      >
+        {presentTabs.map((s) => {
+          const isActive = s === active;
+          return (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActive(s)}
+              data-testid={`findings-severity-tab-${s}`}
+              className={[
+                "inline-flex items-center gap-2 rounded-full px-3 py-1 text-small font-medium transition-colors",
+                isActive
+                  ? "bg-saw-white dark:bg-saw-grey-dark text-saw-grey-900 dark:text-saw-beige shadow-sm ring-1 ring-saw-grey-200 dark:ring-saw-grey-700"
+                  : "text-saw-grey-600 dark:text-saw-grey-300 hover:bg-saw-white/60 dark:hover:bg-saw-grey-800",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange",
+              ].join(" ")}
+            >
+              <SeverityBadge severity={s} iconOnly />
+              <span>{t(`dashboard.severity.${s}`)}</span>
+              <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+                {buckets[s].length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <ul
+        role="tabpanel"
+        aria-labelledby={`findings-severity-tab-${active}`}
+        className="divide-y divide-saw-grey-100 dark:divide-saw-grey-800"
+      >
+        {buckets[active].map((f) => (
           <FindingRow
             key={f.finding_id}
             finding={f}
-            expanded={expandedId === f.finding_id}
-            onToggle={() => onToggleFinding(f.finding_id)}
+            onSelect={() => onSelectFinding(f.finding_id)}
           />
         ))}
       </ul>
@@ -525,12 +630,10 @@ function ServiceGroup({
 
 function FindingRow({
   finding,
-  expanded,
-  onToggle,
+  onSelect,
 }: {
   finding: Finding;
-  expanded: boolean;
-  onToggle: () => void;
+  onSelect: () => void;
 }) {
   const t = useT();
   const borderClass = severityBorder(finding.severity, finding.status);
@@ -541,8 +644,7 @@ function FindingRow({
     >
       <button
         type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
+        onClick={onSelect}
         className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-saw-grey-50 dark:hover:bg-saw-grey-800"
       >
         <SeverityBadge severity={finding.severity} />
@@ -559,16 +661,38 @@ function FindingRow({
           {t(`dashboard.status.${finding.status}`)}
         </Badge>
       </button>
-      {expanded ? (
-        <div className="border-t border-saw-grey-100 dark:border-saw-grey-800 bg-saw-grey-50 dark:bg-saw-black px-4 py-4">
-          {/* FindingDetailPanel re-used as-is from the legacy
-              FindingsView. Renders KB article, AI suggestion
-              button, GitHub ticket linking, resources, control
-              mappings — all the existing logic. */}
-          <FindingDetailPanel findingId={finding.finding_id} />
-        </div>
-      ) : null}
     </li>
+  );
+}
+
+/** PR #80 — drawer host. Pulls the selected finding's name +
+ *  service out of `findings` so the header can name the parent
+ *  context; the actual content is the shared `FindingDetailPanel`
+ *  that the legacy inline-expand layout used. */
+function FindingDrawer({
+  findingId,
+  findings,
+  onClose,
+}: {
+  findingId: string | null;
+  findings: Finding[];
+  onClose: () => void;
+}) {
+  const t = useT();
+  const selected = findingId
+    ? findings.find((f) => f.finding_id === findingId)
+    : null;
+  return (
+    <Drawer
+      open={!!findingId}
+      onClose={onClose}
+      title={selected?.dashboard_name ?? selected?.rule_key ?? t("findings.drawer.empty_title")}
+      subtitle={selected?.service}
+      size="lg"
+      data-testid="findings-drawer"
+    >
+      {findingId ? <FindingDetailPanel findingId={findingId} /> : null}
+    </Drawer>
   );
 }
 
