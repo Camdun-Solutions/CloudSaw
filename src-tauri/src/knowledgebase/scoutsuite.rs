@@ -41,9 +41,23 @@ static METADATA: OnceLock<BTreeMap<String, Entry>> = OnceLock::new();
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Entry {
-    /// Upstream remediation text. Single sentence in most rules; a paragraph
-    /// in some. Empty/absent for ~60% of rules — those return `None` from
-    /// `get_entry`.
+    /// PR #83 — Display label for the article title slot. Generated
+    /// at extraction time from the rule_key so every finding has a
+    /// title-cased name even when no hand-authored markdown exists.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// PR #83 — CloudSaw-authored description paragraph. Surfaces in
+    /// the Findings drawer when the bundled markdown article (if any)
+    /// doesn't carry a `## Description` section.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// PR #83 — CloudSaw-authored risk-narrative paragraph. Same
+    /// fallback semantics as `description`.
+    #[serde(default)]
+    pub risk: Option<String>,
+    /// Upstream ScoutSuite remediation text. Single sentence in most
+    /// rules; a paragraph in some. Empty/absent for ~60% of rules —
+    /// those fall back to the service-keyed baseline generator.
     #[serde(default)]
     pub remediation: Option<String>,
     /// External URLs ScoutSuite ships alongside the rule definition.
@@ -112,6 +126,32 @@ pub fn overlay_into_article(
     mut article: KnowledgeArticle,
 ) -> KnowledgeArticle {
     let entry = get_entry(rule_key);
+    // PR #83 — Title: prefer the metadata's display `name` over the
+    // raw rule_key (which is what default_for stamps in). Hand-
+    // authored articles override both via the markdown `# Title`
+    // line, but for findings with no markdown article the metadata
+    // name reads as a normal article header.
+    if let Some(name) = entry.and_then(|e| e.name.as_deref()) {
+        if !name.trim().is_empty() && article.title == rule_key {
+            article.title = name.to_string();
+        }
+    }
+    // PR #83 — Description / Risk: fill from generated metadata when
+    // the hand-authored article doesn't supply them. Hand-authored
+    // text always wins on these slots (the bundled markdown is
+    // higher-quality prose than the generator's templated output);
+    // metadata fills the gap for the 80+ findings without a bundled
+    // article.
+    if article.description.trim().is_empty() {
+        if let Some(description) = entry.and_then(|e| e.description.as_deref()) {
+            article.description = description.to_string();
+        }
+    }
+    if article.risk.trim().is_empty() {
+        if let Some(risk) = entry.and_then(|e| e.risk.as_deref()) {
+            article.risk = risk.to_string();
+        }
+    }
     // Remediation: only overlay when the article doesn't already carry
     // a non-trivial value. The default fallback's "consult AWS docs"
     // paragraph counts as trivial (matched=false) and gets replaced;
@@ -131,15 +171,26 @@ pub fn overlay_into_article(
         }
     }
     // References: surface as a forward-compat unmatched_section so the
-    // frontend can render a "Learn more" link list without needing a
+    // frontend can render a "References" link list without needing a
     // typed field added to KnowledgeArticle (Contract 08 §Constraints
-    // forward-compat surface).
+    // forward-compat surface). PR #83 — renamed key from
+    // `scoutsuite_references` to `References` so the section header
+    // reads like a normal article H2, and each URL is rewritten to
+    // markdown link syntax with a derived label (AWS hostnames get
+    // a friendly "AWS docs — …" prefix; everything else falls back
+    // to hostname + tail path segment) so SafeMarkdown renders them
+    // as anchor tags instead of bare URLs.
     if let Some(refs) = entry.and_then(|e| e.references.as_ref()) {
         if !refs.is_empty() {
+            let formatted = refs
+                .iter()
+                .map(|u| format!("- {}", format_reference_link(u)))
+                .collect::<Vec<_>>()
+                .join("\n");
             article
                 .unmatched_sections
-                .entry("scoutsuite_references".to_string())
-                .or_insert_with(|| refs.join("\n"));
+                .entry("References".to_string())
+                .or_insert(formatted);
         }
     }
     // PR #82 — flip matched=true if the overlay produced any useful
@@ -151,6 +202,107 @@ pub fn overlay_into_article(
         article.matched = true;
     }
     article
+}
+
+/// PR #83 — derive a descriptive markdown link label from a raw URL.
+/// ScoutSuite ships references as bare URLs (`https://docs.aws.amazon.com/
+/// IAM/latest/UserGuide/...`). Rendering them as anchor tags requires the
+/// SafeMarkdown link syntax `[label](url)`; this builds that string with a
+/// human-readable label so the rendered links read like prose links, not
+/// pasted URLs.
+///
+/// Strategy:
+///   * AWS docs hosts → "AWS Documentation — <last path segment>"
+///   * AWS marketing site → "AWS — <last path segment>"
+///   * Anything else → "<hostname> — <last path segment>" with the .com
+///     stripped so the chip reads as a brand name
+///
+/// The last path segment is unslugified (dashes/underscores → spaces,
+/// `.html` suffix trimmed, title-cased) so a URL like `.../password-best-
+/// practices.html` lands as "Password best practices". When the URL has
+/// no path tail, the hostname alone is used as the label.
+fn format_reference_link(url: &str) -> String {
+    let (host, last_segment) = split_url(url);
+    let pretty_tail = pretty_segment(last_segment);
+    let label = match host.as_deref() {
+        Some(h) if h.contains("docs.aws.amazon.com") => {
+            if pretty_tail.is_empty() {
+                "AWS Documentation".to_string()
+            } else {
+                format!("AWS Documentation — {pretty_tail}")
+            }
+        }
+        Some(h) if h.ends_with("aws.amazon.com") => {
+            if pretty_tail.is_empty() {
+                "AWS".to_string()
+            } else {
+                format!("AWS — {pretty_tail}")
+            }
+        }
+        Some(h) => {
+            let brand = h
+                .trim_start_matches("www.")
+                .trim_end_matches(".com")
+                .trim_end_matches(".org")
+                .to_string();
+            if pretty_tail.is_empty() {
+                brand
+            } else {
+                format!("{brand} — {pretty_tail}")
+            }
+        }
+        None => url.to_string(),
+    };
+    format!("[{label}]({url})")
+}
+
+/// Parse a URL into (host, last_meaningful_path_segment). Returns
+/// `(None, "")` when the URL doesn't look parseable — caller falls back
+/// to using the raw URL as the label.
+fn split_url(url: &str) -> (Option<String>, &str) {
+    // strip scheme
+    let after_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+    let (authority, path) = after_scheme.split_once('/').unwrap_or((after_scheme, ""));
+    let host = if authority.is_empty() {
+        None
+    } else {
+        Some(authority.to_ascii_lowercase())
+    };
+    // last non-empty segment, ignoring fragments + query strings.
+    let path = path.split('?').next().unwrap_or(path);
+    let path = path.split('#').next().unwrap_or(path);
+    let last = path.rsplit('/').find(|s| !s.is_empty()).unwrap_or("");
+    (host, last)
+}
+
+/// Turn a path segment like `password-best-practices.html` into
+/// "Password best practices". Drops common HTML/PDF extensions, swaps
+/// separators to spaces, and capitalizes the first character.
+fn pretty_segment(seg: &str) -> String {
+    if seg.is_empty() {
+        return String::new();
+    }
+    let trimmed = seg
+        .trim_end_matches(".html")
+        .trim_end_matches(".htm")
+        .trim_end_matches(".pdf")
+        .trim_end_matches(".aspx");
+    let spaced: String = trimmed
+        .chars()
+        .map(|c| if c == '-' || c == '_' { ' ' } else { c })
+        .collect();
+    let trimmed = spaced.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let mut chars = trimmed.chars();
+    match chars.next() {
+        Some(c) => c.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
 }
 
 /// PR #82 — generate a service-keyed best-practices baseline when neither
@@ -297,5 +449,40 @@ mod tests {
         // Defensive: don't blow up on a rule_key the extraction set
         // doesn't cover.
         assert!(cis_controls_for("not-a-real-rule").is_empty());
+    }
+
+    #[test]
+    fn format_reference_link_aws_docs() {
+        let s = format_reference_link(
+            "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html",
+        );
+        assert_eq!(
+            s,
+            "[AWS Documentation — Id credentials passwords account policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html)"
+        );
+    }
+
+    #[test]
+    fn format_reference_link_securityhub_with_fragment() {
+        let s = format_reference_link(
+            "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cis-controls.html#securityhub-cis-controls-1.11",
+        );
+        assert!(s.starts_with("[AWS Documentation — "));
+        assert!(s.contains("Securityhub cis controls"));
+    }
+
+    #[test]
+    fn format_reference_link_external() {
+        let s = format_reference_link("https://owasp.org/www-project-top-ten/");
+        assert_eq!(
+            s,
+            "[owasp — Www project top ten](https://owasp.org/www-project-top-ten/)"
+        );
+    }
+
+    #[test]
+    fn format_reference_link_no_path() {
+        let s = format_reference_link("https://aws.amazon.com");
+        assert_eq!(s, "[AWS](https://aws.amazon.com)");
     }
 }

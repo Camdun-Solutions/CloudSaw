@@ -592,7 +592,11 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
       </div>
 
       <ResourceList detail={detail} />
-      <MappingList mapping={mapping} service={detail.finding.service} />
+      <MappingList
+        mapping={mapping}
+        service={detail.finding.service}
+        businessCompliance={aiSettings?.context.compliance ?? null}
+      />
 
       <SubmissionPreviewModal
         preview={preview}
@@ -934,106 +938,90 @@ function AiPreviewInline({
 function ArticleBody({ article }: { article: KnowledgeArticle }) {
   const t = useT();
 
-  // PR #58: the three remediation flavors (Overview / Terraform / AWS
-  // CLI) collapse into a single tabbed `<details>` so the user picks
-  // their preferred flavor without scanning past two adjacent
-  // disclosures with the same purpose. Empty variants drop out of the
-  // tab strip.
-  const remediationTabs: { key: string; title: string; body: string }[] = [
-    {
-      key: "remediation",
-      title: t("dashboard.findings.detail.section.remediation"),
-      body: article.remediation,
-    },
-    {
-      key: "terraform_fix",
-      title: t("dashboard.findings.detail.section.terraform_fix"),
-      body: article.terraform_fix,
-    },
-    {
-      key: "aws_cli_fix",
-      title: t("dashboard.findings.detail.section.aws_cli_fix"),
-      body: article.aws_cli_fix,
-    },
-  ].filter((s) => s.body && s.body.trim().length > 0);
-
-  // Non-remediation sections still render as standalone disclosures.
-  const otherSections: { key: string; title: string; body: string }[] = [
+  // PR #83 — Description and Risk render up top, always open if
+  // present. Detection Logic is collapsed by default (technical
+  // detail). Remediation is now its own flat section — no tabs (the
+  // tab UX hid the always-relevant content under a click). Terraform
+  // and AWS CLI fixes render as their own sections when the article
+  // carries them. False positives lands at the end so the eye flows:
+  // what is it → why it matters → how to fix → caveats.
+  const sections: { key: string; title: string; body: string; openByDefault: boolean }[] = [
     {
       key: "description",
       title: t("dashboard.findings.detail.section.description"),
       body: article.description,
+      openByDefault: true,
     },
     {
       key: "risk",
       title: t("dashboard.findings.detail.section.risk"),
       body: article.risk,
+      openByDefault: true,
+    },
+    {
+      key: "remediation",
+      title: t("dashboard.findings.detail.section.remediation"),
+      body: article.remediation,
+      openByDefault: true,
+    },
+    {
+      key: "terraform_fix",
+      title: t("dashboard.findings.detail.section.terraform_fix"),
+      body: article.terraform_fix,
+      openByDefault: false,
+    },
+    {
+      key: "aws_cli_fix",
+      title: t("dashboard.findings.detail.section.aws_cli_fix"),
+      body: article.aws_cli_fix,
+      openByDefault: false,
     },
     {
       key: "detection_logic",
       title: t("dashboard.findings.detail.section.detection_logic"),
       body: article.detection_logic,
+      openByDefault: false,
     },
     {
       key: "false_positives",
       title: t("dashboard.findings.detail.section.false_positives"),
       body: article.false_positives,
+      openByDefault: false,
     },
   ].filter((s) => s.body && s.body.trim().length > 0);
 
-  // Unmatched H2 sections from forward-compat content land at the end so
-  // they aren't silently dropped (matches Contract 08 §Expected Output).
+  // Unmatched H2 sections from forward-compat content land at the end
+  // so they aren't silently dropped (matches Contract 08 §Expected
+  // Output). PR #83 — the overlay renames the legacy
+  // "scoutsuite_references" key to "References" and rewrites bare
+  // URLs as `[label](url)` markdown links so SafeMarkdown renders
+  // them as proper anchors.
   const extras = Object.entries(article.unmatched_sections ?? {});
 
-  // Render order mirrors a human's reading flow: what is it →
-  // why it matters → how the scanner detected it → how to fix it →
-  // what false-positives look like → anything new from the article.
   return (
     <div className="mt-3 space-y-2">
-      {otherSections
-        .filter((s) => s.key === "description" || s.key === "risk" || s.key === "detection_logic")
-        .map((s) => (
-          <details
-            key={s.key}
-            open={s.key === "description" || s.key === "risk"}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
-          >
-            <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
-              {s.title}
-            </summary>
-            <SafeMarkdown
-              markdown={s.body}
-              className="mt-2"
-              data-testid={`kb-section-${s.key}`}
-            />
-          </details>
-        ))}
-
-      {remediationTabs.length > 0 ? (
-        <RemediationTabs tabs={remediationTabs} />
-      ) : null}
-
-      {otherSections
-        .filter((s) => s.key === "false_positives")
-        .map((s) => (
-          <details
-            key={s.key}
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
-          >
-            <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
-              {s.title}
-            </summary>
-            <SafeMarkdown
-              markdown={s.body}
-              className="mt-2"
-              data-testid={`kb-section-${s.key}`}
-            />
-          </details>
-        ))}
+      {sections.map((s) => (
+        <details
+          key={s.key}
+          open={s.openByDefault}
+          className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
+          data-testid={`kb-section-${s.key}`}
+        >
+          <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
+            {s.title}
+          </summary>
+          <SafeMarkdown
+            markdown={s.body}
+            className="mt-2"
+            data-testid={`kb-section-${s.key}-body`}
+          />
+        </details>
+      ))}
 
       {extras.map(([h, body]) => (
         <details
           key={`extra-${h}`}
+          open
           className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
         >
           <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
@@ -1043,69 +1031,6 @@ function ArticleBody({ article }: { article: KnowledgeArticle }) {
         </details>
       ))}
     </div>
-  );
-}
-
-// PR #58: tabbed remediation disclosure. The KB article carries up to
-// three flavors (overview, terraform, aws cli); rendering them as
-// separate adjacent <details> blocks creates noise and asks the user
-// to scan three near-identical headers to find the one they want.
-// This component folds them into one disclosure with a tab strip.
-// Empty flavors get filtered out by the caller so this only sees the
-// tabs that actually have content.
-function RemediationTabs({
-  tabs,
-}: {
-  tabs: { key: string; title: string; body: string }[];
-}) {
-  const t = useT();
-  const [activeKey, setActiveKey] = useState<string>(tabs[0]?.key ?? "");
-  const active = tabs.find((tb) => tb.key === activeKey) ?? tabs[0];
-
-  return (
-    <details
-      open
-      className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black px-4 py-2"
-      data-testid="kb-section-remediation"
-    >
-      <summary className="cursor-pointer text-body font-medium text-saw-grey-900 dark:text-saw-beige">
-        {t("dashboard.findings.detail.section.remediation")}
-      </summary>
-      <div
-        role="tablist"
-        aria-label={t("dashboard.findings.detail.section.remediation")}
-        className="mt-3 flex flex-wrap gap-1 border-b border-saw-grey-200 dark:border-saw-grey-700"
-      >
-        {tabs.map((tb) => {
-          const isActive = tb.key === active?.key;
-          return (
-            <button
-              key={tb.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setActiveKey(tb.key)}
-              data-testid={`kb-remediation-tab-${tb.key}`}
-              className={
-                "rounded-t-card px-3 py-1.5 text-small font-medium transition " +
-                (isActive
-                  ? "bg-saw-white dark:bg-saw-grey-dark text-saw-grey-900 dark:text-saw-beige border border-saw-grey-200 dark:border-saw-grey-700 border-b-transparent -mb-px"
-                  : "text-saw-grey-600 dark:text-saw-grey-400 hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-grey-900 dark:hover:text-saw-beige")
-              }
-            >
-              {tb.title}
-            </button>
-          );
-        })}
-      </div>
-      {active ? (
-        <SafeMarkdown
-          markdown={active.body}
-          className="mt-3"
-          data-testid={`kb-section-${active.key}`}
-        />
-      ) : null}
-    </details>
   );
 }
 
@@ -1309,16 +1234,72 @@ function securityDomainFor(service: string | undefined): string {
   return SERVICE_DOMAIN[service] ?? "General";
 }
 
+// PR #83 — Map BusinessContext.compliance pill labels (free-form,
+// user-facing — "SOC2", "ISO27001", "PCI-DSS", "NIST-800-53", …) to
+// the bundled framework IDs we store mappings under
+// ("soc2"/"iso27001"/"pcidss"/"nist"/…). Both sides of the lookup
+// are normalized: lower-cased + non-alphanumerics stripped, so
+// `NIST-800-53` and `nist 800 53` and `nist80053` all collide on
+// the same key. Aliases live here too — `NIST-CSF` and `NIST-800-53`
+// both resolve to our single bundled `nist` framework because we
+// don't ship separate mapping sets for them.
+const FRAMEWORK_ALIASES: Record<string, string> = {
+  soc2: "soc2",
+  soc: "soc2",
+  iso27001: "iso27001",
+  iso2700122022: "iso27001",
+  hipaa: "hipaa",
+  nist: "nist",
+  nist80053: "nist",
+  nistcsf: "nist",
+  pcidss: "pcidss",
+  pci: "pcidss",
+  cis: "cis",
+};
+
+function normalizeFrameworkName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function resolveBundledFrameworkId(pillLabel: string): string | null {
+  return FRAMEWORK_ALIASES[normalizeFrameworkName(pillLabel)] ?? null;
+}
+
 function MappingList({
   mapping,
   service,
+  businessCompliance,
 }: {
   mapping: ControlMapping;
   service?: string;
+  /** PR #83 — Compliance pill list from BusinessContext. The
+   *  Mappings panel filters to display only CIS (always, as a basic
+   *  baseline) + frameworks matching this list. Null = settings
+   *  haven't loaded yet → render nothing instead of all-or-nothing
+   *  to avoid a flash of the wrong shape. Empty list = user hasn't
+   *  scoped any frameworks → CIS only. */
+  businessCompliance: string[] | null;
 }) {
   const t = useT();
-  const entries = Object.entries(mapping.frameworks ?? {});
+  const allEntries = Object.entries(mapping.frameworks ?? {});
   const domain = securityDomainFor(service);
+
+  // Resolve user-scoped pill labels to bundled framework ids. CIS is
+  // always included as the "basic" baseline per spec.
+  const allowedIds = useMemo(() => {
+    const out = new Set<string>(["cis"]);
+    for (const pill of businessCompliance ?? []) {
+      const resolved = resolveBundledFrameworkId(pill);
+      if (resolved) out.add(resolved);
+    }
+    return out;
+  }, [businessCompliance]);
+
+  const entries =
+    businessCompliance === null
+      ? []
+      : allEntries.filter(([fwId]) => allowedIds.has(fwId));
+
   return (
     <details
       open
