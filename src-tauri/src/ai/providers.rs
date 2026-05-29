@@ -234,10 +234,7 @@ pub fn add(
 /// `prepare_request` against an empty row returns `NoProviderKey`
 /// because `key::has_for_id` reads the keychain (which is empty
 /// for this row), not the SQLite row.
-pub fn add_empty(
-    provider_type: Provider,
-    nickname: String,
-) -> Result<ProviderRecord, AiError> {
+pub fn add_empty(provider_type: Provider, nickname: String) -> Result<ProviderRecord, AiError> {
     let nickname = nickname.trim().to_string();
     if nickname.is_empty() || nickname.len() > NICKNAME_MAX_LEN {
         return Err(AiError::InvalidInput("nickname"));
