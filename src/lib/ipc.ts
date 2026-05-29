@@ -576,11 +576,69 @@ export type TeamSize = "solo" | "small" | "medium" | "large" | "unspecified";
 
 export type BusinessContext = {
   industry: string;
+  /** PR #69 — Job role / "what the user uses CloudSaw for". Up to
+   *  500 characters. The Rust side validates the cap (see
+   *  `ai::context::JOB_ROLE_MAX_LEN`) and stores in the settings
+   *  table alongside the other context fields. */
+  job_role: string;
   environment_type: EnvironmentType;
   compliance: string[];
   risk_tolerance: RiskTolerance;
   team_size: TeamSize;
 };
+
+/** PR #69 — Mirror of Rust `ai::context::JOB_ROLE_MAX_LEN`. UI uses
+ *  this to set the textarea's `maxLength`. Kept in sync manually
+ *  because the two surfaces validate independently. */
+export const JOB_ROLE_MAX_LEN = 500;
+
+/** PR #69 — Known compliance frameworks across US / EU / Asia.
+ *  Surfaces in the autocomplete dropdown of the Compliance
+ *  Obligations editor. The Rust `is_known_framework` matcher
+ *  recognizes the same set (plus a handful of legacy aliases).
+ *  Users can add custom frameworks not in this list — the comma
+ *  delimiter accepts arbitrary strings. */
+export const KNOWN_COMPLIANCE_FRAMEWORKS: ReadonlyArray<string> = [
+  // United States
+  "PCI-DSS",
+  "SOC2",
+  "HIPAA",
+  "HITRUST",
+  "NIST-CSF",
+  "NIST-800-53",
+  "FedRAMP",
+  "FISMA",
+  "CMMC",
+  "GLBA",
+  "FERPA",
+  "CCPA",
+  "CPRA",
+  "SOX",
+  "CIS",
+  "CSA",
+  // Europe / international
+  "ISO27001",
+  "ISO27017",
+  "ISO27018",
+  "GDPR",
+  "DORA",
+  "NIS2",
+  "BSI C5",
+  "TISAX",
+  "ENISA",
+  "PSD2",
+  "eIDAS",
+  // Asia / APAC
+  "PDPA (Singapore)",
+  "PIPL (China)",
+  "DPDPA (India)",
+  "APPI (Japan)",
+  "MAS-TRM (Singapore)",
+  "RBI Guidelines",
+  "APRA CPS 234",
+  "OAIC (Australia)",
+  "PIPEDA (Canada)",
+];
 
 export type ContextFlags = {
   industry_identifying: boolean;

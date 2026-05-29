@@ -189,7 +189,7 @@ export default function ScheduledScans() {
 
   return (
     <section
-      className="mt-6 max-w-3xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      className="max-w-3xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-schedules"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">

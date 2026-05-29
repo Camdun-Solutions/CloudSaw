@@ -16,7 +16,6 @@ import { useT } from "@/hooks/useT";
 // PR #46: Accounts is no longer a top-level route — it's an
 // embedded section inside Settings. App.tsx doesn't render it
 // directly anymore; Settings imports it.
-import CustomReport from "@/routes/CustomReport";
 import Dashboard from "@/routes/Dashboard";
 import Findings from "@/routes/Findings";
 import Home from "@/routes/Home";
@@ -33,7 +32,6 @@ type Route =
   // routes to "settings" instead.
   | "home"
   | "settings"
-  | "custom_report"
   | "dashboard"
   // "findings" deep-links into the Dashboard component with
   // `initialTab="findings"`. PR #48 (Findings overhaul) will promote
@@ -50,7 +48,6 @@ function topNavActive(route: Route): TopNavRoute | null {
     case "findings":
       return "findings";
     case "settings":
-    case "custom_report":
       return "settings";
   }
 }
@@ -394,15 +391,10 @@ function AppShell({
   if (route === "settings") {
     return (
       <Settings
-        onClose={() => setRoute("home")}
-        onOpenCustomReport={() => setRoute("custom_report")}
         initialSection={settingsTarget?.section}
         initialSectionNonce={settingsTarget?.nonce}
       />
     );
-  }
-  if (route === "custom_report") {
-    return <CustomReport onBack={() => setRoute("settings")} />;
   }
   if (route === "dashboard") {
     return (

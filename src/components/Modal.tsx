@@ -1,7 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
-import { useT } from "@/hooks/useT";
-
 /** PR #53 — pinned set of modal widths so call sites can request
  *  a wider modal for content-heavy flows (ConnectScannerRoleForm,
  *  AddAccount, etc.) without inlining arbitrary max-w-* classes.
@@ -33,7 +31,6 @@ export default function Modal({
   size = "md",
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const t = useT();
 
   useEffect(() => {
     if (!open) return;
@@ -93,40 +90,17 @@ export default function Modal({
         className={`flex w-full ${SIZE_CLASSES[size]} max-h-[calc(100vh-2rem)] flex-col rounded-card bg-saw-white dark:bg-saw-grey-dark shadow-xl outline-none`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-saw-grey-200 dark:border-saw-grey-700 px-5 py-3">
+        {/* PR #69: the explicit "X" close affordance was removed per
+            user spec. Every modal still closes on Escape and on
+            backdrop click; callers are expected to provide an
+            explicit Cancel / Close action in the footer. */}
+        <div className="border-b border-saw-grey-200 dark:border-saw-grey-700 px-5 py-3">
           <h2
             id="modal-title"
-            className="flex-1 text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige"
+            className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige"
           >
             {title}
           </h2>
-          {/* Explicit close affordance — the modal already closes on
-              Escape and backdrop click, but users (especially on touch
-              devices, or inside a Tauri webview where Escape may be
-              consumed by an upstream listener like a focused input)
-              need a visible target. Sized 32x32 so the click target
-              meets WCAG 2.2 AA minimum 24x24 with margin to spare. */}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("common.close")}
-            data-testid="modal-close-button"
-            className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-saw-grey-500 dark:text-saw-grey-400 transition hover:bg-saw-grey-100 dark:hover:bg-saw-grey-800 hover:text-saw-grey-800 dark:hover:text-saw-beige focus-visible:outline focus-visible:outline-2 focus-visible:outline-saw-red"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 20 20"
-              fill="none"
-              className="h-4 w-4"
-            >
-              <path
-                d="M5 5L15 15M15 5L5 15"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 text-body text-saw-grey-800 dark:text-saw-beige">
           {children}

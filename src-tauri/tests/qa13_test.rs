@@ -214,6 +214,11 @@ fn clone_err(e: &AiError) -> AiError {
 fn typical_context() -> BusinessContext {
     BusinessContext {
         industry: "fintech".into(),
+        // PR #69: job_role added to BusinessContext. The QA fixtures
+        // here always leave it empty — the AI prompt builder treats
+        // an empty job_role the same as any other unspecified
+        // free-form field.
+        job_role: String::new(),
         environment_type: EnvironmentType::Production,
         compliance: vec!["PCI".into(), "SOC2".into()],
         risk_tolerance: RiskTolerance::Low,
@@ -278,6 +283,7 @@ fn happy_business_context_is_reflected_in_built_request() {
     ai::set_provider_key(Provider::Openai, "sk-bbbbbbbbbbbbbbbbbbbb".into()).unwrap();
     ai::set_business_context(BusinessContext {
         industry: "healthcare".into(),
+        job_role: String::new(),
         environment_type: EnvironmentType::Production,
         compliance: vec!["HIPAA".into()],
         risk_tolerance: RiskTolerance::Low,
@@ -399,6 +405,7 @@ fn error_identifying_context_field_is_flagged_and_visible_in_preview() {
     ai::set_provider_key(Provider::Anthropic, "sk-ant-aaaaaaaaaaaaaaaa".into()).unwrap();
     ai::set_business_context(BusinessContext {
         industry: "Acme Healthcare Inc.".into(),
+        job_role: String::new(),
         environment_type: EnvironmentType::Production,
         compliance: vec!["Acme-Order-9921".into()],
         risk_tolerance: RiskTolerance::Low,

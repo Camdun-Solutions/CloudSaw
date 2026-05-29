@@ -189,6 +189,10 @@ fn render_user_message(
     s.push_str("## Business context (user-supplied, structured)\n\n");
     s.push_str(&format!("- Industry: {}\n", none_if_empty(&ctx.industry)));
     s.push_str(&format!(
+        "- Job role / use case: {}\n",
+        none_if_empty(&ctx.job_role)
+    ));
+    s.push_str(&format!(
         "- Environment type: {}\n",
         env_label(ctx.environment_type)
     ));
@@ -285,6 +289,7 @@ mod tests {
         };
         let ctx = BusinessContext {
             industry: "fintech".into(),
+            job_role: "".into(),
             environment_type: EnvironmentType::Production,
             compliance: vec!["PCI".into(), "SOC2".into()],
             risk_tolerance: RiskTolerance::Low,

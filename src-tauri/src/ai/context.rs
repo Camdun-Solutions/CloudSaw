@@ -18,10 +18,17 @@ use crate::db::paths::app_data_dir;
 
 const KEY_PROVIDER: &str = "ai_provider";
 const KEY_INDUSTRY: &str = "ai_context_industry";
+const KEY_JOB_ROLE: &str = "ai_context_job_role";
 const KEY_ENV_TYPE: &str = "ai_context_environment_type";
 const KEY_COMPLIANCE: &str = "ai_context_compliance";
 const KEY_RISK: &str = "ai_context_risk_tolerance";
 const KEY_TEAM: &str = "ai_context_team_size";
+
+/// PR #69 — max characters the UI textarea allows + the storage
+/// layer accepts for the job_role field. Kept loose enough for a
+/// short paragraph; rejecting longer payloads stops a runaway
+/// paste from blowing up the AI prompt.
+pub const JOB_ROLE_MAX_LEN: usize = 500;
 
 fn db_path() -> Result<std::path::PathBuf, AiError> {
     Ok(app_data_dir()
@@ -71,6 +78,7 @@ pub fn write_provider(provider: Option<Provider>) -> Result<(), AiError> {
 pub fn read_context() -> Result<BusinessContext, AiError> {
     let conn = open()?;
     let industry = read_value(&conn, KEY_INDUSTRY)?;
+    let job_role = read_value(&conn, KEY_JOB_ROLE)?;
     let env_raw = read_value(&conn, KEY_ENV_TYPE)?;
     let compliance_raw = read_value(&conn, KEY_COMPLIANCE)?;
     let risk_raw = read_value(&conn, KEY_RISK)?;
@@ -84,6 +92,7 @@ pub fn read_context() -> Result<BusinessContext, AiError> {
 
     Ok(BusinessContext {
         industry,
+        job_role,
         environment_type: EnvironmentType::from_storage(&env_raw),
         compliance,
         risk_tolerance: RiskTolerance::from_storage(&risk_raw),
@@ -95,6 +104,10 @@ pub fn write_context(ctx: &BusinessContext) -> Result<(), AiError> {
     let industry = ctx.industry.trim();
     if industry.len() > 120 {
         return Err(AiError::InvalidInput("industry"));
+    }
+    let job_role = ctx.job_role.trim();
+    if job_role.len() > JOB_ROLE_MAX_LEN {
+        return Err(AiError::InvalidInput("job_role"));
     }
     let compliance_joined = ctx
         .compliance
@@ -108,6 +121,7 @@ pub fn write_context(ctx: &BusinessContext) -> Result<(), AiError> {
     }
 
     write_value(KEY_INDUSTRY, industry)?;
+    write_value(KEY_JOB_ROLE, job_role)?;
     write_value(KEY_ENV_TYPE, ctx.environment_type.as_str())?;
     write_value(KEY_COMPLIANCE, &compliance_joined)?;
     write_value(KEY_RISK, ctx.risk_tolerance.as_str())?;
@@ -134,23 +148,61 @@ fn is_known_framework(s: &str) -> bool {
     let upper = s.trim().to_ascii_uppercase();
     matches!(
         upper.as_str(),
+        // United States
         "PCI"
             | "PCI-DSS"
             | "PCIDSS"
             | "SOC2"
             | "SOC-2"
             | "HIPAA"
-            | "ISO27001"
-            | "ISO-27001"
+            | "HITRUST"
             | "NIST"
             | "NIST800-53"
-            | "GDPR"
-            | "CCPA"
+            | "NIST-800-53"
+            | "NIST-CSF"
             | "FEDRAMP"
             | "FED-RAMP"
+            | "FISMA"
+            | "CMMC"
+            | "GLBA"
+            | "FERPA"
+            | "CCPA"
+            | "CPRA"
+            | "SOX"
             | "CIS"
             | "CSA"
-            | "SOX"
+            // Europe / international
+            | "ISO27001"
+            | "ISO-27001"
+            | "ISO/IEC 27001"
+            | "ISO27017"
+            | "ISO27018"
+            | "GDPR"
+            | "DORA"
+            | "NIS2"
+            | "EBA-GL"
+            | "BSI"
+            | "C5"
+            | "TISAX"
+            | "ENISA"
+            | "PSD2"
+            | "EIDAS"
+            // Asia / APAC
+            | "PDPA"
+            | "PDPB"
+            | "PIPL"
+            | "DPDP"
+            | "DPDPA"
+            | "APPI"
+            | "MAS-TRM"
+            | "RBI-GUIDELINES"
+            | "RBI"
+            | "ASIC"
+            | "APRA"
+            | "APRA-CPS-234"
+            | "OAIC"
+            | "PIPEDA"
+            // generic / opt-out
             | "NONE"
     )
 }
