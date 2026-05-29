@@ -1559,6 +1559,11 @@ function AiSection() {
   const [context, setContext] = useState<BusinessContext | null>(null);
   const [ctxSaved, setCtxSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // PR #71: disclosure body starts collapsed so the rest of the AI
+  // tab is reachable without scrolling past the full warning. The
+  // first ~3 lines + the title stay visible, with a Read more /
+  // Read less inline toggle.
+  const [disclosureOpen, setDisclosureOpen] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -1654,6 +1659,7 @@ function AiSection() {
   ];
 
   return (
+    <>
     <section
       className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
       data-testid="settings-section-ai"
@@ -1677,9 +1683,31 @@ function AiSection() {
         </div>
       ) : null}
 
+      {/* PR #71: the disclosure body is multi-paragraph long and used
+          to dominate the entire AI tab. It now collapses to its
+          first ~3 lines (line-clamp-3) with an inline "Read more"
+          toggle so the rest of the page is reachable without
+          scrolling past a wall of red text. */}
       <div className="mt-4 rounded-card border border-saw-red/30 bg-saw-red/5 p-3 text-small">
         <div className="font-medium text-saw-red">{t("ai.disclosure.title")}</div>
-        <div className="text-saw-grey-800 dark:text-saw-beige mt-1">{t("ai.disclosure.body")}</div>
+        <div
+          className={`text-saw-grey-800 dark:text-saw-beige mt-1 ${
+            disclosureOpen ? "" : "line-clamp-3"
+          }`}
+          data-testid="ai-disclosure-body"
+        >
+          {t("ai.disclosure.body")}
+        </div>
+        <button
+          type="button"
+          onClick={() => setDisclosureOpen((v) => !v)}
+          data-testid="ai-disclosure-toggle"
+          className="mt-1 text-saw-red underline underline-offset-2 hover:text-saw-red-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-saw-red"
+        >
+          {disclosureOpen
+            ? t("ai.disclosure.read_less")
+            : t("ai.disclosure.read_more")}
+        </button>
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
@@ -1762,18 +1790,25 @@ function AiSection() {
             ) : null}
           </>
         ) : null}
+      </div>
+    </section>
 
-        <hr className="border-saw-grey-100 dark:border-saw-grey-800" />
-
-        <div>
-          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-            {t("ai.context.title")}
-          </div>
-          <div className="text-small text-saw-grey-600 dark:text-saw-grey-400 mt-1">
-            {t("ai.context.subtitle")}
-          </div>
-        </div>
-
+    {/* PR #71: Business Context lives in its own card now. The
+        original single-card layout collapsed the AI Suggestion
+        Layer settings and the (longer) business-context form into
+        one wall; splitting them lets a user fill out the context
+        independently of whether a provider key is connected. */}
+    <section
+      className="max-w-2xl rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-6"
+      data-testid="settings-section-ai-context"
+    >
+      <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
+        {t("ai.context.title")}
+      </h2>
+      <p className="mt-1 text-small text-saw-grey-600 dark:text-saw-grey-400">
+        {t("ai.context.subtitle")}
+      </p>
+      <div className="mt-4 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.context.industry")}</span>
           <input
@@ -1928,6 +1963,7 @@ function AiSection() {
         ) : null}
       </div>
     </section>
+    </>
   );
 }
 

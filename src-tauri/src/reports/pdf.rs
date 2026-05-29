@@ -308,8 +308,11 @@ fn write_meta(
         format!(
             "Disclosure:      {}",
             match content.header.disclosure {
-                AccountIdDisclosure::Masked => "masked (default)",
-                AccountIdDisclosure::Full => "full (explicit opt-in)",
+                // PR #71: same masking-pattern label as the HTML
+                // report so the two artifacts agree on disclosure
+                // wording.
+                AccountIdDisclosure::Masked => "****XXXX (last 4 of each ID only)",
+                AccountIdDisclosure::Full => "full 12-digit account IDs (explicit opt-in)",
             }
         ),
         format!(
