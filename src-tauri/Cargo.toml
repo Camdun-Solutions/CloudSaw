@@ -1,6 +1,6 @@
 [package]
 name = "cloudsaw"
-version = "2026.5.31"
+version = "2026.5.33"
 description = "CloudSaw — local-first AWS security scanner"
 authors = ["CloudSaw Contributors"]
 license = "Apache-2.0"

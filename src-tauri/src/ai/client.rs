@@ -241,8 +241,17 @@ fn map_status(s: u16) -> AiError {
 /// Production entry point used by the IPC bridge. Fetches the key,
 /// dispatches through the production transport, then drops the key
 /// before returning.
+///
+/// PR #74 — keys are now keyed by `provider_id` (each connected
+/// provider has its own keychain slot). For backwards-compat with
+/// legacy single-provider previews that lack `provider_id`, fall
+/// back to the type-keyed slot.
 pub fn send_with_provider_key(preview: &AiRequestPreview) -> Result<AiSuggestion, AiError> {
-    let token = key::get(preview.provider)?.ok_or(AiError::NoProviderKey)?;
+    let token = if preview.provider_id.is_empty() {
+        key::get(preview.provider)?.ok_or(AiError::NoProviderKey)?
+    } else {
+        key::get_for_id(&preview.provider_id)?.ok_or(AiError::NoProviderKey)?
+    };
     send_with(&ReqwestTransport, preview, &token)
 }
 

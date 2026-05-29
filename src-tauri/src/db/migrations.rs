@@ -77,6 +77,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0012_reports",
         include_str!("../../migrations/0012_reports.sql"),
     ),
+    (
+        "0013_ai_providers",
+        include_str!("../../migrations/0013_ai_providers.sql"),
+    ),
 ];
 
 pub fn run(db_path: &Path) -> Result<(), AppError> {

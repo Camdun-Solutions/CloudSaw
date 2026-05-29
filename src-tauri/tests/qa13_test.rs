@@ -5,6 +5,16 @@
 // production code WOULD send and returns a canned response. That lets
 // us assert the EXACT bytes the wire would see (the contract's
 // strongest property) without standing up an HTTPS server.
+//
+// PR #74 — the AI module moved to a multi-provider model. The legacy
+// `set_provider` / `set_provider_key` / `clear_provider_key` helpers
+// were marked `#[deprecated]` because they only describe the active-
+// row case; the underlying behavior they test (a known-shape key
+// reaching the keychain via the `ai` API, then driving a request)
+// remains valuable. We allow the deprecation warning for this whole
+// test crate so the migration-period regression coverage stays green.
+
+#![allow(deprecated)]
 
 use std::fs;
 use std::path::PathBuf;
@@ -539,6 +549,9 @@ fn security_with_no_key_no_ai_code_path_makes_a_network_call() {
     // the IPC caller manually constructs a payload.
     let preview = AiRequestPreview {
         provider: Provider::Anthropic,
+        // PR #74 — multi-provider model. Empty `provider_id` is the
+        // legacy single-provider shape the no-key gate also rejects.
+        provider_id: String::new(),
         model: "claude-haiku-4-5-20251001".into(),
         system_prompt: "x".into(),
         user_message: "x".into(),
