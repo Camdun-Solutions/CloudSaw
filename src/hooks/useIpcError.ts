@@ -98,6 +98,12 @@ const KNOWN_CODES: Record<string, string> = {
   ai_rate_limited: "ai.error.rate_limited",
   ai_network: "ai.error.network",
   ai_server_error: "ai.error.server",
+  // PR #84 — ai_provider_error carries the literal provider message
+  // ("Your credit balance is too low", "Per-minute token limit
+  // exceeded", "Model not available to your tier", ...). The hook
+  // special-cases it below so the user sees the real cause instead
+  // of a localized stand-in.
+  ai_provider_error: "ai.error.provider_error",
   // Report exporter (Contract 15).
   report_output_write: "report.error.output_write",
   report_pdf_render: "report.error.pdf_render",
@@ -115,6 +121,18 @@ export function useIpcError() {
         const match = err.message.match(/(\d+)\s*s/);
         const secs = match ? match[1] : "";
         return t("applock.error.rate_limited").replace("{seconds}", secs);
+      }
+      if (err.code === "ai_provider_error") {
+        // PR #84 — backend `message` is the literal provider error
+        // (`"ai: provider error (429): Your credit balance is too low"`).
+        // Strip the leading status-prefix the AppError display tacked
+        // on so the user just sees the provider's text.
+        const m = err.message.match(/^ai: provider error \(\d+\): (.+)$/);
+        const providerMessage = m ? m[1] : err.message;
+        return t("ai.error.provider_error").replace(
+          "{message}",
+          providerMessage,
+        );
       }
       const key = KNOWN_CODES[err.code];
       return key ? t(key) : t("common.error_generic");

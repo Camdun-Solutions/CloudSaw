@@ -255,6 +255,15 @@ pub enum AppError {
     #[error("ai: provider error {0}")]
     AiServerError(u16),
 
+    /// PR #84 — Surfaces the literal provider error message
+    /// (Anthropic / OpenAI / Gemini all return a JSON body with an
+    /// `error.message` field on non-2xx; we read it and pass it
+    /// through verbatim so the user sees "Your credit balance is
+    /// too low" rather than the generic "rate limited" string the
+    /// app used to display for every 4xx).
+    #[error("ai: provider error ({status}): {message}")]
+    AiProviderError { status: u16, message: String },
+
     // Report exporter (Contract 15). Stable codes only; no scan
     // content, no resource paths, and no filesystem path content
     // appears in any of these messages.
@@ -342,6 +351,7 @@ impl AppError {
             AppError::AiRateLimited => "ai_rate_limited",
             AppError::AiNetwork => "ai_network",
             AppError::AiServerError(_) => "ai_server_error",
+            AppError::AiProviderError { .. } => "ai_provider_error",
             AppError::ReportOutputWrite => "report_output_write",
             AppError::ReportPdfRender(_) => "report_pdf_render",
             AppError::ReportAutoExportCopy => "report_auto_export_copy",

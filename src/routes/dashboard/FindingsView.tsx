@@ -3,6 +3,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
+import Modal from "@/components/Modal";
 import {
   Button,
   EmptyState,
@@ -17,7 +18,7 @@ import { useIpcError } from "@/hooks/useIpcError";
 import {
   ipc,
   SEVERITY_ORDER,
-  type AiRequestPreview,
+  type AiProvider,
   type AiSettings as AiSettingsT,
   type AiSuggestion,
   type ControlMapping,
@@ -401,9 +402,10 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
   const [github, setGithub] = useState<GithubSettings | null>(null);
   const [preview, setPreview] = useState<IssuePreview | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettingsT | null>(null);
-  const [aiPreview, setAiPreview] = useState<AiRequestPreview | null>(null);
   const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiSetupOpen, setAiSetupOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!findingId) return;
@@ -450,32 +452,75 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
     void load();
   }, [load]);
 
-  async function startAiSuggestion() {
+  // PR #84 — One-click AI flow. The previous PR-#58 flow required the
+  // user to inspect a verbose preview (system prompt, user message,
+  // identifying flags, placeholders…) and explicitly click Send. The
+  // user spec for this iteration:
+  //
+  //   "When a user clicks 'AI suggestion…' the only thing that should
+  //    appear is a 'Generating…' loading message and then the actual
+  //    recommendation should appear in the text box."
+  //
+  // So `requestAiSuggestion` now does prepare + send in one shot and
+  // surfaces only the "Generating…" state followed by the result.
+  // Audit-of-transmitted-bytes (Contract 13 §Constraints) is to be
+  // re-homed on the Settings page in a follow-up; the system prompt
+  // is static, and the user-message template is deterministic, so a
+  // single sample-render in Settings replaces the per-request preview
+  // without losing transparency.
+  //
+  // If the user hasn't connected a provider yet, the button opens the
+  // setup modal instead of erroring — that gets them from "I want AI"
+  // to "AI works" without bouncing to Settings.
+  async function requestAiSuggestion() {
     if (!findingId) return;
-    setAiError(null);
-    setAiSuggestion(null);
     if (!aiSettings || !aiSettings.key_connected) {
-      // Contract 13 §Edge Cases: no key → direct the user to Settings.
-      setAiError(t("ai.error.no_provider_key"));
+      setAiSetupOpen(true);
       return;
     }
+    setAiError(null);
+    setAiSuggestion(null);
+    setAiBusy(true);
     try {
-      const p = await ipc.aiPrepareRequest(findingId);
-      setAiPreview(p);
+      const preview = await ipc.aiPrepareRequest(findingId);
+      const suggestion = await ipc.aiSendRequest(preview);
+      setAiSuggestion(suggestion);
     } catch (err) {
       setAiError(formatError(err));
+    } finally {
+      setAiBusy(false);
     }
   }
 
-  async function sendAiRequest(p: AiRequestPreview): Promise<AiSuggestion> {
-    // PR #58: inline flow. The preview body stays mounted (no modal hop)
-    // until the suggestion lands; clearing aiPreview right after the
-    // send flips the AiSuggestionBlock back to its post-suggestion
-    // state with the result visible below the CTA.
-    const suggestion = await ipc.aiSendRequest(p);
-    setAiSuggestion(suggestion);
-    setAiPreview(null);
-    return suggestion;
+  // Called by the setup modal once a provider lands in storage. We
+  // refresh aiSettings so the suggestion block flips out of its
+  // "not connected" state and immediately kicks off the original
+  // request the user was trying to make.
+  async function handleAiSetupSaved() {
+    setAiSetupOpen(false);
+    try {
+      const next = await ipc.aiGetSettings();
+      setAiSettings(next);
+      // Auto-run the suggestion the user was trying to fetch when
+      // the setup modal opened. The flow now lands the user on the
+      // suggestion result instead of asking them to click again.
+      if (next.key_connected && findingId) {
+        setAiError(null);
+        setAiSuggestion(null);
+        setAiBusy(true);
+        try {
+          const preview = await ipc.aiPrepareRequest(findingId);
+          const suggestion = await ipc.aiSendRequest(preview);
+          setAiSuggestion(suggestion);
+        } catch (err) {
+          setAiError(formatError(err));
+        } finally {
+          setAiBusy(false);
+        }
+      }
+    } catch (err) {
+      setAiError(formatError(err));
+    }
   }
 
   // PR #81 — `startCreateTicket` was the in-panel "Create GitHub
@@ -583,13 +628,15 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
           settings={aiSettings}
           suggestion={aiSuggestion}
           aiError={aiError}
-          preview={aiPreview}
-          onStart={() => void startAiSuggestion()}
-          onSend={sendAiRequest}
-          onCancelPreview={() => setAiPreview(null)}
-          formatError={formatError}
+          busy={aiBusy}
+          onRequest={() => void requestAiSuggestion()}
         />
       </div>
+      <AiQuickSetupModal
+        open={aiSetupOpen}
+        onClose={() => setAiSetupOpen(false)}
+        onSaved={() => void handleAiSetupSaved()}
+      />
 
       <ResourceList detail={detail} />
       <MappingList
@@ -619,56 +666,43 @@ export function FindingDetailPanel({ findingId }: { findingId: string | null }) 
   );
 }
 
-// AI suggestion sub-panel — visually distinct from the KB article above.
-// Renders an opt-in CTA, the disabled-hint pointing to Settings if no
-// key is connected, the request preview inline once the user clicks
-// the CTA, and (after a Send) the suggestion with a clear
-// "AI-generated, unreviewed" label + placeholder reminder + token
-// usage.
+// PR #84 — AI suggestion sub-panel, simplified.
 //
-// PR #58: the request-preview step used to open a modal; the modal
-// is gone — the preview now unfurls inline below the CTA so the user
-// stays anchored to the finding row they're investigating. Contract
-// 13's "preview MUST show exact transmitted bytes before any call"
-// invariant is unchanged — every byte the modal showed (provider,
-// model, digest, context, flags, placeholders, system prompt, user
-// message) still renders here.
+// Three states only:
+//   1. Not configured (no provider key) → "Connect AI Provider" CTA
+//      opens the quick-setup modal in the parent.
+//   2. Idle / Generating → primary "AI suggestion" CTA, or a
+//      "Generating…" indicator while a request is in flight.
+//   3. Result → the model's markdown response in a text box, with
+//      a small disclaimer + provider/model line below.
+//
+// The previous inline request preview (system prompt, user message,
+// digest, identifying flags, placeholders) is gone from this surface
+// per the 2026-05-29 user spec: "The only thing that should appear is
+// a 'Generating…' loading message and then the actual recommendation
+// should appear in the text box." The static system prompt + the
+// deterministic user-message template are scheduled to be re-homed
+// on the Settings page so the auditability the inline preview used
+// to provide stays available in one place rather than gating every
+// suggestion.
 function AiSuggestionBlock({
   settings,
   suggestion,
   aiError,
-  preview,
-  onStart,
-  onSend,
-  onCancelPreview,
-  formatError,
+  busy,
+  onRequest,
 }: {
   settings: AiSettingsT | null;
   suggestion: AiSuggestion | null;
   aiError: string | null;
-  preview: AiRequestPreview | null;
-  onStart: () => void;
-  onSend: (preview: AiRequestPreview) => Promise<AiSuggestion>;
-  onCancelPreview: () => void;
-  formatError: (err: unknown) => string;
+  busy: boolean;
+  onRequest: () => void;
 }) {
   const t = useT();
   const ready = !!settings?.key_connected;
-  const [sendBusy, setSendBusy] = useState(false);
-  const [sendErr, setSendErr] = useState<string | null>(null);
-
-  async function submit() {
-    if (!preview) return;
-    setSendBusy(true);
-    setSendErr(null);
-    try {
-      await onSend(preview);
-    } catch (e) {
-      setSendErr(formatError(e));
-    } finally {
-      setSendBusy(false);
-    }
-  }
+  const ctaLabel = ready
+    ? t("ai.suggestion.cta")
+    : t("ai.suggestion.cta_setup");
 
   return (
     <div
@@ -681,63 +715,56 @@ function AiSuggestionBlock({
             {t("ai.suggestion.label")}
           </span>
         </div>
-        {/* Hide the CTA while the inline preview is unfurled — the
-            preview's own Send button takes over. */}
-        {!preview ? (
-          <Button
-            variant={ready ? "secondary" : "ghost"}
-            size="sm"
-            onClick={onStart}
-            data-testid="ai-suggestion-cta"
-          >
-            {t("ai.suggestion.cta")}
-          </Button>
-        ) : null}
-      </div>
-      {!ready && !preview ? (
-        <p
-          className="mt-2 text-small text-saw-grey-600 dark:text-saw-grey-400"
-          data-testid="ai-suggestion-disabled-hint"
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onRequest}
+          disabled={busy}
+          data-testid="ai-suggestion-cta"
         >
-          {t("ai.suggestion.disabled_hint")}
+          {ctaLabel}
+        </Button>
+      </div>
+
+      {busy ? (
+        <p
+          className="mt-3 flex items-center gap-2 text-small text-saw-grey-700 dark:text-saw-beige"
+          data-testid="ai-suggestion-generating"
+          aria-live="polite"
+        >
+          <span
+            className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-saw-grey-300 border-t-saw-orange"
+            aria-hidden="true"
+          />
+          {t("ai.suggestion.generating")}
         </p>
       ) : null}
+
       {aiError ? (
         <p
           role="alert"
-          className="mt-2 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+          className="mt-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
           data-testid="ai-suggestion-error"
         >
           {aiError}
         </p>
       ) : null}
-      {preview ? (
-        <AiPreviewInline
-          preview={preview}
-          busy={sendBusy}
-          err={sendErr}
-          onSend={() => void submit()}
-          onCancel={onCancelPreview}
-        />
-      ) : null}
+
       {suggestion ? (
         <div className="mt-3" data-testid="ai-suggestion-result">
-          <p className="text-xs text-saw-grey-600 dark:text-saw-grey-400">
-            {t("ai.suggestion.disclaimer")}
-          </p>
-          <p className="mt-1 text-xs text-saw-grey-600 dark:text-saw-grey-400">
-            {t("ai.suggestion.placeholders_note")}
-          </p>
-          <div className="mt-3 rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-3">
+          <div className="rounded-card bg-saw-white dark:bg-saw-grey-dark border border-saw-grey-200 dark:border-saw-grey-700 p-3">
             {suggestion.suggestion_markdown.trim().length > 0 ? (
               <SafeMarkdown markdown={suggestion.suggestion_markdown} />
             ) : (
-              <p className="text-small text-saw-grey-600 dark:text-saw-grey-400">
+              <p className="text-small text-saw-grey-600 dark:text-saw-beige">
                 {t("ai.suggestion.empty")}
               </p>
             )}
           </div>
-          <div className="mt-2 text-xs text-saw-grey-500 dark:text-saw-grey-400">
+          <p className="mt-2 text-xs text-saw-grey-600 dark:text-saw-beige">
+            {t("ai.suggestion.disclaimer")}
+          </p>
+          <div className="mt-1 text-xs text-saw-grey-500 dark:text-saw-grey-400">
             {t("ai.suggestion.model")}: {suggestion.provider} · {suggestion.model}
             {suggestion.usage_input_tokens !== null &&
             suggestion.usage_output_tokens !== null ? (
@@ -756,179 +783,145 @@ function AiSuggestionBlock({
   );
 }
 
-// PR #58: inline replacement for the old AiRequestPreviewModal. Same
-// content the modal showed, just laid out without a modal wrapper so
-// the user stays in the finding row. Contract 13 §Constraints requires
-// the full transmitted bytes to render before any call — every field
-// the modal exposed (provider, model, digest, context, identifying
-// flags, placeholders, system prompt, user message) renders here too.
-function AiPreviewInline({
-  preview,
-  busy,
-  err,
-  onSend,
-  onCancel,
+// PR #84 — Lightweight setup modal that lets a user connect a
+// provider without leaving the finding view. Same three fields as
+// the Settings → AI "Add Provider" modal (provider type / nickname /
+// API key) and routes through the same `aiAddProvider` IPC, so the
+// Settings page sees the row immediately. On success the parent
+// re-reads aiSettings and auto-fires the suggestion the user was
+// trying to fetch when they hit the un-configured state.
+function AiQuickSetupModal({
+  open,
+  onClose,
+  onSaved,
 }: {
-  preview: AiRequestPreview;
-  busy: boolean;
-  err: string | null;
-  onSend: () => void;
-  onCancel: () => void;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
 }) {
   const t = useT();
+  const formatError = useIpcError();
+  const [providerType, setProviderType] = useState<AiProvider>("anthropic");
+  const [nickname, setNickname] = useState("");
+  const [keyInput, setKeyInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setProviderType("anthropic");
+      setNickname("");
+      setKeyInput("");
+      setBusy(false);
+      setErr(null);
+    }
+  }, [open]);
+
+  async function submit() {
+    setErr(null);
+    const trimmedNick = nickname.trim();
+    if (!trimmedNick) {
+      setErr(t("ai.providers.error.no_nickname"));
+      return;
+    }
+    if (!keyInput.trim()) {
+      setErr(t("ai.providers.error.no_key"));
+      return;
+    }
+    setBusy(true);
+    try {
+      await ipc.aiAddProvider(providerType, trimmedNick, keyInput);
+      setKeyInput("");
+      onSaved();
+    } catch (e) {
+      setErr(formatError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) return null;
   return (
-    <div
-      className="mt-3 flex flex-col gap-3 rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark p-4 text-small text-saw-grey-800 dark:text-saw-beige"
-      data-testid="ai-preview-inline"
-    >
-      <p>{t("ai.preview.subtitle")}</p>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-            {t("ai.preview.provider")}
-          </div>
-          <div className="font-mono text-saw-grey-700 dark:text-saw-grey-300">
-            {preview.provider}
-          </div>
-        </div>
-        <div>
-          <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-            {t("ai.preview.model")}
-          </div>
-          <div
-            className="font-mono text-saw-grey-700 dark:text-saw-grey-300"
-            data-testid="ai-preview-model"
-          >
-            {preview.model}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-          {t("ai.preview.digest_label")}
-        </div>
-        <div className="font-mono text-xs text-saw-grey-700 dark:text-saw-grey-300">
-          <div>rule_key: {preview.digest.rule_key}</div>
-          <div>service: {preview.digest.service}</div>
-          <div>resource_category: {preview.digest.resource_category}</div>
-          <div>severity: {preview.digest.severity}</div>
-          <div>
-            checked / flagged: {preview.digest.checked_items} /{" "}
-            {preview.digest.flagged_items}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-          {t("ai.preview.context_label")}
-        </div>
-        <div className="font-mono text-xs text-saw-grey-700 dark:text-saw-grey-300">
-          <div>industry: {preview.context.industry || "(none)"}</div>
-          <div>environment_type: {preview.context.environment_type}</div>
-          <div>
-            compliance: {preview.context.compliance.join(", ") || "(none)"}
-          </div>
-          <div>risk_tolerance: {preview.context.risk_tolerance}</div>
-          <div>team_size: {preview.context.team_size}</div>
-        </div>
-      </div>
-
-      {preview.flags.industry_identifying ||
-      preview.flags.compliance_identifying ? (
-        <div
-          className="rounded-card border border-saw-red/30 bg-saw-red/5 px-3 py-2 text-saw-red"
-          data-testid="ai-preview-flags"
-        >
-          <div className="font-medium">{t("ai.preview.flags_label")}</div>
-          {preview.flags.industry_identifying ? (
-            <div data-testid="ai-preview-flag-industry">
-              {t("ai.preview.flag_industry")}
-            </div>
-          ) : null}
-          {preview.flags.compliance_identifying ? (
-            <div data-testid="ai-preview-flag-compliance">
-              {t("ai.preview.flag_compliance")}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div>
-        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-          {t("ai.preview.placeholders_label")}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {preview.placeholders_used.map((p) => (
-            <span
-              key={p}
-              className="rounded-full bg-saw-grey-100 dark:bg-saw-grey-800 px-2 py-0.5 text-xs font-mono text-saw-grey-800 dark:text-saw-beige"
-            >
-              {p}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-          {t("ai.preview.system_label")}
-        </div>
-        <pre
-          className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
-          data-testid="ai-preview-system"
-        >
-          {preview.system_prompt}
-        </pre>
-      </div>
-
-      <div>
-        <div className="font-medium text-saw-grey-900 dark:text-saw-beige">
-          {t("ai.preview.user_label")}
-        </div>
-        <pre
-          className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-2 font-mono text-xs text-saw-grey-800 dark:text-saw-beige"
-          data-testid="ai-preview-user"
-        >
-          {preview.user_message}
-        </pre>
-      </div>
-
-      {err ? (
-        <p
-          role="alert"
-          className="rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
-          data-testid="ai-preview-error"
-        >
-          {err}
+    <Modal open onClose={onClose} title={t("ai.setup.modal_title")}>
+      <div className="flex flex-col gap-4" data-testid="ai-quick-setup-modal">
+        <p className="text-small text-saw-grey-700 dark:text-saw-beige">
+          {t("ai.setup.modal_subtitle")}
         </p>
-      ) : null}
-
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={busy}
-          data-testid="ai-preview-cancel"
-        >
-          {t("ai.preview.cancel")}
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onSend}
-          disabled={busy}
-          data-testid="ai-preview-send"
-        >
-          {busy ? t("ai.preview.sending") : t("ai.preview.send")}
-        </Button>
+        <Select<AiProvider>
+          label={t("ai.provider.label")}
+          value={providerType}
+          options={[
+            { value: "anthropic", label: t("ai.provider.anthropic") },
+            { value: "openai", label: t("ai.provider.openai") },
+            { value: "gemini", label: t("ai.provider.gemini") },
+          ]}
+          onChange={setProviderType}
+          data-testid="ai-quick-setup-type"
+        />
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-beige">
+          <span>{t("ai.providers.nickname")}</span>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value.slice(0, 60))}
+            placeholder={t("ai.providers.nickname_placeholder")}
+            maxLength={60}
+            className="rounded-card border border-saw-grey-300 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-2 text-body text-saw-grey-900 dark:text-saw-beige focus:outline-none focus:ring-2 focus:ring-saw-orange focus:ring-offset-1"
+            data-testid="ai-quick-setup-nickname"
+          />
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("ai.providers.nickname_hint")}
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-beige">
+          <span>{t("ai.key.label")}</span>
+          <input
+            type="password"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder={t(`ai.key.placeholder_${providerType}`)}
+            autoComplete="off"
+            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
+            data-testid="ai-quick-setup-key"
+          />
+          <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
+            {t("ai.key.hint")}
+          </span>
+        </label>
+        {err ? (
+          <p role="alert" className="text-small text-saw-red">
+            {err}
+          </p>
+        ) : null}
+        <div className="mt-2 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={busy}
+            data-testid="ai-quick-setup-cancel"
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void submit()}
+            disabled={busy}
+            data-testid="ai-quick-setup-save"
+          >
+            {busy ? t("ai.setup.saving") : t("ai.setup.save")}
+          </Button>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
+
+// PR #84 — `AiPreviewInline` (the verbose per-request audit panel
+// the user had to acknowledge before every Send) is gone. The
+// one-click flow in `AiSuggestionBlock` above replaces it; the
+// transmitted-bytes audit surface is scheduled to move onto the
+// Settings page (single sample render, not per-request) in a
+// follow-up.
 
 // PR #81 — `FindingTicketRow` is gone. The create button moved to the
 // Findings drawer header (`<FindingGitHubAction>` rendered into
