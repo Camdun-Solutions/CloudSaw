@@ -706,7 +706,12 @@ function AiSuggestionBlock({
 
   return (
     <div
-      className="mt-5 rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-4"
+      // PR #84 follow-up — `min-w-0` lets long children (provider
+      // error pill, long suggestion markdown) shrink to fit the
+      // flex parent instead of forcing the panel to overflow.
+      // `overflow-hidden` clips anything that still tries to escape
+      // (defense in depth around the break-words rule on the pill).
+      className="mt-5 min-w-0 overflow-hidden rounded-card border border-dashed border-saw-grey-300 dark:border-saw-grey-700 bg-saw-grey-50 dark:bg-saw-black p-4"
       data-testid="ai-suggestion-block"
     >
       <div className="flex items-center justify-between">
@@ -741,9 +746,15 @@ function AiSuggestionBlock({
       ) : null}
 
       {aiError ? (
+        // PR #84 follow-up — long provider error messages (Anthropic
+        // and OpenAI both return multi-sentence strings on quota
+        // failures) used to overflow the panel because the pill had
+        // no width constraint and no word-break. `break-words` +
+        // `whitespace-pre-wrap` + `max-w-full` keep the text inside
+        // the panel regardless of length.
         <p
           role="alert"
-          className="mt-3 rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red"
+          className="mt-3 max-w-full rounded-card bg-saw-grey-100 dark:bg-saw-grey-800 px-3 py-2 text-small text-saw-red break-words whitespace-pre-wrap"
           data-testid="ai-suggestion-error"
         >
           {aiError}
@@ -804,6 +815,7 @@ function AiQuickSetupModal({
   const [providerType, setProviderType] = useState<AiProvider>("anthropic");
   const [nickname, setNickname] = useState("");
   const [keyInput, setKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -812,6 +824,7 @@ function AiQuickSetupModal({
       setProviderType("anthropic");
       setNickname("");
       setKeyInput("");
+      setShowKey(false);
       setBusy(false);
       setErr(null);
     }
@@ -824,13 +837,19 @@ function AiQuickSetupModal({
       setErr(t("ai.providers.error.no_nickname"));
       return;
     }
-    if (!keyInput.trim()) {
+    const trimmedKey = keyInput.trim();
+    if (!trimmedKey) {
       setErr(t("ai.providers.error.no_key"));
       return;
     }
     setBusy(true);
     try {
-      await ipc.aiAddProvider(providerType, trimmedNick, keyInput);
+      // PR #84 follow-up — trim the key. Pasting from a docs page
+      // often picks up a trailing space or newline that breaks
+      // every subsequent call with a misleading "invalid key" from
+      // the provider. The user was hitting this; trimming at the
+      // boundary makes the stored key unambiguous.
+      await ipc.aiAddProvider(providerType, trimmedNick, trimmedKey);
       setKeyInput("");
       onSaved();
     } catch (e) {
@@ -875,15 +894,31 @@ function AiQuickSetupModal({
         </label>
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-beige">
           <span>{t("ai.key.label")}</span>
-          <input
-            type="password"
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            placeholder={t(`ai.key.placeholder_${providerType}`)}
-            autoComplete="off"
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
-            data-testid="ai-quick-setup-key"
-          />
+          {/* PR #84 follow-up — show-key toggle. Paste-from-docs
+              frequently produces invisible whitespace or a wrong
+              chunk; the user needs to be able to confirm the key
+              they pasted is what they think it is. Toggle flips
+              the input between password (masked) and text (visible). */}
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder={t(`ai.key.placeholder_${providerType}`)}
+              autoComplete="off"
+              className="w-full rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 pr-20 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
+              data-testid="ai-quick-setup-key"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((v) => !v)}
+              aria-pressed={showKey}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-saw-grey-700 dark:text-saw-grey-300 hover:text-saw-grey-900 dark:hover:text-saw-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange rounded-r-card"
+              data-testid="ai-quick-setup-show-key"
+            >
+              {showKey ? t("ai.key.hide") : t("ai.key.show")}
+            </button>
+          </div>
           <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
             {t("ai.key.hint")}
           </span>
