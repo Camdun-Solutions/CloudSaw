@@ -20,7 +20,10 @@
       "allow": [
         { "url": "https://github.com/*" },
         { "url": "https://github.com/settings/personal-access-tokens/new" },
-        { "url": "mailto:security@cloud-saw.com" }
+        { "url": "mailto:security@cloud-saw.com" },
+        { "url": "https://**" },
+        { "url": "http://**" },
+        { "url": "mailto:*" }
       ]
     }
   ]

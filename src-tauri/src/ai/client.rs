@@ -122,7 +122,12 @@ fn send_anthropic(preview: &AiRequestPreview, token: &str) -> Result<AiSuggestio
 
     let status = resp.status();
     if !status.is_success() {
-        return Err(map_status(status.as_u16()));
+        // PR #84 — read the body so the UI sees Anthropic's actual
+        // error message ("Number of request tokens has exceeded …",
+        // "Your credit balance is too low", "model: not_found_error",
+        // etc.) instead of the generic status-to-bucket mapping.
+        let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
+        return Err(map_response_error(status.as_u16(), body));
     }
     let body: AnthropicResponse = resp.json().map_err(|_| AiError::Server(status.as_u16()))?;
     let text = body
@@ -213,7 +218,11 @@ fn send_openai(preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, 
 
     let status = resp.status();
     if !status.is_success() {
-        return Err(map_status(status.as_u16()));
+        // PR #84 — read OpenAI's error body and surface the real
+        // `error.message` so the UI shows e.g. "You exceeded your
+        // current quota" instead of "rate limited".
+        let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
+        return Err(map_response_error(status.as_u16(), body));
     }
     let body: OpenaiResponse = resp.json().map_err(|_| AiError::Server(status.as_u16()))?;
     let text = body
@@ -346,7 +355,11 @@ fn send_gemini(preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, 
 
     let status = resp.status();
     if !status.is_success() {
-        return Err(map_status(status.as_u16()));
+        // PR #84 — read Gemini's error body and surface its
+        // `error.message` so the UI shows e.g. "API key not valid"
+        // or "Quota exceeded for ..." instead of "rate limited".
+        let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
+        return Err(map_response_error(status.as_u16(), body));
     }
     let body: GeminiResponse = resp.json().map_err(|_| AiError::Server(status.as_u16()))?;
     let text = body
@@ -377,13 +390,76 @@ fn send_gemini(preview: &AiRequestPreview, token: &str) -> Result<AiSuggestion, 
     })
 }
 
-fn map_status(s: u16) -> AiError {
-    match s {
+/// PR #84 — Consume a non-2xx response and surface the provider's
+/// actual error message. Anthropic / OpenAI / Gemini all return
+/// `error.message` (under different wrapping shapes) on failure;
+/// reading it lets the UI distinguish "credit balance too low" from
+/// "tokens-per-minute limit exceeded" from "model not available to
+/// your tier" — every one of which the previous code collapsed into
+/// "rate limited" for any 429.
+///
+/// Status-only fallbacks (401/403 → KeyInvalid, 429 → RateLimited,
+/// etc.) still apply when the body can't be parsed, so a malformed
+/// response from the provider doesn't lose the original signal.
+fn map_response_error(status: u16, body_bytes: Vec<u8>) -> AiError {
+    let body_text = String::from_utf8_lossy(&body_bytes);
+    if let Some(message) = extract_provider_error_message(&body_text) {
+        return AiError::ProviderError {
+            status,
+            message: cap_message(&message),
+        };
+    }
+    // No structured body — fall back to the status-only classifier so
+    // the user still gets the best information available.
+    match status {
         401 | 403 => AiError::KeyInvalid,
         429 => AiError::RateLimited,
-        500..=599 => AiError::Server(s),
-        _ => AiError::Server(s),
+        _ => AiError::Server(status),
     }
+}
+
+/// Trim a provider-supplied error string so a runaway response can't
+/// blow up the IPC error payload (or worse, ship megabytes of
+/// arbitrary text into the UI). 600 chars is generous for the
+/// realistic error messages the three providers emit.
+fn cap_message(s: &str) -> String {
+    const MAX: usize = 600;
+    let trimmed = s.trim();
+    if trimmed.chars().count() <= MAX {
+        return trimmed.to_string();
+    }
+    let mut out: String = trimmed.chars().take(MAX).collect();
+    out.push('…');
+    out
+}
+
+/// Walk the three known provider error shapes looking for a string
+/// `message` field:
+///   * Anthropic / OpenAI / Gemini all use `{"error": {"message": "..."}}`
+///   * Some Anthropic responses use the legacy `{"type":"error","error":{"message":"..."}}`
+///     shape — the inner `error.message` path catches both.
+///
+/// Returns `None` if the body isn't JSON or no message string sits at
+/// any recognized path; caller falls back to a status-only mapping.
+fn extract_provider_error_message(body: &str) -> Option<String> {
+    let json: serde_json::Value = serde_json::from_str(body).ok()?;
+    // Common: {"error": {"message": "..."}}
+    if let Some(msg) = json
+        .get("error")
+        .and_then(|e| e.get("message"))
+        .and_then(|m| m.as_str())
+    {
+        return Some(msg.to_string());
+    }
+    // Top-level: {"message": "..."}
+    if let Some(msg) = json.get("message").and_then(|m| m.as_str()) {
+        return Some(msg.to_string());
+    }
+    // Anthropic legacy: {"type":"error","error":"<string>"}
+    if let Some(msg) = json.get("error").and_then(|m| m.as_str()) {
+        return Some(msg.to_string());
+    }
+    None
 }
 
 /// Production entry point used by the IPC bridge. Fetches the key,
@@ -418,12 +494,100 @@ mod tests {
     use super::*;
 
     #[test]
-    fn map_status_routes_known_codes() {
-        assert!(matches!(map_status(401), AiError::KeyInvalid));
-        assert!(matches!(map_status(403), AiError::KeyInvalid));
-        assert!(matches!(map_status(429), AiError::RateLimited));
-        assert!(matches!(map_status(500), AiError::Server(500)));
-        assert!(matches!(map_status(503), AiError::Server(503)));
-        assert!(matches!(map_status(418), AiError::Server(418)));
+    fn map_response_error_empty_body_falls_through_to_status_buckets() {
+        assert!(matches!(
+            map_response_error(401, vec![]),
+            AiError::KeyInvalid
+        ));
+        assert!(matches!(
+            map_response_error(403, vec![]),
+            AiError::KeyInvalid
+        ));
+        assert!(matches!(
+            map_response_error(429, vec![]),
+            AiError::RateLimited
+        ));
+        assert!(matches!(
+            map_response_error(500, vec![]),
+            AiError::Server(500)
+        ));
+        assert!(matches!(
+            map_response_error(503, vec![]),
+            AiError::Server(503)
+        ));
+        assert!(matches!(
+            map_response_error(418, vec![]),
+            AiError::Server(418)
+        ));
+    }
+
+    #[test]
+    fn map_response_error_extracts_anthropic_message() {
+        let body = br#"{"type":"error","error":{"type":"rate_limit_error","message":"Number of request tokens (45000) has exceeded your per-minute rate limit (40000)"}}"#;
+        let err = map_response_error(429, body.to_vec());
+        match err {
+            AiError::ProviderError { status, message } => {
+                assert_eq!(status, 429);
+                assert!(message.contains("per-minute rate limit"));
+            }
+            other => panic!("expected ProviderError, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn map_response_error_extracts_openai_message() {
+        let body = br#"{"error":{"message":"You exceeded your current quota","type":"insufficient_quota","code":"insufficient_quota"}}"#;
+        let err = map_response_error(429, body.to_vec());
+        match err {
+            AiError::ProviderError { status, message } => {
+                assert_eq!(status, 429);
+                assert_eq!(message, "You exceeded your current quota");
+            }
+            other => panic!("expected ProviderError, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn map_response_error_extracts_gemini_message() {
+        let body = br#"{"error":{"code":429,"message":"Quota exceeded for quota metric 'GenerateRequestsPerMinutePerProject'","status":"RESOURCE_EXHAUSTED"}}"#;
+        let err = map_response_error(429, body.to_vec());
+        match err {
+            AiError::ProviderError { status, message } => {
+                assert_eq!(status, 429);
+                assert!(message.contains("Quota exceeded"));
+            }
+            other => panic!("expected ProviderError, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn map_response_error_unparseable_body_falls_back_to_status() {
+        let err = map_response_error(
+            429,
+            b"<html>upstream returned a non-json body</html>".to_vec(),
+        );
+        assert!(matches!(err, AiError::RateLimited));
+        let err = map_response_error(401, b"".to_vec());
+        assert!(matches!(err, AiError::KeyInvalid));
+        let err = map_response_error(503, b"oops".to_vec());
+        assert!(matches!(err, AiError::Server(503)));
+    }
+
+    #[test]
+    fn cap_message_truncates_long_strings() {
+        let long = "x".repeat(700);
+        let capped = cap_message(&long);
+        assert!(
+            capped.chars().count() <= 601,
+            "len {}",
+            capped.chars().count()
+        );
+        assert!(capped.ends_with('…'));
+    }
+
+    #[test]
+    fn cap_message_passes_through_short_strings() {
+        assert_eq!(cap_message("short"), "short");
+        assert_eq!(cap_message("  trimmed  "), "trimmed");
     }
 }

@@ -26,4 +26,22 @@
     outline: 2px solid theme("colors.saw.orange");
     outline-offset: 2px;
   }
+
+  /* PR #84 — Hide scrollbars across the app while preserving scroll
+     functionality. The user explicitly requested no visible
+     scrollbars; scroll wheel, trackpad, touch, and keyboard (arrow /
+     PgUp / PgDn / Space) all keep working because we only hide the
+     visual track and thumb, not the overflow behavior. Applies
+     globally to every scroll container (body, drawer body, modal
+     bodies, the AI suggestion result markdown box, the SafeMarkdown
+     <pre> blocks, etc.). */
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / old Edge */
+  }
 }

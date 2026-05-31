@@ -7,17 +7,17 @@
 // row was clicked. The drawer pattern keeps the row list intact on
 // the left and pins the detail panel on the right.
 //
-// Behavior mirrors `Modal.tsx` where it can (Escape to close, body
-// scroll lock, backdrop click, focus trap on the dismiss button)
-// and diverges on layout only — the panel slides from the right
-// edge, takes a fixed width on desktop, and goes full-width on
-// narrow viewports.
+// PR #83 — Non-modal. The earlier modal behavior (backdrop dim,
+// body scroll lock, click-outside-to-close, aria-modal=true) forced
+// the user to dismiss the drawer before they could click another
+// finding row, which defeats the whole "browse list stays usable"
+// motivation. The drawer now floats over the right edge without
+// covering or blocking the underlying page: no backdrop, no scroll
+// lock, list rows behind the right column stay clickable. Dismiss
+// is the X button or Escape.
 //
-// This is not a reimplementation of Modal — Modal stays the
-// affordance for confirm/yes-no / form / disclosure dialogs that
-// SHOULD command the user's full attention. The drawer is for
-// "details about a thing the user clicked, while the page they
-// clicked from remains the primary surface."
+// Modal.tsx remains the affordance for true command-the-user
+// dialogs (confirm/yes-no / form / disclosure).
 
 import { useEffect, useRef, type ReactNode } from "react";
 
@@ -46,24 +46,9 @@ type Props = {
   "data-testid"?: string;
 };
 
-/** Body-scroll-lock counter — mirrors Modal's so a drawer and a
- * modal opened on top of each other don't unlock the body when
- * either one closes. */
-let openCount = 0;
-
-function lock() {
-  if (openCount === 0) {
-    document.body.style.overflow = "hidden";
-  }
-  openCount += 1;
-}
-
-function unlock() {
-  openCount = Math.max(0, openCount - 1);
-  if (openCount === 0) {
-    document.body.style.overflow = "";
-  }
-}
+// PR #83 — Body scroll lock removed. Non-modal drawer should not
+// freeze the underlying page; the user is supposed to keep browsing
+// the list while the drawer floats on the right.
 
 const SIZES: Record<NonNullable<Props["size"]>, string> = {
   md: "max-w-md",
@@ -84,16 +69,11 @@ export default function Drawer({
   const t = useT();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Mirror Modal: lock body scroll while open, restore on close.
-  useEffect(() => {
-    if (!open) return;
-    lock();
-    return () => unlock();
-  }, [open]);
-
-  // Escape to close + focus the dismiss button on open so the
-  // first Tab lands somewhere useful and Esc works from the
-  // moment the panel paints.
+  // PR #83 — Escape closes; no body-scroll lock or backdrop click
+  // handler because the drawer no longer covers the page. The
+  // focus-on-open behavior is also gone: the user is supposed to
+  // keep clicking findings on the list, so stealing focus into the
+  // drawer would fight that.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -103,51 +83,32 @@ export default function Drawer({
       }
     }
     document.addEventListener("keydown", onKey);
-    // requestAnimationFrame so the focus call lands after the slide
-    // animation begins — focusing before paint sometimes loses the
-    // ring on Chrome.
-    const handle = window.requestAnimationFrame(() => {
-      closeBtnRef.current?.focus();
-    });
     return () => {
       document.removeEventListener("keydown", onKey);
-      window.cancelAnimationFrame(handle);
     };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50"
-      role="dialog"
-      aria-modal="true"
+    // PR #83 — Non-modal: role=complementary instead of dialog,
+    // no aria-modal. The panel pins to the right edge but the
+    // rest of the page (the findings list behind it) stays
+    // interactive — no fixed positioned overlay covering inset-0
+    // to swallow clicks.
+    <aside
+      className={[
+        "fixed inset-y-0 right-0 z-40 flex w-full flex-col",
+        SIZES[size],
+        "border-l border-saw-grey-200 dark:border-saw-grey-700",
+        "bg-saw-white dark:bg-saw-grey-dark shadow-2xl",
+        "motion-safe:transition-transform motion-safe:duration-200",
+      ].join(" ")}
+      role="complementary"
       aria-label={title}
       {...rest}
     >
-      {/* Backdrop. Click to close. Sits below the panel via z-stack
-          so a click anywhere outside the panel dismisses. */}
-      <div
-        className="absolute inset-0 bg-saw-black/40"
-        onClick={onClose}
-        data-testid="drawer-backdrop"
-      />
-      {/* The panel itself — slides in from the right via a CSS
-          translate transition. `motion-safe:` so users with
-          `prefers-reduced-motion` skip the animation. Full-height,
-          fixed width at md+ breakpoints, full-width below. */}
-      <div
-        className={[
-          "absolute inset-y-0 right-0 flex w-full flex-col",
-          SIZES[size],
-          "border-l border-saw-grey-200 dark:border-saw-grey-700",
-          "bg-saw-white dark:bg-saw-grey-dark shadow-2xl",
-          "motion-safe:transition-transform motion-safe:duration-200",
-        ].join(" ")}
-        // Stop the backdrop's onClick from firing when the user
-        // clicks inside the panel.
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="flex h-full w-full flex-col">
         <header className="flex items-start justify-between gap-3 border-b border-saw-grey-200 dark:border-saw-grey-700 px-5 py-4">
           <div className="min-w-0 flex-1">
             <h2 className="text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige">
@@ -193,6 +154,6 @@ export default function Drawer({
           </footer>
         ) : null}
       </div>
-    </div>
+    </aside>
   );
 }

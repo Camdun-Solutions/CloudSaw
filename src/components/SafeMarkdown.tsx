@@ -66,7 +66,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
         out.push(
           <code
             key={`${keyPrefix}-c${runKey++}`}
-            className="rounded bg-saw-grey-100 px-1 py-0.5 font-mono text-small text-saw-grey-900"
+            className="rounded bg-saw-grey-100 dark:bg-saw-grey-800 px-1 py-0.5 font-mono text-small text-saw-grey-900 dark:text-saw-beige"
           >
             {text.slice(i + 1, end)}
           </code>,
@@ -85,7 +85,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
         out.push(
           <strong
             key={`${keyPrefix}-b${runKey++}`}
-            className="font-semibold text-saw-grey-900"
+            className="font-semibold text-saw-grey-900 dark:text-saw-beige"
           >
             {renderInline(text.slice(i + 2, end), `${keyPrefix}-b${runKey}`)}
           </strong>,
@@ -258,10 +258,10 @@ function renderBlocks(blocks: Block[]): ReactNode[] {
       case "heading": {
         const cls =
           b.level === 2
-            ? "mt-6 mb-2 text-h2 font-semibold text-saw-grey-900"
+            ? "mt-6 mb-2 text-h2 font-semibold text-saw-grey-900 dark:text-saw-beige"
             : b.level === 3
-              ? "mt-4 mb-2 text-h3 font-semibold text-saw-grey-900"
-              : "mt-3 mb-1 text-body font-semibold text-saw-grey-900";
+              ? "mt-4 mb-2 text-h3 font-semibold text-saw-grey-900 dark:text-saw-beige"
+              : "mt-3 mb-1 text-body font-semibold text-saw-grey-900 dark:text-saw-beige";
         const inline = renderInline(b.text, `h${idx}`);
         if (b.level === 2) return <h2 key={`b${idx}`} className={cls}>{inline}</h2>;
         if (b.level === 3) return <h3 key={`b${idx}`} className={cls}>{inline}</h3>;
@@ -271,7 +271,7 @@ function renderBlocks(blocks: Block[]): ReactNode[] {
         return (
           <p
             key={`b${idx}`}
-            className="my-3 text-body text-saw-grey-800 whitespace-pre-wrap break-words"
+            className="my-3 text-body text-saw-grey-800 dark:text-saw-beige whitespace-pre-wrap break-words"
           >
             {renderInline(b.lines.join("\n"), `p${idx}`)}
           </p>
@@ -291,7 +291,7 @@ function renderBlocks(blocks: Block[]): ReactNode[] {
           </pre>
         );
       case "list": {
-        const cls = "my-3 ml-6 space-y-1 text-body text-saw-grey-800";
+        const cls = "my-3 ml-6 space-y-1 text-body text-saw-grey-800 dark:text-saw-beige";
         const items = b.items.map((item, j) => (
           <li key={`b${idx}-i${j}`}>{renderInline(item, `b${idx}i${j}`)}</li>
         ));

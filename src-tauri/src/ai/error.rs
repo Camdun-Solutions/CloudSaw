@@ -28,6 +28,13 @@ pub enum AiError {
     KeyInvalid,
 
     /// Provider rate-limited the request. The UI offers a retry.
+    ///
+    /// PR #84 — kept as a sentinel for the legacy retry path but the
+    /// preferred surface for any non-2xx provider response is now
+    /// `ProviderError` below, which carries the actual message the
+    /// provider returned (`"Your credit balance is too low"`,
+    /// `"Per-minute token quota exceeded"`, etc.) so the UI doesn't
+    /// guess at the cause from the status code alone.
     #[error("rate limited")]
     RateLimited,
 
@@ -38,6 +45,17 @@ pub enum AiError {
     /// Provider responded with an unexpected status or body.
     #[error("provider error status {0}")]
     Server(u16),
+
+    /// PR #84 — Provider responded with a non-2xx and a parseable
+    /// error body. The message is the literal text the provider gave
+    /// us, lightly sanitized (length-capped, no embedded credentials
+    /// because the provider's own response body shouldn't carry the
+    /// key we sent). Letting the user see this surfaces the real
+    /// cause — "credit balance too low" vs "tokens-per-minute limit"
+    /// vs "model not available to your tier" — instead of the generic
+    /// "rate limited" bucket every 429 used to collapse into.
+    #[error("provider error ({status}): {message}")]
+    ProviderError { status: u16, message: String },
 
     /// The supplied finding_id wasn't found (defense-in-depth — the
     /// frontend should never get here unless the UI is out of sync).
@@ -61,6 +79,7 @@ impl AiError {
             AiError::RateLimited => "ai_rate_limited",
             AiError::Network => "ai_network",
             AiError::Server(_) => "ai_server_error",
+            AiError::ProviderError { .. } => "ai_provider_error",
             AiError::FindingNotFound => "finding_not_found",
             AiError::Db(_) => "db_error",
             AiError::Io(_) => "io_error",
@@ -84,6 +103,9 @@ impl From<AiError> for AppError {
             AiError::RateLimited => AppError::AiRateLimited,
             AiError::Network => AppError::AiNetwork,
             AiError::Server(s) => AppError::AiServerError(s),
+            AiError::ProviderError { status, message } => {
+                AppError::AiProviderError { status, message }
+            }
             AiError::FindingNotFound => AppError::FindingNotFound,
             AiError::Db(m) => AppError::Db(m),
             AiError::Io(m) => AppError::Io(m),
