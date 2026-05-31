@@ -720,6 +720,8 @@
   "ai.key.placeholder_openai": "sk-…",
   "ai.key.placeholder_gemini": "AIza…",
   "ai.key.hint": "Stored ONLY in your OS keychain at cloudsaw.llm_api_key. Never in SQLite, config files, logs, or URLs. Cleared by the Panic action.",
+  "ai.key.show": "Afficher",
+  "ai.key.hide": "Masquer",
   "ai.key.save": "Enregistrer la clé",
   "ai.key.saving": "Enregistrement…",
   "ai.key.clear": "Supprimer la clé",

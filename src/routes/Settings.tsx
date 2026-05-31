@@ -1597,6 +1597,7 @@ function AddProviderModal({
   const [providerType, setProviderType] = useState<AiProvider>("anthropic");
   const [nickname, setNickname] = useState("");
   const [keyInput, setKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -1607,6 +1608,7 @@ function AddProviderModal({
       setProviderType("anthropic");
       setNickname("");
       setKeyInput("");
+      setShowKey(false);
       setBusy(false);
       setErr(null);
     }
@@ -1618,13 +1620,18 @@ function AddProviderModal({
       setErr(t("ai.providers.error.no_nickname"));
       return;
     }
-    if (!keyInput.trim()) {
+    const trimmedKey = keyInput.trim();
+    if (!trimmedKey) {
       setErr(t("ai.providers.error.no_key"));
       return;
     }
     setBusy(true);
     try {
-      await ipc.aiAddProvider(providerType, nickname.trim(), keyInput);
+      // PR #84 follow-up — trim the key (paste-from-docs frequently
+      // picks up trailing whitespace that causes the provider to
+      // reject every subsequent request with a "key invalid" error
+      // even though the underlying credential is fine).
+      await ipc.aiAddProvider(providerType, nickname.trim(), trimmedKey);
       setKeyInput("");
       onSaved();
     } catch (e) {
@@ -1675,15 +1682,29 @@ function AddProviderModal({
         </label>
         <label className="flex flex-col gap-1 text-small text-saw-grey-700 dark:text-saw-grey-300">
           <span>{t("ai.key.label")}</span>
-          <input
-            type="password"
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            placeholder={keyPlaceholderFor(providerType, t)}
-            autoComplete="off"
-            className="rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
-            data-testid="ai-provider-add-key"
-          />
+          {/* PR #84 follow-up — show-key toggle so the user can
+              verify the key they pasted (frequently picked up
+              invisible trailing whitespace from a docs page). */}
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder={keyPlaceholderFor(providerType, t)}
+              autoComplete="off"
+              className="w-full rounded-card border border-saw-grey-200 dark:border-saw-grey-700 bg-saw-white dark:bg-saw-grey-dark px-3 py-1.5 pr-20 text-body text-saw-grey-900 dark:text-saw-beige font-mono"
+              data-testid="ai-provider-add-key"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((v) => !v)}
+              aria-pressed={showKey}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-saw-grey-700 dark:text-saw-grey-300 hover:text-saw-grey-900 dark:hover:text-saw-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saw-orange rounded-r-card"
+              data-testid="ai-provider-add-show-key"
+            >
+              {showKey ? t("ai.key.hide") : t("ai.key.show")}
+            </button>
+          </div>
           <span className="text-xs text-saw-grey-500 dark:text-saw-grey-400">
             {t("ai.key.hint")}
           </span>
